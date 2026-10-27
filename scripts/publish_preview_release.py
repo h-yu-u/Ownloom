@@ -26,6 +26,8 @@ def release_for(
                 "api",
                 "--paginate",
                 "--slurp",
+                "--header",
+                "Cache-Control: no-cache",
                 f"repos/{repository}/releases?per_page=100",
             ]
         )
@@ -87,6 +89,31 @@ def verify_uploaded_assets(
         )
 
 
+def create_draft(
+    repository: str, plan: Preview, notes: Path, command: Command
+) -> dict[str, object]:
+    remote = command(
+        ["api", f"repos/{repository}/commits/{plan.tag}", "--jq", ".sha"]
+    ).strip()
+    if remote != plan.commit:
+        raise ValueError("Remote tag no longer identifies the tested commit")
+    args = ["api", "--method", "POST", f"repos/{repository}/releases"]
+    values = {
+        "tag_name": plan.tag,
+        "target_commitish": plan.commit,
+        "name": f"Ownloom {plan.tag} — Preview",
+        "make_latest": "false",
+    }
+    for name, value in values.items():
+        args.extend(["--raw-field", f"{name}={value}"])
+    args.extend(["--field", "draft=true", "--field", "prerelease=true"])
+    args.extend(["--field", f"body=@{notes}"])
+    release = json.loads(command(args))
+    if not isinstance(release, dict) or release.get("tag_name") != plan.tag:
+        raise ValueError("Create release returned an unexpected response")
+    return release
+
+
 def publish(
     repository: str, plan: Preview, directory: Path, command: Command = gh
 ) -> str:
@@ -96,27 +123,7 @@ def publish(
     release = release_for(repository, plan.tag, command)
     common = ["--repo", repository]
     if release is None:
-        command(
-            [
-                "release",
-                "create",
-                plan.tag,
-                *common,
-                "--verify-tag",
-                "--target",
-                plan.commit,
-                "--title",
-                f"Ownloom {plan.tag} — Preview",
-                "--draft",
-                "--prerelease",
-                "--latest=false",
-                "--notes-file",
-                str(notes),
-            ]
-        )
-        release = release_for(repository, plan.tag, command)
-    if release is None:
-        raise ValueError("Created release draft could not be read back")
+        release = create_draft(repository, plan, notes, command)
     require_draft(release, plan)
     command(
         [

@@ -180,20 +180,29 @@ class GitHubFixture:
         self.calls: list[list[str]] = []
         self.corrupt_upload = False
         self.upload_failure = False
+        self.hide_drafts = False
+
+    def draft(self) -> dict[str, object]:
+        return {
+            "id": 12,
+            "tag_name": self.plan.tag,
+            "draft": True,
+            "prerelease": True,
+            "target_commitish": self.plan.commit,
+            "assets": [],
+        }
 
     def command(self, args: list[str]) -> str:
         self.calls.append(args)
         if args[:2] == ["api", "--paginate"]:
-            return json.dumps([[self.release]] if self.release else [[]])
-        if args[:2] == ["release", "create"]:
-            self.release = {
-                "id": 12,
-                "tag_name": self.plan.tag,
-                "draft": True,
-                "prerelease": True,
-                "target_commitish": self.plan.commit,
-                "assets": [],
-            }
+            return json.dumps(
+                [[self.release]] if self.release and not self.hide_drafts else [[]]
+            )
+        if args[:3] == ["api", "--method", "POST"]:
+            self.release = self.draft()
+            return json.dumps(self.release)
+        if args[0] == "api" and "/commits/" in args[1]:
+            return self.plan.commit
         elif args[:2] == ["release", "upload"]:
             if self.upload_failure:
                 raise subprocess.CalledProcessError(1, args)
@@ -221,14 +230,25 @@ class GitHubFixture:
 
 
 class PreviewPublicationTests(PreviewFixture):
+    def test_new_draft_does_not_require_immediate_list_visibility(self) -> None:
+        output = self.assets()
+        github = GitHubFixture(self.plan, output)
+        github.hide_drafts = True
+        url = publish("example/repo", self.plan, output, github.command)
+        self.assertTrue(url.endswith("/v0.1.0"))
+
     def test_publishes_only_after_server_digests_match(self) -> None:
         output = self.assets()
         github = GitHubFixture(self.plan, output)
         url = publish("example/repo", self.plan, output, github.command)
         self.assertTrue(url.endswith("/v0.1.0"))
         writes = [args for args in github.calls if args[0] == "release"]
-        self.assertEqual([args[1] for args in writes], ["create", "upload", "edit"])
-        self.assertIn("--draft", writes[0])
+        self.assertEqual([args[1] for args in writes], ["upload", "edit"])
+        create = next(
+            args for args in github.calls if args[:3] == ["api", "--method", "POST"]
+        )
+        self.assertIn("draft=true", create)
+        self.assertIn("make_latest=false", create)
         self.assertIn("--prerelease", writes[-1])
         self.assertIn("--latest=false", writes[-1])
 
@@ -279,9 +299,8 @@ class PreviewPublicationTests(PreviewFixture):
     def test_retry_of_same_commit_preview_draft_is_supported(self) -> None:
         output = self.assets()
         github = GitHubFixture(self.plan, output)
-        github.command(["release", "create"])
-        github.calls.clear()
+        github.release = github.draft()
         publish("example/repo", self.plan, output, github.command)
         self.assertFalse(
-            any(args[:2] == ["release", "create"] for args in github.calls)
+            any(args[:3] == ["api", "--method", "POST"] for args in github.calls)
         )
