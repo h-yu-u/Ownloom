@@ -1,13 +1,15 @@
 {
   "name": "ownloom",
   "private": true,
+  "license": "MIT",
   "version": "0.1.0",
   "packageManager": "pnpm@11.11.0",
   "scripts": {
     "dev": "pnpm build:coding && pnpm --filter @mlx-studio/desktop tauri dev --config src-tauri/tauri.dev.conf.json",
     "dev:web": "pnpm build:coding && pnpm --filter @mlx-studio/desktop dev",
     "api:generate": "pnpm --filter @mlx-studio/api-client generate",
-    "check": "pnpm tokens:check && pnpm check:format && pnpm check:frontend && pnpm check:runtime && pnpm check:coding && pnpm check:boundaries",
+    "check": "pnpm tokens:check && pnpm check:docs && pnpm check:format && pnpm check:frontend && pnpm check:runtime && pnpm check:coding && pnpm check:boundaries",
+    "check:docs": "node --test scripts/check-docs.spec.mjs && node scripts/check-docs.mjs && prettier --check \"*.md\" \"docs/**/*.md\"",
     "check:frontend": "pnpm --filter @mlx-studio/desktop typecheck && pnpm --filter @mlx-studio/desktop lint",
     "check:runtime": "uv run --project services/runtime --python 3.12 ruff check services/runtime/src tests scripts/generate_coding_rpc.py scripts/verify_local_speech.py scripts/verify_release_bundle.py scripts/seed_acceptance_database.py scripts/verify_speech_quality.py scripts/verify_local_edit.py && uv run --project services/runtime --python 3.12 pyright --pythonpath services/runtime/.venv/bin/python services/runtime/src",
     "check:boundaries": "uv run --project services/runtime --python 3.12 python scripts/generate_coding_rpc.py --check && node --test scripts/check-boundaries.spec.mjs && node scripts/check-boundaries.mjs && node scripts/check-source-quality.mjs",
