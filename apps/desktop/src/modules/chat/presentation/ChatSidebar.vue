@@ -8,6 +8,7 @@ import ConversationListItem from '../components/ConversationListItem.vue'
 import { visibleConversations as selectConversations } from '../domain/conversation-list'
 import { useChatStore } from '../stores/chat.store'
 import StudioIcon from '../../../shared/components/StudioIcon.vue'
+import { useSidebarSearch } from '../../../shared/ui/sidebar-search'
 
 const props = defineProps<{ showConversations: boolean }>()
 const chat = useChatStore()
@@ -17,8 +18,8 @@ const dialog = useDialog()
 const renameOpen = ref(false)
 const renameTarget = ref<Conversation | null>(null)
 const renameTitle = ref('')
-const query = ref('')
-const showSearch = ref(false)
+const { query, showSearch, searchInput, searchButton, closeSearch, toggleSearch } =
+  useSidebarSearch()
 const navigating = ref(false)
 const { pending } = storeToRefs(chat)
 const visibleConversations = computed(() =>
@@ -36,6 +37,7 @@ watch(
 
 async function navigateConversation(id?: string): Promise<void> {
   if (pending.value || navigating.value) return
+  if (!id) closeSearch()
   navigating.value = true
   try {
     if (id) await chat.openConversation(id)
@@ -86,28 +88,24 @@ async function togglePin(id: string): Promise<void> {
     message.error(cause instanceof Error ? cause.message : '置顶操作失败')
   }
 }
-function toggleSearch(): void {
-  showSearch.value = !showSearch.value
-  query.value = ''
-}
 </script>
 
 <template>
   <aside class="sidebar" :class="{ 'sidebar-chat': showConversations }">
     <div v-if="showConversations" class="sidebar-content">
       <div class="sidebar-heading">
-        <RouterLink to="/chat" class="brand"
-          >MLX Studio<StudioIcon name="down" :size="15"
-        /></RouterLink>
+        <RouterLink to="/chat" class="brand">Ownloom</RouterLink>
         <NButton
+          ref="searchButton"
           quaternary
           circle
           size="small"
           aria-label="搜索历史对话"
+          title="搜索对话"
           :aria-expanded="showSearch"
           @click="toggleSearch"
         >
-          <StudioIcon name="search" :size="19" />
+          <StudioIcon name="search" :size="17" />
         </NButton>
       </div>
       <NButton
@@ -118,18 +116,22 @@ function toggleSearch(): void {
       >
         <StudioIcon name="compose" :size="20" />新对话
       </NButton>
-      <section class="workspace-nav" aria-label="最近对话">
+      <NInput
+        v-if="showSearch"
+        ref="searchInput"
+        v-model:value="query"
+        class="sidebar-search"
+        placeholder="搜索对话"
+        size="small"
+        clearable
+        aria-label="搜索全部对话"
+        @keydown.esc.stop.prevent="closeSearch(true)"
+        ><template #prefix><StudioIcon name="search" :size="15" /></template
+      ></NInput>
+      <section class="workspace-nav" :class="{ 'is-searching': showSearch }" aria-label="最近对话">
         <div class="workspace-heading">
           <span>最近对话</span>
         </div>
-        <NInput
-          v-if="showSearch"
-          v-model:value="query"
-          placeholder="搜索全部对话"
-          size="small"
-          clearable
-          aria-label="搜索全部对话"
-        />
         <div class="conversation-nav">
           <NButton
             v-if="!chat.conversations.length"
@@ -156,9 +158,6 @@ function toggleSearch(): void {
           </p>
         </div>
       </section>
-      <RouterLink to="/settings" class="sidebar-bottom">
-        <span><strong>本地工作空间</strong></span>
-      </RouterLink>
     </div>
     <NModal
       v-if="showConversations"

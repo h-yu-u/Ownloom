@@ -19,7 +19,7 @@ def create_backup(storage: StorageManagement, node: Path, allowed_node: Path) ->
     directory.mkdir(parents=True, mode=0o700)
     database = directory / "runtime.db"
     storage.backup(database)
-    target = directory / "mlx-studio-backup.zip"
+    target = directory / "ownloom-backup.zip"
     manifest: dict[str, object] = {"version": 1, "cutoff": int(time.time()), "files": []}
     files: list[dict[str, object]] = []
     with ZipFile(target, "w", ZIP_DEFLATED) as archive:

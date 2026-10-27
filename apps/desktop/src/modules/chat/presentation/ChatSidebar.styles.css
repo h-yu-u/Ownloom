@@ -23,14 +23,10 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
   text-decoration: none;
   font-size: 19px;
   font-weight: 650;
   letter-spacing: -0.5px;
-}
-.brand svg {
-  color: var(--muted);
 }
 .new-conversation {
   justify-content: flex-start;
@@ -49,6 +45,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.sidebar-search {
+  flex-shrink: 0;
+  margin-top: 10px;
+}
+.workspace-nav.is-searching {
+  margin-top: 14px;
 }
 .workspace-heading {
   padding: 0 10px;
@@ -105,24 +108,6 @@
   padding: 0 10px;
   font-size: 12px;
   color: var(--muted);
-}
-.sidebar-bottom {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 14px 4px 2px;
-  border-top: 1px solid var(--line);
-  text-decoration: none;
-}
-.sidebar-bottom > span {
-  flex: 1;
-  min-width: 0;
-}
-.sidebar-bottom strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
 }
 @media (max-width: 680px) {
   .sidebar {

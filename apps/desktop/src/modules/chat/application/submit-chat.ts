@@ -11,7 +11,7 @@ export interface ChatSubmissionInput {
   content: string
   files: File[]
   modelId: string
-  maxTokens: number
+  maxTokens: number | null
   temperature: number
   attachments?: ChatAttachment[]
   selection?: ChatCommand['selection']

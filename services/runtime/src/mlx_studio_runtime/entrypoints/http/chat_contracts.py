@@ -71,7 +71,7 @@ class ChatAttemptRequest(BaseModel):
     mode: Literal["reuse_context", "refresh_web", "local_only"]
     source_context_job_id: str | None = None
     model_id: str = Field(min_length=1, max_length=200)
-    max_tokens: int = Field(default=1024, ge=1, le=8192)
+    max_tokens: int | None = Field(default=None, ge=1)
     temperature: float = Field(default=0.7, ge=0, le=2)
     web_search: WebSearchOptions = Field(default_factory=WebSearchOptions)
 

@@ -73,7 +73,7 @@ export async function verify(plan) {
   await mkdir(plan.output, { recursive: false, mode: 0o700 })
   const reportPath = join(plan.output, 'report.json')
   const root = join(plan.output, '隔离 workspace')
-  const app = join(plan.output, 'artifact', 'MLX Studio.app')
+  const app = join(plan.output, 'artifact', 'Ownloom.app')
   const report = {
     status: 'running',
     startedAt: new Date().toISOString(),

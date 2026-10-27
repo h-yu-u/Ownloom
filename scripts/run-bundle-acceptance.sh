@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -lt 1 ]; then
-  echo 'Usage: run-bundle-acceptance.sh /path/to/MLX Studio.app --output NEW_DIRECTORY [options]' >&2
+  echo 'Usage: run-bundle-acceptance.sh /path/to/Ownloom.app --output NEW_DIRECTORY [options]' >&2
   exit 2
 fi
 

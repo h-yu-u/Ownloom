@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect a portable, read-only baseline for an MLX Studio development Mac."""
+"""Collect a portable, read-only baseline for an Ownloom development Mac."""
 
 from __future__ import annotations
 

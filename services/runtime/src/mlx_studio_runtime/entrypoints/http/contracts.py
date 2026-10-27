@@ -163,7 +163,7 @@ class ChatMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     content: str = Field(default="", max_length=200_000)
     model_id: str = Field(min_length=1, max_length=200)
-    max_tokens: int = Field(default=1024, ge=1, le=8192)
+    max_tokens: int | None = Field(default=None, ge=1)
     temperature: float = Field(default=0.7, ge=0, le=2)
     attachment_ids: list[str] = Field(default_factory=list, max_length=8)
     client_request_id: str | None = Field(default=None, min_length=1, max_length=100)

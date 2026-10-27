@@ -73,7 +73,8 @@ class EngineSession:
             raise RuntimeError("MODEL_NOT_LOADED")
         job_id = str(payload["job_id"])
         prompt = str(payload.get("prompt", ""))
-        max_tokens = max(1, min(int(payload.get("max_tokens", 128)), 8192))
+        requested = payload.get("max_tokens")
+        max_tokens = max(1, int(requested)) if requested is not None else None
         temperature = max(0.0, min(float(payload.get("temperature", 0.7)), 2.0))
         self.finish_reason = "stop"
         self.generation_tokens = 0
@@ -115,7 +116,7 @@ class EngineSession:
         self,
         payload: dict[str, Any],
         prompt: str,
-        max_tokens: int,
+        max_tokens: int | None,
         temperature: float,
     ) -> Iterator[str]:
         if self.engine == "mlx-lm":
@@ -133,7 +134,7 @@ class EngineSession:
     def _mlx_chunks(
         self,
         prompt: str,
-        max_tokens: int,
+        max_tokens: int | None,
         temperature: float,
         messages: object,
     ) -> Iterator[str]:
@@ -145,7 +146,7 @@ class EngineSession:
             tokenize=False,
             add_generation_prompt=True,
         )
-        self._check_budget(self.tokenizer, rendered, max_tokens)
+        max_tokens = self._check_budget(self.tokenizer, rendered, max_tokens)
         sampler = make_sampler(temp=temperature)
         for response in stream_generate(
             self.model,
@@ -162,7 +163,7 @@ class EngineSession:
     def _vlm_chunks(
         self,
         prompt: str,
-        max_tokens: int,
+        max_tokens: int | None,
         temperature: float,
         image_paths: object,
         messages: object = None,
@@ -195,7 +196,9 @@ class EngineSession:
         )
         if not isinstance(formatted, str):
             raise ValueError("Chat template did not produce a text prompt")
-        self._check_budget(self.processor.tokenizer, formatted, max_tokens + len(paths) * 2048)
+        max_tokens = self._check_budget(
+            self.processor.tokenizer, formatted, max_tokens, len(paths) * 2048
+        )
         for response in stream_generate(
             model=self.model,
             processor=self.processor,
@@ -220,9 +223,13 @@ class EngineSession:
         if isinstance(tokens, int):
             self.generation_tokens = tokens
 
-    def _check_budget(self, tokenizer: Any, prompt: str, reserve: int) -> None:
-        if len(tokenizer.encode(prompt)) + reserve + 128 > self.context_limit:
+    def _check_budget(
+        self, tokenizer: Any, prompt: str, reserve: int | None, visual_tokens: int = 0
+    ) -> int:
+        available = self.context_limit - len(tokenizer.encode(prompt)) - visual_tokens - 128
+        if available < 1 or (reserve is not None and reserve > available):
             raise ValueError("CONTEXT_BUDGET_EXCEEDED")
+        return available if reserve is None else reserve
 
     @staticmethod
     def _fake_chunks(prompt: str) -> Iterator[str]:

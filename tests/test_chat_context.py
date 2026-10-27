@@ -9,6 +9,30 @@ from mlx_studio_runtime.domain.errors import RuntimeFault
 
 
 class ChatContextTests(unittest.TestCase):
+    def test_automatic_output_uses_remaining_window_without_reserving_it_before_sources(
+        self,
+    ):
+        source = {
+            "id": "w1",
+            "kind": "web",
+            "title": "Source",
+            "url": "https://example.com",
+            "representation": "snippet_only",
+            "text": "Relevant evidence " * 100,
+        }
+        snapshot = build_context("Summarize", [], [], [source], 262144, None, 0)
+        budget = snapshot["budget"]
+        self.assertEqual(len(snapshot["sources"]), 1)
+        self.assertGreater(budget["outputReserve"], 8192)
+        self.assertEqual(
+            budget["inputTokens"] + budget["outputReserve"] + budget["safetyReserve"],
+            262144,
+        )
+        self.assertIn("Relevant evidence", snapshot["prompt"])
+        small = build_context("Hello", [], [], [], 2048, None, 0)
+        self.assertGreater(small["budget"]["outputReserve"], 0)
+        self.assertLess(small["budget"]["outputReserve"], 2048)
+
     def test_long_summary_cannot_silently_become_top_k(self):
         blocks = [{"id": str(index), "text": "long " * 100} for index in range(10)]
         with self.assertRaises(RuntimeFault) as error:

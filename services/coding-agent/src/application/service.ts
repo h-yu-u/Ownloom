@@ -65,6 +65,8 @@ export class CodingService {
     },
     'runs.submit': async (p) => this.submit(p, false),
     'runs.prepare': async (p) => this.submit(p, true),
+    'runs.permissions': async (p) =>
+      this.runs.setPermissions(string(p.id), (p as Params['runs.permissions']).permissionMode),
     'runs.commit': async (p) => this.runs.commit(p as Params['runs.commit']),
     'sessions.verify': async (p) => {
       {
@@ -145,6 +147,7 @@ export class CodingService {
           submissionId: string(p.submissionId),
           text: string(p.text, 32000),
           mode: mode(p.mode),
+          permissionMode: (p.permissionMode as 'ask' | 'full' | undefined) ?? 'ask',
           provider,
           queue: p.queue === true,
           verifyAfter: p.verifyAfter === true,

@@ -91,7 +91,7 @@ mod tests {
         ] {
             assert!(validate_name(name).is_err());
         }
-        assert!(validate_name("mlx-studio-test.wav").is_ok());
+        assert!(validate_name("ownloom-test.wav").is_ok());
     }
     #[test]
     fn replaces_atomically_and_cleans_failed_writes() {

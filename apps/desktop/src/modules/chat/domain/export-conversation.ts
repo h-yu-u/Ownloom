@@ -11,7 +11,7 @@ export function formatConversation(title: string, messages: ChatMessage[]): stri
             : `[${source.id}] ${source.originalName}（${source.locations?.map((location) => (location.page ? `第 ${location.page} 页` : location.section || location.blockId)).join('、')}）`,
         )
         .join('\n')
-      return `## ${item.role === 'user' ? '你' : 'MLX Studio'}\n\n${item.content}${attachments ? `\n\n${attachments}` : ''}${sources ? `\n\n参考来源\n${sources}` : ''}`
+      return `## ${item.role === 'user' ? '你' : 'Ownloom'}\n\n${item.content}${attachments ? `\n\n${attachments}` : ''}${sources ? `\n\n参考来源\n${sources}` : ''}`
     }),
   ].join('\n\n')
 }

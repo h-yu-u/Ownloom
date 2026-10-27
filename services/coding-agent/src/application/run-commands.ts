@@ -27,10 +27,10 @@ export class RunCommands {
     const run = this.input.repo.get('run', id),
       session = this.input.repo.get('session', run.sessionId),
       project = this.input.repo.get('project', session.projectId)
-    if (run.mode === 'analyze') throw new Error('READ_ONLY_MODE')
+    if (run.mode !== 'develop') throw new Error('READ_ONLY_MODE')
     if (signal.aborted) throw new Error('CANCELLED')
     this.input.update(id, {
-      status: 'awaiting_approval',
+      status: run.permissionMode === 'full' ? 'running' : 'awaiting_approval',
       phase: verification ? 'verifying' : 'executing',
     })
     const allowed = await this.input.approvals.request(
@@ -44,7 +44,7 @@ export class RunCommands {
         cwd: project.path,
       },
       signal,
-      probe && command === "/usr/bin/grep -qx 'after' probe.txt",
+      run.permissionMode === 'full' || (probe && command === "/usr/bin/grep -qx 'after' probe.txt"),
     )
     if (signal.aborted) throw new Error('CANCELLED')
     this.input.update(id, { status: 'running' })
@@ -62,6 +62,7 @@ export class RunCommands {
       throw new Error('VERIFICATION_PLAN_CHANGED')
     }
     const before = await this.input.ports.fingerprint(project.path)
+    this.input.repo.append(session.id, id, 'command.started', command, { toolCallId: callId })
     const result = await this.input.ports.commands.run(command, project.path, signal)
     const after = await this.input.ports.fingerprint(project.path)
     const check = {

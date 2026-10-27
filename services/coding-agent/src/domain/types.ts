@@ -1,6 +1,7 @@
 import type { Snapshot, Selection } from '../extensions/domain/types.js'
 import type { Settings } from './settings.js'
 export type Mode = 'analyze' | 'develop' | 'review'
+export type PermissionMode = 'ask' | 'full'
 export type Status =
   | 'queued'
   | 'starting'
@@ -25,6 +26,7 @@ export interface Session {
   id: string
   projectId: string
   title: string
+  titleSource?: 'input' | 'manual'
   pinned: boolean
   archived: boolean
   transcript?: TranscriptDescriptor
@@ -41,6 +43,10 @@ export interface VerificationPlan {
   invalid?: boolean
 }
 export interface Run {
+  probe?: boolean
+  verifyOnly?: boolean
+  permissionMode?: PermissionMode
+  initialPermissionMode?: PermissionMode
   verifyAfter?: boolean
   handoff?: Record<string, unknown>
   verificationPlan?: VerificationPlan

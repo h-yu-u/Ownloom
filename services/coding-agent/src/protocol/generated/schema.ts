@@ -528,6 +528,14 @@ export const rpcSchema = {
           },
           "verifyAfter": {
             "type": "boolean"
+          },
+          "permissionMode": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "full"
+            ],
+            "default": "ask"
           }
         },
         "required": [
@@ -1349,6 +1357,14 @@ export const rpcSchema = {
           },
           "verifyAfter": {
             "type": "boolean"
+          },
+          "permissionMode": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "full"
+            ],
+            "default": "ask"
           }
         },
         "required": [
@@ -1880,6 +1896,33 @@ export const rpcSchema = {
         ],
         "additionalProperties": false
       }
+    },
+    "runs.permissions": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192
+          },
+          "permissionMode": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "full"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "permissionMode"
+        ],
+        "additionalProperties": false
+      },
+      "result": {
+        "$ref": "#/$defs/CodingRunView"
+      }
     }
   },
   "$defs": {
@@ -2159,6 +2202,13 @@ export const rpcSchema = {
                 "scope"
               ]
             }
+          ]
+        },
+        "permissionMode": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "full"
           ]
         }
       },

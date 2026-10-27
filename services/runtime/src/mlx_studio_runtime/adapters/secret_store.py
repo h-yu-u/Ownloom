@@ -11,6 +11,7 @@ from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
 class KeychainSecrets:
     def __init__(self, purpose: str = "web-search") -> None:
+        # These are durable Keychain namespaces, retained across the Ownloom rebrand.
         self.service = (
             "MLX Studio Web Search" if purpose == "web-search" else "MLX Studio MCP Connections"
         )

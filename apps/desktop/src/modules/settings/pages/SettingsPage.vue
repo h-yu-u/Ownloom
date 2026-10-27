@@ -18,15 +18,12 @@ onMounted(() => {
         ><h2>Coding 默认设置</h2>
         <p>默认模型：{{ coding.settings.defaultModelId || '未选择' }}</p></RouterLink
       >
-      <RouterLink to="/settings/extensions/builtin"
-        ><h2>内置工具与联网搜索</h2>
-        <p>
-          {{ web.settings?.credentialConfigured ? '搜索凭据已保存' : '搜索凭据尚未配置' }}
-        </p></RouterLink
-      >
       <RouterLink to="/settings/extensions/skills"
-        ><h2>Skills 与 MCP</h2>
-        <p>管理静态技能、连接与工具授权</p></RouterLink
+        ><h2>扩展能力</h2>
+        <p>管理 Skills、MCP 服务、内置工具与联网搜索</p>
+        <small>{{
+          web.settings?.credentialConfigured ? '搜索凭据已保存' : '搜索凭据尚未配置'
+        }}</small></RouterLink
       >
       <RouterLink to="/settings/runtime"
         ><h2>运行与诊断</h2>
@@ -51,8 +48,15 @@ h2 {
   font-size: 16px;
   margin: 0;
 }
-p {
+p,
+small {
   color: var(--muted);
+}
+p {
   margin-bottom: 0;
+}
+small {
+  display: block;
+  margin-top: 8px;
 }
 </style>

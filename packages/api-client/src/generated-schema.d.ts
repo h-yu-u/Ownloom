@@ -1366,6 +1366,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/coding/runs/{run_id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Permissions */
+        patch: operations["permissions_internal_v1_coding_runs__run_id__permissions_patch"];
+        trace?: never;
+    };
     "/internal/v1/coding/runs/{run_id}/cancel": {
         parameters: {
             query?: never;
@@ -2277,11 +2294,8 @@ export interface components {
             source_context_job_id?: string | null;
             /** Model Id */
             model_id: string;
-            /**
-             * Max Tokens
-             * @default 1024
-             */
-            max_tokens: number;
+            /** Max Tokens */
+            max_tokens?: number | null;
             /**
              * Temperature
              * @default 0.7
@@ -2299,11 +2313,8 @@ export interface components {
             content: string;
             /** Model Id */
             model_id: string;
-            /**
-             * Max Tokens
-             * @default 1024
-             */
-            max_tokens: number;
+            /** Max Tokens */
+            max_tokens?: number | null;
             /**
              * Temperature
              * @default 0.7
@@ -2480,6 +2491,14 @@ export interface components {
             /** Sha256 */
             sha256: string;
         };
+        /** CodingPermissionsRequest */
+        CodingPermissionsRequest: {
+            /**
+             * Permissionmode
+             * @enum {string}
+             */
+            permissionMode: "ask" | "full";
+        };
         /** CodingProjectPatch */
         CodingProjectPatch: {
             /** Commands */
@@ -2511,6 +2530,12 @@ export interface components {
         };
         /** CodingRunRequest */
         CodingRunRequest: {
+            /**
+             * Permissionmode
+             * @default ask
+             * @enum {string}
+             */
+            permissionMode: "ask" | "full";
             /** Submissionid */
             submissionId: string;
             /** Text */
@@ -2537,6 +2562,8 @@ export interface components {
         };
         /** CodingRunView */
         CodingRunView: {
+            /** Permissionmode */
+            permissionMode?: ("ask" | "full") | null;
             verificationPlan?: components["schemas"]["VerificationPlanView"] | null;
             capabilitySnapshot?: components["schemas"]["ExtensionSnapshot"] | null;
             selection?: components["schemas"]["ExtensionSelection"] | null;
@@ -13586,6 +13613,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    permissions_internal_v1_coding_runs__run_id__permissions_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodingPermissionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodingRunView"];
                 };
             };
             /** @description Bad Request */

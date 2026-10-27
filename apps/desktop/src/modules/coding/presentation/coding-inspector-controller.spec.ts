@@ -38,6 +38,49 @@ function fixture() {
   return { gateway, inspector, sessionId }
 }
 describe('file and change inspection', () => {
+  it('a single toggle opens changes by default and remembers the last tab after either close action', async () => {
+    const { inspector, gateway } = fixture()
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBe('changes')
+    await inspector.inspect('files')
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBeNull()
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBe('files')
+    expect(gateway.files).toHaveBeenCalledTimes(2)
+    inspector.resetInspector()
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBe('files')
+    await inspector.inspect('changes')
+    await inspector.toggleInspector()
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBe('changes')
+  })
+  it('closing and reopening during loading discards stale results and reloads the remembered tab', async () => {
+    const { inspector, gateway } = fixture()
+    let finish!: (paths: string[]) => void
+    gateway.files.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const opening = inspector.inspect('files')
+    await inspector.toggleInspector()
+    await inspector.toggleInspector()
+    finish(['stale.txt'])
+    await opening
+    expect(inspector.panel.value).toBe('files')
+    expect(inspector.fileList.value).toEqual(['src/app.ts', 'empty.txt'])
+    expect(inspector.inspectorPending.value).toBe(false)
+  })
+  it('does not load an inspector before selecting a session', async () => {
+    const { inspector, gateway, sessionId } = fixture()
+    sessionId.value = ''
+    await inspector.toggleInspector()
+    expect(inspector.panel.value).toBeNull()
+    expect(gateway.changes).not.toHaveBeenCalled()
+  })
   it('aggregates a file from its first before-content to its latest after-content', async () => {
     const { inspector, gateway } = fixture()
     await inspector.inspect('changes')

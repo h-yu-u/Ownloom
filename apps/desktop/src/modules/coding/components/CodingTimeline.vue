@@ -1,38 +1,51 @@
 <script setup lang="ts">
 import { ArtifactLinks } from '../../../capabilities/extensions'
 import { computed } from 'vue'
-import { NEmpty, NTag } from 'naive-ui'
+import { NEmpty } from 'naive-ui'
 import type { CodingEvent, CodingRun } from '../application/ports'
 import { codingRunErrorText } from '../presentation/coding-errors'
-import {
-  activityLabel,
-  activityText,
-  eventError,
-  timelineEntries,
-} from '../presentation/coding-activity'
-import { statusLabel } from '../domain/status'
+import { activityText, eventError, timelineEntries } from '../presentation/coding-activity'
+import { statusLabel, activeStatus } from '../domain/status'
 import MarkdownContent from '../../../shared/ui/MarkdownContent.vue'
 import { useMarkdownCopy } from '../../../shared/ui/markdown-copy'
 import { copyText } from '../../../platform/clipboard'
+import { useTimelineScroll } from '../presentation/use-timeline-scroll'
 const { copyState, copyCode } = useMarkdownCopy(copyText)
-const props = defineProps<{ events: CodingEvent[]; runs: CodingRun[] }>()
-const entries = computed(() => timelineEntries(props.events))
+const props = defineProps<{ events: CodingEvent[]; runs: CodingRun[]; preparing?: boolean }>()
+const entries = computed(() => timelineEntries(props.events, props.runs))
+const lastRun = computed(() => props.runs.at(-1))
+const active = computed(() => props.runs.find((run) => activeStatus(run.status)))
+const toolWorking = computed(() =>
+  entries.value.some(
+    (entry) => entry.kind === 'activity' && entry.items.some((item) => item.status === 'running'),
+  ),
+)
+const scroller = useTimelineScroll(entries)
 </script>
 <template>
-  <section class="coding-timeline" aria-label="开发任务时间线" aria-live="polite">
-    <NEmpty v-if="!events.length" description="描述需要完成的开发任务" />
-    <template
-      v-for="entry in entries"
-      :key="entry.kind === 'message' ? entry.event.seq : entry.seq"
-    >
+  <section ref="scroller" class="coding-timeline" aria-label="开发任务时间线">
+    <NEmpty v-if="!events.length && !preparing" description="描述需要完成的开发任务" />
+    <template v-for="entry in entries" :key="entry.kind === 'message' ? entry.key : entry.seq">
       <details v-if="entry.kind === 'activity'" class="coding-activity">
-        <summary>{{ entry.events.length }} 项操作</summary>
-        <details v-for="event in entry.events" :key="event.seq">
+        <summary>
+          <span
+            v-if="entry.items.some((item) => item.status === 'running')"
+            class="activity-spinner"
+            aria-hidden="true"
+          />{{
+            entry.items.find((item) => item.status === 'running')?.label ??
+            `${entry.items.length} 项操作`
+          }}
+        </summary>
+        <details v-for="item in entry.items" :key="item.id" :data-state="item.status">
           <summary>
-            {{ event.type === 'verification.finished' ? '命令输出' : activityLabel(event.text) }}
+            <span v-if="item.status === 'running'" class="activity-spinner" aria-hidden="true" />
+            {{ item.event.type === 'verification.finished' ? '执行验证' : item.label }}
+            <span v-if="item.status === 'failed'"> · 失败</span>
+            <span v-else-if="item.status === 'cancelled'"> · 已停止</span>
           </summary>
-          <pre>{{ activityText(event) }}</pre>
-          <ArtifactLinks :data="event.data" />
+          <pre v-if="activityText(item.event)">{{ activityText(item.event) }}</pre>
+          <ArtifactLinks :data="item.event.data" />
         </details>
       </details>
       <article
@@ -44,8 +57,9 @@ const entries = computed(() => timelineEntries(props.events))
         }}</pre>
         <MarkdownContent
           v-else-if="entry.event.text.trim()"
-          :content-id="`${entry.event.sessionId}:${entry.event.runId}:${entry.event.seq}`"
+          :content-id="`${entry.event.sessionId}:${entry.key}`"
           :source="entry.event.text"
+          :streaming="entry.event.type === 'assistant.delta'"
           :copy-state="copyState"
           @copy-code="copyCode"
         />
@@ -56,14 +70,23 @@ const entries = computed(() => timelineEntries(props.events))
       </article>
       <!-- eslint-enable vue/no-v-html -->
     </template>
-    <footer v-for="run in runs" :key="run.id">
-      <NTag v-if="run.status !== 'completed'" size="small">{{ statusLabel(run.status) }}</NTag>
-      <span v-else>已完成</span>
-      <small v-if="run.verificationPlan">
-        · 验证范围：{{ run.verificationPlan.scope }}
-        <span v-if="run.verificationPlan.invalid">（配置已变更，未验证）</span></small
-      >
-      <span v-if="run.error"> · {{ codingRunErrorText(run.error) }}</span>
+    <footer
+      v-if="preparing || (active && (active.status !== 'running' || !toolWorking))"
+      class="live-status"
+      role="status"
+    >
+      <span class="activity-spinner" aria-hidden="true" />
+      {{
+        preparing
+          ? '正在准备本地模型'
+          : active?.status === 'running'
+            ? statusLabel(active.phase)
+            : statusLabel(active?.status ?? '')
+      }}
+    </footer>
+    <footer v-else-if="!active && lastRun && lastRun.status !== 'completed'">
+      {{ statusLabel(lastRun.status)
+      }}<span v-if="lastRun.error"> · {{ codingRunErrorText(lastRun.error) }}</span>
     </footer>
   </section>
 </template>
@@ -123,5 +146,25 @@ footer {
   gap: 4px;
   color: var(--muted);
   font-size: 12px;
+}
+.activity-spinner {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 1.5px solid var(--line);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: coding-spin 0.9s linear infinite;
+}
+@keyframes coding-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity-spinner {
+    animation: none;
+  }
 }
 </style>

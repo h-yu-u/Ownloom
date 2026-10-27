@@ -97,7 +97,7 @@ def register_data_routes(
         return FileResponse(
             await service.data.backup(),
             media_type="application/zip",
-            filename="mlx-studio-backup.zip",
+            filename="ownloom-backup.zip",
         )
 
     @app.post(

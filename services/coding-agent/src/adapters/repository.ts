@@ -1,8 +1,9 @@
 import { migrateCoding } from './coding-migrations.js'
+import { backfillSessionTitles } from './session-titles.js'
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Entities, Event, Run } from '../domain/types.js'
+import type { Entities, Event, Run, Session } from '../domain/types.js'
 
 // This is the sole writer of Coding metadata. Pi owns the actual model transcript.
 export class Repository {
@@ -20,6 +21,7 @@ export class Repository {
       .exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS entities (kind TEXT, id TEXT, value TEXT NOT NULL, PRIMARY KEY(kind,id));
       CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, sessionId TEXT, runId TEXT, type TEXT, text TEXT, data TEXT);`)
     migrateCoding(this.db)
+    backfillSessionTitles(this.db)
     for (const run of this.byStatus('run', [
       'queued',
       'starting',
@@ -152,9 +154,7 @@ export class Repository {
     type?: string,
     text = '',
   ): Entities[K] {
-    this.db.exec('BEGIN IMMEDIATE')
-    this.writing = true
-    try {
+    return this.transaction(() => {
       this.db
         .prepare(
           'INSERT INTO entities VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET value=excluded.value',
@@ -168,6 +168,22 @@ export class Repository {
           text,
           eventProjection(kind, item),
         )
+      return item
+    })
+  }
+  startRun(run: Run, session: Session): Run {
+    return this.transaction(() => {
+      this.save('session', session)
+      return this.save('run', run, 'run.started', run.text)
+    })
+  }
+  private transaction<T>(write: () => T): T {
+    if (this.writing) return write()
+    this.db.exec('BEGIN IMMEDIATE')
+    this.writing = true
+    let result: T
+    try {
+      result = write()
       this.db.exec('COMMIT')
     } catch (error) {
       this.db.exec('ROLLBACK')
@@ -176,7 +192,7 @@ export class Repository {
       this.writing = false
     }
     this.notify()
-    return item
+    return result
   }
   append(
     sessionId: string,
@@ -228,8 +244,12 @@ export class Repository {
   historyEvents(before: number, sessionId: string, limit = 50): Event[] {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('INVALID_LIMIT')
     return this.db
-      .prepare('SELECT * FROM events WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
-      .all(sessionId, before, limit)
+      .prepare(
+        `SELECT * FROM events WHERE sessionId=? AND seq<?
+        AND (type<>'assistant.delta' OR seq=(SELECT MAX(seq) FROM events
+          WHERE sessionId=? AND seq<? AND type='assistant.delta')) ORDER BY seq DESC LIMIT ?`,
+      )
+      .all(sessionId, before, sessionId, before, limit)
       .reverse()
       .map((row) => ({
         seq: Number(row.seq),

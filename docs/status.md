@@ -2,7 +2,15 @@
 
 [文档入口](./README.md) · [使用说明](./getting-started.md) · [架构](./architecture.md)
 
-本文根据当前实现与 2026-10-15 至 2026-10-23 的本地验收结果整理。功能实现、FakeEngine 自动化和真实模型验证分别看待，不将单机结果扩展为全模型或正式发布结论。
+本文根据当前实现与 2026-10-15 至 2026-10-28 的本地验收结果整理。功能实现、FakeEngine 自动化和真实模型验证分别看待，不将单机结果扩展为全模型或正式发布结论。
+
+## Ownloom 品牌升级（2026-10-28）
+
+应用名、窗口与网页标题、导航、消息署名、输入提示、导出文件、API 标题及当前发布说明统一为 Ownloom。新增 O 字标的 SVG、PNG 与 macOS ICNS，应用包名为 `Ownloom.app`，主程序名为 `ownloom`。旧应用标识、数据位置、Keychain 命名空间与内部协议标识保留，兼容约定见[数据位置](./getting-started.md#数据位置)。历史验收中的旧制品名称按当时事实保留。
+
+`pnpm check`、`pnpm test`（前端 276、Runtime 224、Coding 67、验收工具 8，共 575 项）、`pnpm check:rust`、`pnpm test:rust`（7 项）、`pnpm api:generate` 与 `pnpm build:app` 通过。已构建 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app` 和 `bundle/dmg/Ownloom_0.1.0_aarch64.dmg`；应用元数据、可执行文件名、图标及 65 个 Coding JavaScript 模块与源码构建摘要逐项核对通过，`codesign --verify --deep --strict` 通过。
+
+应用包内 Sidecar 在清空开发 `PYTHONPATH` 的子进程中通过 FakeEngine 对话、取消、Worker 重启、Runtime 重启持久化、系统/Worker 内存与退出验证。另以隔离旧数据目录和模拟 Keychain 验证历史读取、凭据引用及不创建新凭据。界面预览使用实际导航、聊天侧栏、消息和输入组件，消息为测试数据。证据位于 `.build/ownloom-brand-20261028/`。未新增依赖；Web 构建仍有原有大分包提示。本机构建使用临时签名，正式签名、公证、干净机器及真实 MLX 模型回归未在本次复测。
 
 ## 已有实现
 

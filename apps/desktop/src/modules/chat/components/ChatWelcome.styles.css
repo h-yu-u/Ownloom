@@ -30,6 +30,7 @@
   border: 1px solid var(--line);
   border-radius: 20px;
   color: var(--text-tertiary);
+  text-decoration: none;
   background: transparent;
   cursor: pointer;
   font-size: 12px;

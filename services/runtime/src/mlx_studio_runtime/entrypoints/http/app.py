@@ -42,6 +42,7 @@ def _data_path() -> Path:
     configured = os.getenv("MLX_STUDIO_DATA_DIR")
     if configured:
         return resolve_profile(Path(configured).expanduser() / "app.db")
+    # Keep the pre-Ownloom location so standalone upgrades retain existing histories and media.
     return resolve_profile(
         Path.home() / "Library" / "Application Support" / "MLX Studio" / "data" / "app.db"
     )
@@ -69,7 +70,7 @@ def create_app(
         await service.close()
 
     app = FastAPI(
-        title="MLX Studio Runtime",
+        title="Ownloom Runtime",
         version="0.1.0",
         openapi_url="/internal/v1/openapi.json",
         docs_url=None,

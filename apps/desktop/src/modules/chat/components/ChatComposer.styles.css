@@ -1,36 +1,38 @@
 .composer {
   flex-shrink: 0;
-  border: 1px solid var(--surface-hover);
-  border-radius: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: var(--surface-card);
-  padding: 17px 18px 13px;
-  box-shadow: 0 5px 22px color-mix(in srgb, var(--surface-body) 5%, transparent);
+  padding: 12px 12px 10px;
   transition: border-color 0.18s;
 }
 .composer:focus-within {
   border-color: var(--border-strong);
 }
-.composer :deep(.n-input) {
-}
-.composer :deep(.n-input-wrapper) {
-  padding: 2px 1px;
-}
 .composer :deep(.n-input__textarea-el) {
   min-height: 56px;
 }
 .composer-actions {
-  margin-top: 15px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 .composer-tools,
 .composer-send {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+}
+.composer-tools {
+  flex: 1;
+  flex-wrap: wrap;
+}
+.composer-send {
+  flex-shrink: 0;
+  align-self: flex-end;
 }
 .composer-tools :deep(.n-button) {
   height: 32px;
@@ -45,8 +47,8 @@
   color: var(--accent);
 }
 .send-button.n-button {
-  height: 34px;
-  width: 34px;
+  height: 36px;
+  width: 36px;
   flex-shrink: 0;
 }
 .send-label {
@@ -69,13 +71,12 @@
 }
 @media (max-width: 680px) {
   .composer {
-    padding: 14px 12px 11px;
-    border-radius: 20px;
+    padding: 12px 10px 10px;
   }
   .composer-actions {
     gap: 4px;
   }
   .composer-tools {
-    gap: 0;
+    gap: 3px;
   }
 }

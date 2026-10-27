@@ -14,8 +14,6 @@ defineEmits<{
   continue: []
   preview: [source: MessageSource]
   regenerate: []
-  reuse: []
-  handoff: []
   attachment: [file: NonNullable<ChatMessage['attachments']>[number]]
 }>()
 const sourceList = ref<InstanceType<typeof MessageSources> | null>(null)
@@ -30,10 +28,12 @@ const { copyState, copyCode } = useMarkdownCopy(copyText)
 </script>
 
 <template>
-  <article class="message" :class="message.role">
-    <div class="message-role">
-      {{ message.role === 'user' ? '你' : 'MLX Studio' }}
-    </div>
+  <article
+    class="message"
+    :class="message.role"
+    :aria-label="message.role === 'user' ? '用户消息' : '助手消息'"
+  >
+    <div v-if="message.role === 'assistant'" class="message-role">Ownloom</div>
     <ul v-if="message.attachments?.length" class="message-attachments" aria-label="消息附件">
       <li v-for="attachment in message.attachments" :key="attachment.id">
         <NButton text @click="$emit('attachment', attachment)"
@@ -66,9 +66,7 @@ const { copyState, copyCode } = useMarkdownCopy(copyText)
       :latest="canContinue"
       :busy="busy"
       @regenerate="$emit('regenerate')"
-      @reuse="$emit('reuse')"
       @continue="$emit('continue')"
-      @handoff="$emit('handoff')"
     />
   </article>
 </template>

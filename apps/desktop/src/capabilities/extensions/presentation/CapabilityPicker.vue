@@ -5,11 +5,14 @@ import type { ExtensionScope, ExtensionSelection } from '@mlx-studio/api-client'
 import { MediaAssetField } from '../../media'
 import { useModelDirectory } from '../../models'
 import { createCapabilitySelection } from '../configuration'
+import StudioIcon from '../../../shared/components/StudioIcon.vue'
 const props = defineProps<{
   scope: ExtensionScope
   mode?: 'analyze' | 'develop' | 'review'
   disabled?: boolean
   agent?: boolean
+  compact?: boolean
+  permissionMode?: 'ask' | 'full'
 }>()
 const emit = defineEmits<{ change: [selection: ExtensionSelection] }>()
 const directory = useModelDirectory()
@@ -82,10 +85,18 @@ onUnmounted(state.dispose)
 <template>
   <NPopover v-model:show="open" trigger="click" placement="top-start">
     <template #trigger
-      ><NButton size="small" :disabled="disabled"
-        >{{ scope.workspace === 'coding' || agent ? '技能与工具' : '技能' }}（{{
-          state.selection.value.skillIds.length + state.selection.value.toolIds.length
-        }}）</NButton
+      ><NButton
+        size="small"
+        :disabled="disabled"
+        :circle="compact"
+        :quaternary="compact"
+        :aria-label="compact ? '选择技能与工具' : undefined"
+        :title="compact ? '技能与工具' : undefined"
+        ><StudioIcon v-if="compact" name="plus" :size="18" /><template v-else
+          >{{ scope.workspace === 'coding' || agent ? '技能与工具' : '技能' }}（{{
+            state.selection.value.skillIds.length + state.selection.value.toolIds.length
+          }}）</template
+        ></NButton
       ></template
     >
     <NSpace vertical style="width: 340px">
@@ -108,7 +119,9 @@ onUnmounted(state.dispose)
         <small
           >已配置 {{ state.serverStates.value.length }} 个 MCP 服务；当前模式：{{
             mode ?? 'develop'
-          }}。连接在任务启动时建立，有副作用调用仍需本轮批准。</small
+          }}。连接在任务启动时建立；{{
+            permissionMode === 'full' ? '本次任务使用完全访问。' : '有副作用调用需要批准。'
+          }}</small
         >
         <small v-for="server in state.serverStates.value" :key="server.id"
           >{{ server.name }} · {{ server.enabled ? '启用' : '停用' }} ·

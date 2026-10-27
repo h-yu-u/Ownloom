@@ -1,9 +1,10 @@
 import type { RpcParamsMap } from '../protocol/generated/types.js'
-import type { Submission } from './run-submission.js'
+import { submittedSession, type Submission } from './run-submission.js'
 import { saveTranscript, closeTranscript } from './transcript-lifecycle.js'
 import { freezeInstructions } from './run-instructions.js'
 import { freezeVerificationPlan } from './verification-plan.js'
 import { RunCommands } from './run-commands.js'
+import { subscribeRun } from './run-events.js'
 import { RunReservations } from './run-reservations.js'
 import type { ActiveCapability } from './ports.js'
 import { canonical } from '../extensions/domain/types.js'
@@ -43,6 +44,8 @@ export class Runs {
         previous.text !== input.text ||
         previous.modelId !== input.provider.modelId ||
         previous.mode !== input.mode ||
+        (previous.initialPermissionMode ?? previous.permissionMode ?? 'ask') !==
+          (input.permissionMode ?? 'ask') ||
         (previous.verifyAfter !== undefined &&
           previous.verifyAfter !== (input.verifyAfter === true)) ||
         canonical(previous.selection) !== canonical(input.selection)
@@ -50,6 +53,8 @@ export class Runs {
         throw new Error('IDEMPOTENCY_CONFLICT')
       return previous
     }
+    if (input.permissionMode === 'full' && input.mode !== 'develop')
+      throw new Error('READ_ONLY_MODE')
     this.reservations.check(input.queue === true)
     const session = this.repo.get('session', input.sessionId)
     if (session.archived) throw new Error('SESSION_ARCHIVED')
@@ -64,6 +69,8 @@ export class Runs {
           ).snapshot
         : undefined
     const run: Run = {
+      ...(input.probe ? { probe: true } : {}),
+      ...(input.verifyOnly ? { verifyOnly: true } : {}),
       ...(snapshot ? { capabilitySnapshot: snapshot } : {}),
       ...(input.selection ? { selection: input.selection } : {}),
       id: randomUUID(),
@@ -72,6 +79,8 @@ export class Runs {
       text: input.text,
       modelId: input.provider.modelId,
       mode: input.mode,
+      permissionMode: input.permissionMode ?? 'ask',
+      initialPermissionMode: input.permissionMode ?? 'ask',
       status: this.reservations.busy ? 'queued' : 'starting',
       phase: 'exploring',
       verification: 'not_run',
@@ -85,7 +94,7 @@ export class Runs {
       maxRepairRounds: (this.repo.find('settings', 'coding') ?? defaultSettings).maxRepairRounds,
     }
     // Reservation occurs before the first asynchronous execution boundary.
-    this.repo.save('run', run, 'run.started', input.text)
+    this.repo.startRun(run, submittedSession(session, input))
     this.reservations.add(run.id, input, !deferred)
     this.advance()
     return run
@@ -170,8 +179,10 @@ export class Runs {
       }
       abort.signal.addEventListener('abort', stop, { once: true })
       if (abort.signal.aborted) throw new Error('CANCELLED')
-      pi.subscribe((event) => this.repo.append(session.id, id, event.type, event.text, event.data))
-      this.update(id, { status: 'running' })
+      subscribeRun(pi, this.repo, id, (patch) => {
+        this.update(id, patch)
+      })
+      this.update(id, { status: 'running', phase: 'generating' })
       await promptAndVerify({
         pi,
         run,
@@ -285,6 +296,9 @@ export class Runs {
   }
   resolve(id: string, allowed: boolean): void {
     this.approvals.resolve(id, allowed)
+  }
+  setPermissions(id: string, permissionMode: 'ask' | 'full'): Run {
+    return this.approvals.setPermissions(id, permissionMode)
   }
   async cancel(id: string): Promise<Run> {
     const run = this.repo.get('run', id)

@@ -44,6 +44,16 @@
   margin-bottom: 18px;
 }
 
+.output-help {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.output-length :deep(.n-input-number) {
+  width: 104px;
+}
+
 .parameter-label {
   display: flex;
   align-items: center;

@@ -1,6 +1,8 @@
-# MLX Studio 文档
+# Ownloom 文档
 
-MLX Studio 是面向 Apple Silicon macOS 的本地 AI 工作台，包含模型管理、流式聊天、图片创作、语音创作、Coding 和本地历史记录。
+Ownloom 是面向 Apple Silicon macOS 的本地 AI 工作台，包含模型管理、流式聊天、图片创作、语音创作、Coding 和本地历史记录。
+
+产品原名 MLX Studio，现统一使用 Ownloom；新构建的应用包为 `Ownloom.app`，窗口、界面、图标和导出文件使用新品牌。应用标识、历史数据目录、Keychain 命名空间及内部协议标识保持兼容，原会话、模型登记、作品和已保存凭据可继续使用。历史验收文档中的旧应用名称和制品路径保留当时记录；数据兼容范围见[使用与开发](./getting-started.md#数据位置)。
 
 ## 阅读入口
 

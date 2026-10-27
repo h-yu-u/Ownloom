@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Approval } from '../domain/types.js'
+import type { Approval, PermissionMode, Run } from '../domain/types.js'
 import { terminal } from '../domain/types.js'
 import type { RepositoryPort } from './ports.js'
 export class Approvals {
@@ -18,11 +18,16 @@ export class Approvals {
       status: 'pending',
       policyVersion: 1,
     }
-    this.repo.save('approval', approval, 'approval.requested', input.command)
     if (trusted) {
-      this.repo.save('approval', { ...approval, status: 'allowed' })
+      this.repo.save(
+        'approval',
+        { ...approval, status: 'allowed' },
+        'approval.resolved',
+        input.command,
+      )
       return true
     }
+    this.repo.save('approval', approval, 'approval.requested', input.command)
     return new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => this.resolve(approval.id, false), 300000)
       const stop = (): void => this.resolve(approval.id, false)
@@ -52,5 +57,22 @@ export class Approvals {
     for (const approval of this.repo.pendingApprovals(runId))
       if (approval.runId === runId && approval.status === 'pending')
         this.resolve(approval.id, false)
+  }
+  setPermissions(id: string, permissionMode: PermissionMode): Run {
+    const run = this.repo.get('run', id)
+    if (terminal(run.status) || run.status === 'cancelling') throw new Error('RUN_NOT_READY')
+    if (permissionMode === 'full' && run.mode !== 'develop') throw new Error('READ_ONLY_MODE')
+    const updated = this.repo.save(
+      'run',
+      {
+        ...run,
+        permissionMode,
+        initialPermissionMode: run.initialPermissionMode ?? run.permissionMode ?? 'ask',
+      },
+      'run.updated',
+    )
+    if (permissionMode === 'full')
+      for (const approval of this.repo.pendingApprovals(id)) this.resolve(approval.id, true)
+    return updated
   }
 }

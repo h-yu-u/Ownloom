@@ -253,7 +253,7 @@ export class McpConnections {
       },
       processEvent: this.processEvent,
     })
-    const client = new McpClient({ name: 'mlx-studio', version: '0.1.0', requestTimeoutMs: 10000 })
+    const client = new McpClient({ name: 'ownloom', version: '0.1.0', requestTimeoutMs: 10000 })
     const stop = (): void => {
       void transport.close()
     }

@@ -1,4 +1,4 @@
-"""One bounded query followed by at most three hosted page extractions."""
+"""Bounded provider search followed by at most three hosted page extractions."""
 
 import asyncio
 import hashlib
@@ -14,7 +14,7 @@ from mlx_studio_runtime.application.web_ports import (
 )
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 from mlx_studio_runtime.domain.web import PageRead, SearchHit, WebConfig, public_result_url
-from mlx_studio_runtime.domain.web_freshness import fresh_hit, freshness_window
+from mlx_studio_runtime.domain.web_freshness import freshness_window, rank_hits
 
 
 class WebRetrieval:
@@ -43,18 +43,7 @@ class WebRetrieval:
                 now = datetime.now().astimezone()
                 window = freshness_window(query, now)
                 hits = await self.search.search(query, config, credential)
-                selected = self._select_results(
-                    [hit for hit in hits if fresh_hit(hit, window, now)]
-                )
-                if window and not selected:
-                    raise RuntimeFault(
-                        RuntimeErrorInfo(
-                            "WEB_FRESHNESS_UNVERIFIED",
-                            f"未找到 {window.label} 可核实日期的资料，请更换关键词或稍后重试。"
-                            "不会使用旧网页冒充当前信息。",
-                            True,
-                        )
-                    )
+                selected = self._select_results(rank_hits(hits, window, now))
                 read_urls = [url for _, url in selected if await self.policy.allowed(url)]
                 await phase("reading_sources")
                 reads = await self._read(read_urls, config, credential)

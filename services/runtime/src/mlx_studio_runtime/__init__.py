@@ -1,3 +1,3 @@
-"""MLX Studio local Runtime."""
+"""Ownloom local Runtime."""
 
 PROTOCOL_VERSION = 1

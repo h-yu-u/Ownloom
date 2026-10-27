@@ -279,6 +279,47 @@ class CodingWorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["runs"][-2]["status"], "cancelled")
         self.assertFalse((self.project / "denied-marker").exists())
 
+    async def test_full_access_and_live_permission_change_through_http(self):
+        await self.post("/capabilities/builtin-fake-text/verify")
+        for permission in ("full", "ask"):
+            with self.subTest(permission=permission):
+                (self.project / "probe.txt").write_text("before\n")
+                _project, session = await self.create()
+                command = {
+                    "submissionId": "access-test",
+                    "text": PROBE,
+                    "modelId": "builtin-fake-text",
+                    "mode": "develop",
+                    "permissionMode": permission,
+                }
+                run = await self.post(f"/sessions/{session}/runs", command)
+                self.assertEqual(run["permissionMode"], permission)
+                if permission == "ask":
+                    await self.until(
+                        session,
+                        lambda s: any(a["status"] == "pending" for a in s["approvals"]),
+                    )
+                    response = await self.client.patch(
+                        PREFIX + f"/runs/{run['id']}/permissions",
+                        json={"permissionMode": "full"},
+                    )
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertEqual(response.json()["permissionMode"], "full")
+                state = await self.until(
+                    session, lambda s: s["runs"][-1]["status"] == "completed"
+                )
+                self.assertTrue(state["approvals"])
+                self.assertTrue(
+                    all(a["status"] == "allowed" for a in state["approvals"])
+                )
+                self.assertEqual((self.project / "probe.txt").read_text(), "after\n")
+                retry = await self.post(f"/sessions/{session}/runs", command)
+                self.assertEqual(retry["id"], run["id"])
+                if permission == "full":
+                    self.assertFalse(
+                        any(e["type"] == "approval.requested" for e in state["events"])
+                    )
+
     async def test_host_crash_invalidates_approval_and_interrupts_run(self):
         host = AgentHost(self.directory / "host-recovery")
         try:

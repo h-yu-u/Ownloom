@@ -31,7 +31,7 @@ pub fn run() {
             restart_runtime_process,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build MLX Studio")
+        .expect("failed to build Ownloom")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
                 if let Some(process) = app.try_state::<Arc<RuntimeProcess>>() {

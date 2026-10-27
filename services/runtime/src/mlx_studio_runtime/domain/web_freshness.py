@@ -37,10 +37,6 @@ def freshness_window(query: str, now: datetime) -> SearchFreshness | None:
     return SearchFreshness(now.date() - timedelta(days=days - 1), now.date(), time_range)
 
 
-def search_query(query: str, window: SearchFreshness | None) -> str:
-    return f"{query}（资料日期：{window.label}）" if window else query
-
-
 def publication_date(value: str | None, now: datetime) -> date | None:
     if not value:
         return None
@@ -54,17 +50,30 @@ def publication_date(value: str | None, now: datetime) -> date | None:
     return parsed.astimezone(now.tzinfo).date() if parsed.tzinfo else parsed.date()
 
 
-def fresh_hit(hit: SearchHit, window: SearchFreshness | None, now: datetime) -> bool:
+def hit_priority(hit: SearchHit, window: SearchFreshness | None, now: datetime) -> int:
     if window is None:
-        return True
+        return 0
     explicit: list[date] = []
     for match in DATED.finditer(f"{hit.title} {hit.url}"):
         try:
             explicit.append(date(*(int(part) for part in match.groups())))
         except ValueError:
-            return False
+            continue
     # Reject old dated articles even when a provider reports a recent crawl/update.
-    if any(value < window.start or value > window.end for value in explicit):
-        return False
+    earliest = min(window.start, window.end - timedelta(days=6))
+    if any(value < earliest or value > window.end for value in explicit):
+        return 3
     published = publication_date(hit.published_at, now)
-    return window.start <= published <= window.end if published else bool(explicit)
+    dates = [*explicit, *([published] if published else [])]
+    if not dates:
+        return 2  # Undated pages remain evidence, without a claim of freshness.
+    if any(value < earliest or value > window.end for value in dates):
+        return 3
+    return 0 if all(window.start <= value <= window.end for value in dates) else 1
+
+
+def rank_hits(
+    hits: list[SearchHit], window: SearchFreshness | None, now: datetime
+) -> list[SearchHit]:
+    ranked = [(hit_priority(hit, window, now), hit) for hit in hits]
+    return [hit for priority, hit in sorted(ranked, key=lambda pair: pair[0]) if priority < 3]

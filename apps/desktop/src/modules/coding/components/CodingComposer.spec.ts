@@ -18,10 +18,7 @@ it('uses the same busy action for buttons and shortcuts and respects preparation
       activeStatus: 'running',
     },
   })
-  await wrapper
-    .findAll('button')
-    .find((button) => button.text() === '补充当前任务')!
-    .trigger('click')
+  await wrapper.get('button[aria-label="补充当前任务"]').trigger('click')
   wrapper
     .getComponent(NInput)
     .vm.$emit('keydown', new KeyboardEvent('keydown', { key: 'Enter', metaKey: true }))

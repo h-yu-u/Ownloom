@@ -1,22 +1,37 @@
 <script setup lang="ts">
-import { NButton, NCollapse, NCollapseItem, NSlider, NTooltip } from 'naive-ui'
+import { computed } from 'vue'
+import { NButton, NCollapse, NCollapseItem, NSlider, NSwitch, NTooltip } from 'naive-ui'
 import NumericParameterField from '../../../shared/ui/NumericParameterField.vue'
 import StudioIcon from '../../../shared/components/StudioIcon.vue'
+import { chatOutputLimit } from '../domain/chat-parameters'
 interface SelectedModel {
   displayName: string
   engine: string
   inputModalities: string[]
   contextLength?: number | null
 }
-defineProps<{
+const props = defineProps<{
   clearing?: boolean
   busy: boolean
   messageCount?: number
   selectedModel?: SelectedModel
   runtime: { error: string | null; info: Record<string, unknown>; uptime: string; diskFree: string }
 }>()
-const maxTokens = defineModel<number>('maxTokens', { default: 4096 })
+const maxTokens = defineModel<number | null>('maxTokens', { default: null })
 const temperature = defineModel<number>('temperature', { default: 0.7 })
+const outputLimit = computed(() => chatOutputLimit(props.selectedModel?.contextLength))
+const automatic = computed({
+  get: () => maxTokens.value === null,
+  set: (value: boolean) => {
+    maxTokens.value = value ? null : Math.min(8192, outputLimit.value)
+  },
+})
+const manualTokens = computed({
+  get: () => maxTokens.value ?? outputLimit.value,
+  set: (value: number) => {
+    maxTokens.value = value
+  },
+})
 const emit = defineEmits<{ clear: []; export: []; reset: [] }>()
 function reset(): void {
   emit('reset')
@@ -30,12 +45,24 @@ function reset(): void {
         <h2><StudioIcon name="settings" :size="23" />模型设置</h2>
         <NButton text size="tiny" :disabled="busy" @click="reset"> 重置 </NButton>
       </div>
+      <div class="parameter-label">
+        <span>回答长度</span>
+        <NSwitch v-model:value="automatic" :disabled="busy" aria-label="自动使用最大输出长度">
+          <template #checked>自动最大</template>
+          <template #unchecked>手动</template>
+        </NSwitch>
+      </div>
+      <p v-if="automatic" class="output-help muted" role="status">
+        根据模型窗口，自动使用输入和历史之外的剩余空间。
+      </p>
       <NumericParameterField
-        v-model="maxTokens"
-        label="最大输出长度"
+        v-else
+        v-model="manualTokens"
+        class="output-length"
+        label="输出上限（tokens）"
         input-id="max-tokens"
         :min="64"
-        :max="8192"
+        :max="outputLimit"
         :step="64"
         :disabled="busy"
       />

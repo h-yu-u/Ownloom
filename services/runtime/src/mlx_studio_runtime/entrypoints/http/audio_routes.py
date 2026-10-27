@@ -144,7 +144,7 @@ def register_audio_routes(
         return FileResponse(
             service.speech.content(artifact_id),
             media_type="audio/wav",
-            filename=f"mlx-studio-{artifact_id}.wav",
+            filename=f"ownloom-{artifact_id}.wav",
             content_disposition_type="inline",
         )
 

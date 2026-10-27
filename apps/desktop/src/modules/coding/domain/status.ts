@@ -1,3 +1,4 @@
+export type CodingPermissionMode = 'ask' | 'full'
 export type CodingMode = 'analyze' | 'develop' | 'review'
 export const modeOptions = [
   { label: '分析（只读）', value: 'analyze' },
@@ -25,6 +26,7 @@ export function statusLabel(status: string): string {
     verifying: '执行验证',
     executing: '执行命令',
     reviewing: '收集结果',
+    generating: '正在生成回答',
   }
   return labels[status] ?? status
 }

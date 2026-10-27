@@ -1,6 +1,7 @@
 import type { CodingEvent, CodingSnapshot } from '../application/ports'
 import { activeStatus } from '../domain/status'
 import type { CodingProjection } from '@mlx-studio/api-client'
+import { appendTimelineEvent } from './coding-activity'
 
 function upsert<T extends { id: string }>(items: T[], value: T, limit: number): T[] {
   return (
@@ -20,7 +21,7 @@ export function projectCodingEvent(
   const next = {
     ...snapshot,
     watermark: event.seq,
-    events: sameSession ? [...snapshot.events, event].slice(-100) : snapshot.events,
+    events: sameSession ? appendTimelineEvent(snapshot.events, event) : snapshot.events,
   }
   if (projection?.kind === 'run') {
     const run = projection.value

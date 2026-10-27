@@ -20,6 +20,7 @@ export interface RepositoryPort {
   findSubmission(sessionId: string, submissionId: string): Run | undefined
   findProject(path: string): Project | undefined
   get<K extends keyof Entities>(kind: K, id: string): Entities[K]
+  startRun(run: Run, session: Session): Run
   list<K extends keyof Entities>(kind: K): Entities[K][]
   save<K extends keyof Entities>(
     kind: K,

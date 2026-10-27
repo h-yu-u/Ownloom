@@ -124,7 +124,7 @@ class ChatPreparation:
         conversation_id, turn_id = request["conversationId"], request["turnId"]
         if request.get("operation") == "reuse_context":
             snapshot = self.contexts.load(job_id, conversation_id, turn_id)
-            self.validate_reuse(snapshot, model, int(request["maxTokens"]))
+            self.validate_reuse(snapshot, model, request["maxTokens"])
             return snapshot
         documents = self._document_inputs(accepted["documents"])
         web: dict[str, Any] = {"sources": []}
@@ -150,7 +150,7 @@ class ChatPreparation:
             documents,
             web["sources"],
             model.context_length,
-            int(request["maxTokens"]),
+            request["maxTokens"],
             len(accepted["visuals"]),
             current_time=datetime.now().astimezone().isoformat(timespec="seconds"),
         )
@@ -177,7 +177,7 @@ class ChatPreparation:
                 "mode": request.get("operation", "send"),
             }
         )
-        snapshot = self.replay_snapshot(snapshot, model, int(request["maxTokens"]))
+        snapshot = self.replay_snapshot(snapshot, model, request["maxTokens"])
         if self.lifecycle.cancellation_requested(job_id):
             raise RuntimeFault(RuntimeErrorInfo("CANCELLED", "任务已停止"))
         self.contexts.save(job_id, conversation_id, turn_id, snapshot)
@@ -236,7 +236,7 @@ class ChatPreparation:
         return {**snapshot, "visuals": visuals}
 
     def validate_reuse(
-        self, snapshot: dict[str, Any], model: ModelManifest, max_tokens: int
+        self, snapshot: dict[str, Any], model: ModelManifest, max_tokens: int | None
     ) -> None:
         images = snapshot.get("visuals", [])
         validate_attachments(model, [item["id"] for item in images])
@@ -262,7 +262,7 @@ class ChatPreparation:
         ]
 
     def replay_snapshot(
-        self, snapshot: dict[str, Any], model: ModelManifest, max_tokens: int
+        self, snapshot: dict[str, Any], model: ModelManifest, max_tokens: int | None
     ) -> dict[str, Any]:
         self.validate_reuse(snapshot, model, max_tokens)
         return {

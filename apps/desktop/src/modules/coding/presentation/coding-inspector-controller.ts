@@ -19,6 +19,7 @@ export function createCodingInspector(input: {
   const changesHasMore = ref(false)
   const inspectorPending = ref(false)
   const inspectorError = ref<string | null>(null)
+  let lastPanel: InspectorPanel = 'changes'
   let epoch = 0,
     dirty = false
 
@@ -134,8 +135,13 @@ export function createCodingInspector(input: {
       return
     }
     resetInspector()
+    lastPanel = value
     panel.value = value
     await refreshInspector()
+  }
+  async function toggleInspector(): Promise<void> {
+    if (panel.value) resetInspector()
+    else if (input.sessionId.value) await inspect(lastPanel)
   }
   async function previewFile(path: string): Promise<void> {
     const session = input.sessionId.value
@@ -168,6 +174,7 @@ export function createCodingInspector(input: {
     inspectorPending,
     inspectorError,
     inspect,
+    toggleInspector,
     readFile,
     previewFile,
     loadChange,

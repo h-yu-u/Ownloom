@@ -50,7 +50,7 @@ def register_runtime_routes(
         return Response(
             service.overview.bundle(),
             media_type="application/zip",
-            headers={"Content-Disposition": 'attachment; filename="mlx-studio-diagnostics.zip"'},
+            headers={"Content-Disposition": 'attachment; filename="ownloom-diagnostics.zip"'},
         )
 
     @app.post("/internal/v1/runtime/restart-worker", dependencies=[Depends(authenticate)])

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { createChatHandoff } from '../presentation/chat-handoff'
 import { phaseLabel } from '../domain/phase-label'
 import { regenerationMode } from '../domain/answer-attempt'
 import { NButton, NDrawer, NDrawerContent, NSelect, useMessage } from 'naive-ui'
 import { storeToRefs } from 'pinia'
-import { computed, defineAsyncComponent, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { RuntimeStatusBanner as RuntimeStatus } from '../../../capabilities/runtime'
 import StudioIcon from '../../../shared/components/StudioIcon.vue'
@@ -18,13 +17,9 @@ import ChatInspector from '../components/ChatInspector.vue'
 import ChatMessageList from '../components/ChatMessageList.vue'
 import { useRuntimeStore } from '../../../capabilities/runtime'
 import { useChatStore } from '../stores/chat.store'
-const AgentChat = defineAsyncComponent(() =>
-  import('../../../capabilities/extensions').then((module) => module.AgentChat),
-)
 const store = useChatStore()
 const runtime = useRuntimeStore()
 const message = useMessage()
-const handoff = createChatHandoff(storeToRefs(store).conversationId, (text) => message.error(text))
 const router = useRouter()
 const route = useRoute()
 watch(
@@ -125,7 +120,7 @@ async function openAttachment(
   )
 }
 async function retryAnswer(
-  mode: 'regenerate' | 'refresh_web' | 'local_only' | 'reuse_context',
+  mode: 'regenerate' | 'refresh_web' | 'local_only',
   assistant?: ChatMessage,
 ): Promise<void> {
   const user = [...state.value.messages]
@@ -220,14 +215,11 @@ async function continueReply(): Promise<void> {
         :status="state.status"
         :error="state.error"
         :busy="busy || pending"
-        @prompt="draft = $event"
         @image="router.push({ path: '/image-studio', query: { prompt: $event } })"
         @continue="continueReply"
         @preview="openSource"
         @attachment="openAttachment"
         @regenerate="retryAnswer('regenerate', $event)"
-        @reuse="retryAnswer('reuse_context', $event)"
-        @handoff="handoff.choose"
       />
       <p v-if="busy" role="status">{{ phaseText }}</p>
       <div v-if="state.status === 'error' && state.messages.some((item) => item.role === 'user')">
@@ -276,12 +268,14 @@ async function continueReply(): Promise<void> {
             <NSelect
               :value="selectedModel?.id ?? null"
               class="model-select"
+              size="small"
+              :bordered="false"
               :options="options"
               :disabled="busy || pending"
               :loading="state.status === 'loading'"
               placeholder="选择本地模型"
               aria-label="当前模型"
-              :consistent-menu-width="false"
+              placement="top-start"
               @update:value="selectedModelId = $event"
             />
           </div>
@@ -290,14 +284,6 @@ async function continueReply(): Promise<void> {
     </section>
     <p v-if="drafts.error" role="alert">{{ drafts.error }}</p>
     <AttachmentPreview :preview="drafts.preview" />
-    <AgentChat
-      v-if="handoff.selected.value"
-      standalone
-      hide-trigger
-      :handoff="handoff.selected.value.request"
-      :preview-text="handoff.selected.value.preview"
-      @closed="handoff.selected.value = null"
-    />
     <NDrawer v-model:show="showInspector" :width="360" placement="right">
       <NDrawerContent title="本次模型参数" closable>
         <ChatInspector

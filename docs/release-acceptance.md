@@ -31,7 +31,7 @@ Runtime 的环境使用系统 PATH，清空 Python 导入路径并关闭用户 s
 首次短测，输出目录必须尚不存在：
 
 ```bash
-sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
+sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --profile smoke --duration-seconds 0 --cycles 2 \
   --output "$HOME/Desktop/mlx-smoke-001"
 ```
@@ -41,7 +41,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
 真实模型先做两轮资格测试：
 
 ```bash
-sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
+sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --duration-seconds 0 --cycles 2 \
   --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
   --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL" \
@@ -51,7 +51,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
 资格测试通过后，执行八小时循环。`caffeinate` 只在该命令运行期间阻止空闲睡眠，不修改长期电源设置；测试机器应接通电源。模型推理会持续占用 CPU/GPU 和内存。
 
 ```bash
-/usr/bin/caffeinate -i sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
+/usr/bin/caffeinate -i sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --duration-seconds 28800 --cycles 8 \
   --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
   --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL" \
@@ -77,7 +77,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/MLX Studio.app' \
 以下工具从仓库根目录运行，与上面的无 Python 可携带工具分开。数据库造数需要已有 Python 3.12 开发环境；仅由该环境准备合成 fixture，实际 API/迁移/Host 使用指定应用包。输出目录必须是新目录。不要传入用户数据库或安装版数据目录。
 
 ```bash
-APP='apps/desktop/src-tauri/target/release/bundle/macos/MLX Studio.app'
+APP='apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app'
 "$APP/Contents/Resources/coding-agent/bin/node" scripts/verify-packaged-data.mjs \
   --app "$APP" --python services/runtime/.venv/bin/python3 \
   --output .build/acceptance-data-new

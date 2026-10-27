@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NButton, NDropdown, NTooltip } from 'naive-ui'
+import { NButton, NTooltip } from 'naive-ui'
 import StudioIcon from '../../../shared/components/StudioIcon.vue'
 import { useMarkdownCopy } from '../../../shared/ui/markdown-copy'
 import { copyText } from '../../../platform/clipboard'
 import type { ChatMessage } from '../domain/chat-state'
 
 const props = defineProps<{ message: ChatMessage; latest?: boolean; busy?: boolean }>()
-const emit = defineEmits<{ regenerate: []; reuse: []; continue: []; handoff: [] }>()
+const emit = defineEmits<{ regenerate: []; continue: [] }>()
 const { copyState, copyCode } = useMarkdownCopy(copyText)
 const copyLabel = computed(() => {
   if (copyState.value?.phase === 'copied') return '已复制'
@@ -15,17 +15,6 @@ const copyLabel = computed(() => {
   return '复制回答'
 })
 const online = computed(() => props.message.sources?.some((source) => source.kind === 'web'))
-const more = computed(() => [
-  ...(props.latest && online.value && props.message.parameters?.contextJobId
-    ? [{ label: '使用相同资料重新生成', key: 'reuse', disabled: props.busy }]
-    : []),
-  { label: '交给工具助手…', key: 'handoff', disabled: props.busy },
-])
-function select(key: string): void {
-  if (props.busy) return
-  if (key === 'reuse') emit('reuse')
-  if (key === 'handoff') emit('handoff')
-}
 function copy(): void {
   void copyCode({
     contentId: props.message.id,
@@ -79,11 +68,6 @@ function copy(): void {
       </template>
       已达到本次输出长度上限，可以继续回答
     </NTooltip>
-    <NDropdown :options="more" trigger="click" @select="select">
-      <NButton quaternary circle size="small" aria-label="更多回答操作" :disabled="busy"
-        ><StudioIcon name="more" :size="17"
-      /></NButton>
-    </NDropdown>
     <span v-if="copyState?.phase === 'failed'" role="status">复制失败，请重试</span>
   </div>
 </template>

@@ -70,7 +70,7 @@ export function createRuntimeController(deps: RuntimeOverviewDependencies) {
     return exporting.run({
       id: 'diagnostics',
       read: deps.gateway.diagnostics,
-      write: (blob) => deps.exportFile(blob, 'mlx-studio-diagnostics.zip'),
+      write: (blob) => deps.exportFile(blob, 'ownloom-diagnostics.zip'),
     })
   }
   return {

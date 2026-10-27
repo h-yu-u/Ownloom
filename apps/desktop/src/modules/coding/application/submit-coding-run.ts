@@ -1,7 +1,7 @@
 import type { ExtensionSelection } from '@mlx-studio/api-client'
 import { RuntimeError } from '@mlx-studio/api-client'
 import type { CodingRun, CodingGateway } from './ports'
-import type { CodingMode } from '../domain/status'
+import type { CodingMode, CodingPermissionMode } from '../domain/status'
 
 export function modelNeedsVerification(cause: unknown): boolean {
   return cause instanceof RuntimeError && cause.code === 'MODEL_TOOLS_UNVERIFIED'
@@ -11,6 +11,7 @@ interface Submission {
   modelId: string
   text: string
   mode: CodingMode
+  permissionMode?: CodingPermissionMode
   queue: boolean
   verifyAfter?: boolean
   selection?: ExtensionSelection
@@ -27,6 +28,7 @@ export async function submitCodingRun(input: Submission, deps: Dependencies): Pr
   const request = {
     ...fields,
     verifyAfter: fields.verifyAfter ?? false,
+    permissionMode: fields.permissionMode ?? 'ask',
     submissionId: deps.createId(),
   }
   try {

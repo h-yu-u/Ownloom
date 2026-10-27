@@ -19,6 +19,7 @@ from mlx_studio_runtime.entrypoints.http.coding_contracts import (
     CodingChangeView,
     CodingFileList,
     CodingFileView,
+    CodingPermissionsRequest,
     CodingProjectPatch,
     CodingProjectRequest,
     CodingProjectView,
@@ -155,6 +156,10 @@ def register_coding_routes(
     @router.post("/cancel-active")
     async def cancel_active():
         return await call("runs.cancel-active", {})
+
+    @router.patch("/runs/{run_id}/permissions", response_model=CodingRunView)
+    async def permissions(run_id: str, body: CodingPermissionsRequest):
+        return await call("runs.permissions", {"id": run_id, **body.model_dump()})
 
     @router.post("/runs/{run_id}/cancel", response_model=CodingRunView)
     async def cancel(run_id: str):

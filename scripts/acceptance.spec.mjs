@@ -34,10 +34,10 @@ test('isolated child environment does not inherit developer paths or credentials
 test('process inventory handles paths with spaces and follows only owned descendants', () => {
   const rows = parseProcesses(
     [
-      '  20 1 1024 S Sat Oct 17 08:00:00 2026 /tmp/MLX Studio.app/runtime',
-      '  21 20 2048 S Sat Oct 17 08:00:01 2026 /tmp/MLX Studio.app/worker',
+      '  20 1 1024 S Sat Oct 17 08:00:00 2026 /tmp/Ownloom.app/runtime',
+      '  21 20 2048 S Sat Oct 17 08:00:01 2026 /tmp/Ownloom.app/worker',
       '  22 21 256 S Sat Oct 17 08:00:02 2026 /tmp/resource_tracker',
-      '  30 1 2048 S Sat Oct 17 08:00:00 2026 /Applications/MLX Studio.app/runtime',
+      '  30 1 2048 S Sat Oct 17 08:00:00 2026 /Applications/Ownloom.app/runtime',
     ].join('\n'),
   )
   assert.deepEqual(
@@ -45,7 +45,7 @@ test('process inventory handles paths with spaces and follows only owned descend
     [20, 21, 22],
   )
   assert.equal(rows[0].rssBytes, 1024 * 1024)
-  assert.equal(rows[0].command, '/tmp/MLX Studio.app/runtime')
+  assert.equal(rows[0].command, '/tmp/Ownloom.app/runtime')
   assert.equal(sameProcess(rows[0], { ...rows[0], started: 'different birth time' }), false)
 })
 

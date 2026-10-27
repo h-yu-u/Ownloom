@@ -1,8 +1,8 @@
 [package]
 name = "mlx-studio"
 version = "0.1.0"
-description = "MLX Studio local AI workbench"
-authors = ["MLX Studio"]
+description = "Ownloom local AI workbench"
+authors = ["Ownloom"]
 edition = "2021"
 
 [build-dependencies]

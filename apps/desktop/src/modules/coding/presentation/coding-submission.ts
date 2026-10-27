@@ -9,7 +9,7 @@ import type { SubmitOutcome } from '../../../shared/lib/submit-outcome'
 import { SubmissionIdentity } from '../../../capabilities/requests'
 import { submitCodingRun } from '../application/submit-coding-run'
 import type { CodingGateway } from '../application/ports'
-import type { CodingMode } from '../domain/status'
+import type { CodingMode, CodingPermissionMode } from '../domain/status'
 import { codingErrorText } from './coding-errors'
 export function createCodingSubmission(deps: {
   gateway: CodingGateway
@@ -17,6 +17,7 @@ export function createCodingSubmission(deps: {
   sessionId: Ref<string>
   selectedModelId: Ref<string>
   mode: Ref<CodingMode>
+  permissionMode: Readonly<Ref<CodingPermissionMode>>
   pending: Ref<boolean>
   busy: Ref<boolean>
   canSubmit(): boolean
@@ -63,6 +64,7 @@ export function createCodingSubmission(deps: {
       target = deps.sessionId.value,
       modelId = deps.selectedModelId.value,
       mode = deps.mode.value,
+      permissionMode = mode === 'develop' ? deps.permissionMode.value : 'ask',
       owner = deps.owner()
     const selected = selection ? copyExtensionSelection(selection) : undefined
     const submissionId = identity.for({
@@ -70,6 +72,7 @@ export function createCodingSubmission(deps: {
       modelId,
       text: value,
       mode,
+      permissionMode,
       queue,
       verifyAfter: verifyAfter.value,
       selected,
@@ -86,6 +89,7 @@ export function createCodingSubmission(deps: {
             modelId,
             text: value,
             mode,
+            permissionMode,
             queue,
             verifyAfter: verifyAfter.value,
             selection: selected,

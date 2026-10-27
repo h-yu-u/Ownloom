@@ -1,0 +1,38 @@
+.coding-composer {
+  flex-shrink: 0;
+  width: min(1040px, calc(100% - 40px));
+  margin: 12px auto 20px;
+  padding: 12px 12px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-card);
+  gap: 8px;
+}
+.coding-composer :deep(.n-input) {
+  background: transparent;
+}
+.coding-composer :deep(.shell-tools) {
+  gap: 3px;
+}
+.coding-composer :deep(.n-button__content) {
+  gap: 5px;
+}
+.coding-model {
+  flex: 0 1 210px;
+  min-width: 110px;
+  max-width: 210px;
+}
+small {
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 680px) {
+  .coding-composer {
+    width: calc(100% - 24px);
+    margin-bottom: 12px;
+  }
+  .coding-model {
+    flex-basis: 145px;
+  }
+}

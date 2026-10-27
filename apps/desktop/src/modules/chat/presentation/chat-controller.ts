@@ -45,7 +45,7 @@ export function createChatController(deps: ChatDependencies) {
   const conversationId = ref<string | null>(null)
   const selectedModelId = ref('')
   const pending = ref(false)
-  const maxTokens = ref(1024)
+  const maxTokens = ref<number | null>(null)
   const nextCursor = ref<string | null>(null)
   const temperature = ref(0.7)
   const models = computed(() =>
@@ -282,7 +282,7 @@ export function createChatController(deps: ChatDependencies) {
   }
   function resetParameters(): void {
     if (!busy.value && !pending.value) {
-      maxTokens.value = 1024
+      maxTokens.value = null
       temperature.value = 0.7
     }
   }
@@ -294,7 +294,7 @@ export function createChatController(deps: ChatDependencies) {
     return exporting.run({
       id: conversationId.value ?? 'new',
       read: async () => new Blob([content]),
-      write: () => deps.exportText(content, 'mlx-studio-conversation.md'),
+      write: () => deps.exportText(content, 'ownloom-conversation.md'),
     })
   }
   function dispose(): void {

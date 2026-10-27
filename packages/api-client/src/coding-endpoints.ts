@@ -54,6 +54,8 @@ export function codingEndpoints(transport: Pick<Transport, 'get' | 'post' | 'pat
       ),
     cancelActive: () => transport.post(`${root}/cancel-active`),
     cancel: (key: string) => transport.post(`${root}/runs/${id(key)}/cancel`),
+    setPermissions: async (key: string, permissionMode: 'ask' | 'full') =>
+      decodeRun(await transport.patch(`${root}/runs/${id(key)}/permissions`, { permissionMode })),
     steer: (key: string, value: string) =>
       transport.post(`${root}/runs/${id(key)}/steer`, { text: value }),
     resolve: (key: string, allowed: boolean) =>

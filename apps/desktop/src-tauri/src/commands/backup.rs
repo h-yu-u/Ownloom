@@ -101,7 +101,7 @@ pub(crate) async fn export_backup(
         let Some(selected) = app
             .dialog()
             .file()
-            .set_file_name("mlx-studio-backup.zip")
+            .set_file_name("ownloom-backup.zip")
             .blocking_save_file()
         else {
             return Ok(false);

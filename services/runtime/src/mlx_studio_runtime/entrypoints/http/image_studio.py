@@ -136,6 +136,6 @@ def register_image_studio_routes(
         return FileResponse(
             service.queries.image_content(artifact_id, thumbnail),
             media_type="image/png",
-            filename=f"mlx-studio-{artifact_id}.png",
+            filename=f"ownloom-{artifact_id}.png",
             content_disposition_type="inline",
         )

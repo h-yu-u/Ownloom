@@ -11,8 +11,17 @@ const props = withDefaults(
     inputDisabled?: boolean
     shortcut?: 'enter' | 'modifier-enter'
     label?: string
+    bordered?: boolean
+    showReason?: boolean
   }>(),
-  { shortcut: 'enter', label: '消息内容', secondary: () => [], placeholder: '' },
+  {
+    shortcut: 'enter',
+    label: '消息内容',
+    secondary: () => [],
+    placeholder: '',
+    bordered: true,
+    showReason: true,
+  },
 )
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -33,6 +42,7 @@ function keydown(event: KeyboardEvent): void {
       <NInput
         :value="modelValue"
         type="textarea"
+        :bordered="bordered"
         :autosize="{ minRows: 2, maxRows: 8 }"
         :placeholder="placeholder"
         :disabled="inputDisabled"
@@ -63,7 +73,7 @@ function keydown(event: KeyboardEvent): void {
         >
       </slot>
     </div>
-    <p v-if="primary.reason" class="shell-hint" role="status">{{ primary.reason }}</p>
+    <p v-if="showReason && primary.reason" class="shell-hint" role="status">{{ primary.reason }}</p>
     <slot name="hint" />
   </section>
 </template>

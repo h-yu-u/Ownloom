@@ -33,6 +33,7 @@ class CodingSessionPatch(StrictRequest):
 
 
 class CodingRunRequest(StrictRequest):
+    permissionMode: Literal["ask", "full"] = "ask"
     submissionId: str = Field(min_length=1, max_length=128)
     text: str = Field(min_length=1, max_length=32000)
     modelId: str
@@ -44,6 +45,10 @@ class CodingRunRequest(StrictRequest):
 
 class CodingSteerRequest(StrictRequest):
     text: str = Field(min_length=1, max_length=16000)
+
+
+class CodingPermissionsRequest(StrictRequest):
+    permissionMode: Literal["ask", "full"]
 
 
 class CodingApprovalRequest(StrictRequest):
@@ -82,6 +87,7 @@ class VerificationPlanView(BaseModel):
 
 
 class CodingRunView(BaseModel):
+    permissionMode: Literal["ask", "full"] | None = None
     verificationPlan: VerificationPlanView | None = None
     capabilitySnapshot: ExtensionSnapshot | None = None
     selection: ExtensionSelection | None = None

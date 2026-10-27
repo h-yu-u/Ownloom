@@ -4,17 +4,21 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
 
-const mocks = vi.hoisted(() => ({ loadWorkspace: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  loadWorkspace: vi.fn(),
+  newConversation: vi.fn(async () => {}),
+  conversations: [] as { id: string; title: string }[],
+}))
 vi.mock('./modules/chat/stores/chat.store', async () => {
   const { defineStore } = await import('pinia')
   return {
     useChatStore: defineStore('sidebar-test-chat', {
-      state: () => ({ conversations: [], busy: false, pending: false }),
-      actions: { loadWorkspace: mocks.loadWorkspace },
+      state: () => ({ conversations: mocks.conversations, busy: false, pending: false }),
+      actions: { loadWorkspace: mocks.loadWorkspace, newConversation: mocks.newConversation },
     }),
   }
 })
-async function render(path: string) {
+async function render(path: string, attach = false) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: ['/chat', '/coding', '/models', '/image-studio', '/audio-studio', '/settings'].map(
@@ -28,6 +32,7 @@ async function render(path: string) {
   await router.push(path)
   await router.isReady()
   const wrapper = mount(App, {
+    attachTo: attach ? document.body : undefined,
     global: {
       plugins: [createPinia(), router],
       stubs: { RuntimeStatusBanner: true, TaskCenter: true },
@@ -36,8 +41,35 @@ async function render(path: string) {
   await flushPromises()
   return { wrapper, router }
 }
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.conversations.splice(0)
+})
 describe('workspace sidebar visibility', () => {
+  it('focuses chat search on opening, restores focus on Escape and clears it for a new conversation', async () => {
+    mocks.conversations.push({ id: 'a', title: '图书馆管理' }, { id: 'b', title: '数据同步' })
+    const { wrapper } = await render('/chat', true)
+    const toggle = wrapper.get('[aria-label="搜索历史对话"]')
+    await toggle.trigger('click')
+    const input = wrapper.get('.sidebar-search input')
+    expect(document.activeElement).toBe(input.element)
+    await input.setValue('图书')
+    expect(wrapper.findAll('.session-title').map((item) => item.text())).toEqual(['图书馆管理'])
+    await input.trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('.sidebar-search').exists()).toBe(false)
+    expect(document.activeElement).toBe(toggle.element)
+    await toggle.trigger('click')
+    const reopened = wrapper.get<HTMLInputElement>('.sidebar-search input')
+    expect(reopened.element.value).toBe('')
+    expect(wrapper.findAll('.session-title')).toHaveLength(2)
+    await reopened.setValue('同步')
+    await wrapper.get('.new-conversation').trigger('click')
+    await flushPromises()
+    expect(mocks.newConversation).toHaveBeenCalledOnce()
+    expect(wrapper.find('.sidebar-search').exists()).toBe(false)
+    expect(wrapper.findAll('.session-title')).toHaveLength(2)
+    wrapper.unmount()
+  })
   it.each(['/chat', '/coding', '/models', '/image-studio', '/audio-studio', '/settings'])(
     'shows conversation navigation only on chat when opening %s',
     async (path) => {

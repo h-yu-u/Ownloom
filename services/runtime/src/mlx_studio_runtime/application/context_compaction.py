@@ -5,6 +5,7 @@ from typing import Any
 
 from mlx_studio_runtime.application.chat_context_ports import ChatContexts
 from mlx_studio_runtime.domain.chat_context import fingerprint, token_bound
+from mlx_studio_runtime.domain.context_budget import output_reserve
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
 SummaryInference = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
@@ -20,7 +21,7 @@ async def compact_history(
     history = accepted.get("history")
     if history is None:
         history = contexts.history(accepted.get("historyHeadRevision"))
-    fixed = token_bound(request["content"]) + int(request["maxTokens"]) + 1024
+    fixed = token_bound(request["content"]) + output_reserve(limit, request["maxTokens"]) + 1024
     fixed += sum(
         token_bound(item["body"]) for item in accepted.get("skillContext", {}).get("loaded", [])
     )

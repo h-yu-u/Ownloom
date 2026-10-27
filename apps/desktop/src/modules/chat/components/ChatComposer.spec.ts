@@ -23,11 +23,15 @@ describe('ChatComposer', () => {
     expect(wrapper.emitted('update:images')).toBeUndefined()
   })
   it('does not discard or submit a draft while generation is active', async () => {
-    const wrapper = mount(ChatComposer, { props: { ...baseProps, busy: true } })
+    const wrapper = mount(ChatComposer, { props: { ...baseProps, busy: true, generating: true } })
     await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(wrapper.emitted('update:draft')).toBeUndefined()
     expect(wrapper.props('draft')).toBe('hello')
+    await wrapper.get('button[aria-label="停止生成"]').trigger('click')
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(wrapper.emitted('update:draft')).toBeUndefined()
+    wrapper.unmount()
   })
 
   it('does not submit when Enter confirms Chinese input or inserts a line break', async () => {

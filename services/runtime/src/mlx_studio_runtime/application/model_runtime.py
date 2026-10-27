@@ -39,7 +39,7 @@ class ModelRuntime:
         self,
         job_id: str,
         prompt: str,
-        max_tokens: int,
+        max_tokens: int | None,
         temperature: float,
         image_paths: list[str],
         messages: list[dict[str, str]],

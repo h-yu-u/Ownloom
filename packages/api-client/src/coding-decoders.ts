@@ -69,6 +69,8 @@ export function decodeRun(value: unknown): CodingRun {
     text: text(p.text),
     modelId: text(p.modelId),
     mode: choice(p.mode, ['analyze', 'develop', 'review']),
+    permissionMode:
+      p.permissionMode == null ? 'ask' : choice(p.permissionMode, ['ask', 'full'] as const),
     status: choice(p.status, [
       'queued',
       'starting',

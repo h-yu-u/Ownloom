@@ -1,7 +1,7 @@
 import { modelFixture } from '../../../test-fixtures/runtime'
 import { ref } from 'vue'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { RuntimeEvent } from '@mlx-studio/api-client'
+import type { Conversation, RuntimeEvent } from '@mlx-studio/api-client'
 import { createChatController } from './chat-controller'
 
 function setup() {
@@ -15,7 +15,7 @@ function setup() {
     delete: vi.fn(),
     update: vi.fn(),
     cancel: vi.fn(),
-    list: vi.fn(async () => []),
+    list: vi.fn<() => Promise<Conversation[]>>(async () => []),
     get: vi.fn(async () => ({
       id: 'conversation',
       title: 'test',
@@ -49,6 +49,28 @@ function setup() {
   return { controller, gateway, release, receive: (event: RuntimeEvent) => receive(event) }
 }
 afterEach(() => vi.useRealTimers())
+it('refreshes the accepted conversation title while the assistant is still streaming', async () => {
+  const { controller, gateway } = setup()
+  const conversation = { ...(await gateway.get()), title: '帮我搭建一个图' }
+  gateway.list.mockResolvedValue([conversation])
+  await controller.send('帮我搭建一个图书馆系统')
+  await vi.waitFor(() => expect(controller.conversations.value[0]?.title).toBe('帮我搭建一个图'))
+  expect(controller.state.value.status).toBe('sending')
+  controller.dispose()
+})
+it('ignores a late title refresh failure after leaving the conversation', async () => {
+  const { controller, gateway } = setup()
+  let fail!: (cause: Error) => void
+  const names = new Promise<Conversation[]>((_resolve, reject) => {
+    fail = reject
+  })
+  gateway.list.mockReturnValueOnce(names)
+  await controller.send('帮我搭建一个图书馆系统')
+  controller.dispose()
+  fail(new Error('late failure'))
+  await names.catch(() => undefined)
+  expect(controller.state.value.error).toBeNull()
+})
 it('explains that dated evidence is unavailable instead of showing a generic generation error', async () => {
   const { controller, receive } = setup()
   await controller.send('今日热点')
@@ -134,9 +156,16 @@ it('flushes pending text before cancellation and stops late output', async () =>
   controller.dispose()
 })
 it('preserves truncation metadata when replacing the stream with persisted messages', async () => {
-  const { controller, receive } = setup()
-  expect(controller.maxTokens.value).toBe(1024)
+  const { controller, gateway, receive } = setup()
+  expect(controller.maxTokens.value).toBeNull()
+  controller.maxTokens.value = 32768
+  controller.resetParameters()
+  expect(controller.maxTokens.value).toBeNull()
   await controller.send('hello')
+  expect(gateway.submit).toHaveBeenCalledWith(
+    'conversation',
+    expect.objectContaining({ max_tokens: null }),
+  )
   receive({ type: 'generation.delta', seq: 1, payload: { job_id: 'job', text: 'AB' } })
   receive({ type: 'job.succeeded', seq: 2, payload: { job_id: 'job', finish_reason: 'length' } })
   await vi.waitFor(() => expect(controller.state.value.messages.at(-1)?.id).toBe('saved'))

@@ -1,4 +1,4 @@
-# 使用与开发
+# Ownloom 使用与开发
 
 [文档入口](./README.md)
 
@@ -71,6 +71,8 @@ Qwen Image 2.1 原生 MFLUX 导出应包含 `transformer/`、`text_encoder/`、`
 | 下载模型 | 默认 `~/MLXModels`，与应用数据分开保存 |
 
 桌面壳通过 `MLX_STUDIO_DATA_DIR` 将数据目录交给 Runtime。独立运行 Runtime 且未指定目录时，数据库默认在 `~/Library/Application Support/MLX Studio/data/app.db`，媒体文件在同一应用目录的 `media/`。备份历史时应同时保留数据库和媒体文件。
+
+品牌升级后继续使用上述应用标识与数据位置，不搬迁或重建资料库。Keychain 的 `MLX Studio Web Search` / `MLX Studio MCP Connections` 命名空间、`MLX_STUDIO_*` 环境变量、`mlx-studio-runtime` Sidecar、Pi 的 `mlx-studio` Provider ID，以及内部 `@mlx-studio/*` / `mlx_studio_runtime` 包名均为兼容标识。新的展示名称与应用包名为 Ownloom / `Ownloom.app`，导出文件以 `ownloom-` 开头；已有旧品牌备份仍可恢复。
 
 ## 常用检查与构建
 

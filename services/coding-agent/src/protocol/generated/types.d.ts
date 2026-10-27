@@ -2,7 +2,7 @@
 export type CodingSettings = { "id"?: string; "defaultModelId"?: string; "contextBudget"?: number; "maxRepairRounds"?: number }
 export type CodingProjectView = { "id": string; "path": string; "name": string; "git": boolean; "branch": string; "dirty": string; "instructions": string; "commands": (string)[] }
 export type CodingSessionView = { "id": string; "projectId": string; "title": string; "pinned": boolean; "archived": boolean; "piPath": string | null }
-export type CodingRunView = { "id": string; "sessionId": string; "submissionId": string; "text": string; "modelId": string; "mode": "analyze" | "develop" | "review"; "status": "queued" | "starting" | "running" | "awaiting_approval" | "cancelling" | "completed" | "failed" | "cancelled" | "interrupted"; "phase": string; "verification": "not_run" | "running" | "passed" | "failed" | "partial"; "error": string | null; "createdAt": string; "baseline": string; "fingerprint": string | null; "maxRepairRounds": number; "capabilitySnapshot"?: ExtensionSnapshot; "selection"?: ExtensionSelection; "verificationPlan"?: null | { "digest": string; "commands": (string)[]; "cwd": string; "manifestDigest": string; "repairLimit": number; "timeoutMs": number; "scope": string; "invalid"?: boolean } }
+export type CodingRunView = { "id": string; "sessionId": string; "submissionId": string; "text": string; "modelId": string; "mode": "analyze" | "develop" | "review"; "status": "queued" | "starting" | "running" | "awaiting_approval" | "cancelling" | "completed" | "failed" | "cancelled" | "interrupted"; "phase": string; "verification": "not_run" | "running" | "passed" | "failed" | "partial"; "error": string | null; "createdAt": string; "baseline": string; "fingerprint": string | null; "maxRepairRounds": number; "capabilitySnapshot"?: ExtensionSnapshot; "selection"?: ExtensionSelection; "verificationPlan"?: null | { "digest": string; "commands": (string)[]; "cwd": string; "manifestDigest": string; "repairLimit": number; "timeoutMs": number; "scope": string; "invalid"?: boolean }; "permissionMode"?: "ask" | "full" }
 export type CodingApprovalView = { "id": string; "runId": string; "sessionId": string; "toolCallId": string; "action": "command" | "file_write" | "mcp"; "parameters": Record<string, unknown>; "command": string; "cwd": string; "policyVersion": number; "expiresAt": number; "status": "pending" | "allowed" | "denied" }
 export type CodingVerificationView = { "purpose"?: "command" | "verification"; "id": string; "runId": string; "sessionId": string; "command": string; "exitCode": number | null; "output": string; "truncated": boolean; "fingerprint": string; "stale": boolean; "planDigest"?: string | null }
 export type CodingChangeView = { "contentLoaded"?: boolean; "id": string; "runId": string; "sessionId": string; "path": string; "before": string | null; "after": string; "restored": boolean; "state": "pending" | "written" }
@@ -56,7 +56,7 @@ export interface RpcParamsMap {
   "sessions.changes": { "id": string; "diff"?: boolean; "before"?: string | null; "limit"?: number }
   "changes.get": { "id": string }
   "changes.restore": { "id": string }
-  "runs.submit": { "sessionId": string; "submissionId": string; "text": string; "mode": "analyze" | "develop" | "review"; "provider": { "modelId": string; "baseUrl": string; "token": string; "contextWindow": number; "fingerprint"?: string; "engineVersion"?: string }; "queue"?: boolean; "selection"?: ExtensionSelection; "connectionSecrets"?: Record<string, { "revision": number; "digest": string; "values": Record<string, string> }>; "verifyAfter"?: boolean }
+  "runs.submit": { "sessionId": string; "submissionId": string; "text": string; "mode": "analyze" | "develop" | "review"; "provider": { "modelId": string; "baseUrl": string; "token": string; "contextWindow": number; "fingerprint"?: string; "engineVersion"?: string }; "queue"?: boolean; "selection"?: ExtensionSelection; "connectionSecrets"?: Record<string, { "revision": number; "digest": string; "values": Record<string, string> }>; "verifyAfter"?: boolean; "permissionMode"?: "ask" | "full" }
   "sessions.verify": { "sessionId": string; "submissionId": string; "provider": { "modelId": string; "baseUrl": string; "token": string; "contextWindow": number; "fingerprint"?: string; "engineVersion"?: string } }
   "runs.cancel-active": Record<string, unknown>
   "runs.cancel": { "id": string }
@@ -85,7 +85,7 @@ export interface RpcParamsMap {
   "extensions.revoke": { "mutationId": string; "targetId": string }
   "extensions.events.wait": { "after"?: number }
   "extensions.check": { "snapshot": ExtensionSnapshot }
-  "runs.prepare": { "sessionId": string; "submissionId": string; "text": string; "mode": "analyze" | "develop" | "review"; "provider": { "modelId": string; "baseUrl": string; "token": string; "contextWindow": number; "fingerprint"?: string; "engineVersion"?: string }; "queue"?: boolean; "selection"?: ExtensionSelection; "connectionSecrets"?: Record<string, { "revision": number; "digest": string; "values": Record<string, string> }>; "verifyAfter"?: boolean }
+  "runs.prepare": { "sessionId": string; "submissionId": string; "text": string; "mode": "analyze" | "develop" | "review"; "provider": { "modelId": string; "baseUrl": string; "token": string; "contextWindow": number; "fingerprint"?: string; "engineVersion"?: string }; "queue"?: boolean; "selection"?: ExtensionSelection; "connectionSecrets"?: Record<string, { "revision": number; "digest": string; "values": Record<string, string> }>; "verifyAfter"?: boolean; "permissionMode"?: "ask" | "full" }
   "runs.commit": { "id": string; "bootstrapToken": string; "capabilityUrl": string; "connectionSecrets"?: Record<string, { "revision": number; "digest": string; "values": Record<string, string> }> }
   "agent.sessions.create": { "title": string }
   "agent.sessions.list": Record<string, unknown>
@@ -102,6 +102,7 @@ export interface RpcParamsMap {
   "agent.tasks.list": Record<string, unknown>
   "agent.runs.find": { "sessionId": string; "submissionId": string }
   "data.restore.profile": { "identifier": string }
+  "runs.permissions": { "id": string; "permissionMode": "ask" | "full" }
 }
 export interface RpcResultMap {
   "settings.get": CodingSettings
@@ -168,5 +169,6 @@ export interface RpcResultMap {
   "agent.tasks.list": (Record<string, unknown>)[]
   "agent.runs.find": null | CodingRunView
   "data.restore.profile": { "imported": boolean }
+  "runs.permissions": CodingRunView
 }
 export type RpcMethod = keyof RpcParamsMap

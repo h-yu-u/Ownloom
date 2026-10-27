@@ -48,7 +48,7 @@ jobs:
         run: |
           uv run --frozen --project services/runtime --python 3.12 \
             python scripts/verify_release_bundle.py \
-            --app 'apps/desktop/src-tauri/target/release/bundle/macos/MLX Studio.app' \
+            --app 'apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app' \
             --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
             --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL"
       - uses: actions/upload-artifact@v4

@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
+const route = useRoute()
 const links = [
   { to: '/settings', label: '概览' },
   { to: '/settings/coding', label: 'Coding' },
-  { to: '/settings/extensions/skills', label: 'Skills' },
-  { to: '/settings/extensions/mcp', label: 'MCP 服务' },
-  { to: '/settings/extensions/builtin', label: '内置工具' },
+  { to: '/settings/extensions/skills', label: '扩展能力' },
   { to: '/settings/runtime', label: '运行与诊断' },
   { to: '/settings/privacy', label: '隐私与数据' },
 ]
+function isSelected(to: string): boolean {
+  return to === '/settings/extensions/skills'
+    ? route.path.startsWith('/settings/extensions/')
+    : route.path === to
+}
 </script>
 <template>
   <div class="settings-layout">
@@ -16,8 +21,10 @@ const links = [
         v-for="link in links"
         :key="link.to"
         :to="link.to"
+        :class="{ selected: isSelected(link.to) }"
+        :aria-current="isSelected(link.to) ? 'page' : undefined"
         active-class=""
-        exact-active-class="selected"
+        exact-active-class=""
         >{{ link.label }}</RouterLink
       >
     </nav>

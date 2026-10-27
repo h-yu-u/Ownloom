@@ -14,6 +14,10 @@ from mlx_studio_runtime.adapters.persistence.attachment_reference_repository imp
 from mlx_studio_runtime.adapters.persistence.attachment_repository import (
     AttachmentRepository,
 )
+from mlx_studio_runtime.adapters.persistence.conversation_titles import (
+    assign_input_title,
+    backfill_conversation_titles,
+)
 from mlx_studio_runtime.adapters.persistence.sqlite_database import SQLiteDatabase
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
@@ -26,6 +30,7 @@ class ConversationRepository:
     ) -> None:
         self.database = database
         self.attachments = attachments
+        backfill_conversation_titles(database)
 
     def list(self) -> list[dict[str, Any]]:
         rows = self.database.connection.execute(
@@ -168,8 +173,18 @@ class ConversationRepository:
                 "UPDATE conversations SET title=COALESCE(?,title), "
                 "pinned=COALESCE(?,pinned), "
                 "web_search_enabled=COALESCE(?,web_search_enabled), "
+                "parameters_json=CASE WHEN ? IS NULL THEN parameters_json "
+                "ELSE json_set(parameters_json,'$.titleSource','manual') END, "
                 "updated_at=CASE WHEN ? IS NULL THEN updated_at ELSE ? END WHERE id=?",
-                (title, pinned, web_search_enabled, title, int(time.time()), conversation_id),
+                (
+                    title,
+                    pinned,
+                    web_search_enabled,
+                    title,
+                    title,
+                    int(time.time()),
+                    conversation_id,
+                ),
             )
         return cursor.rowcount > 0
 
@@ -250,6 +265,8 @@ class ConversationRepository:
                 "UPDATE conversations SET updated_at=? WHERE id=?",
                 (now, item["conversationId"]),
             )
+            if item["role"] == "user":
+                assign_input_title(connection, item["conversationId"], item["content"])
 
 
 def _conversation(row: sqlite3.Row) -> dict[str, Any]:

@@ -14,13 +14,10 @@ const props = defineProps<{
   busy?: boolean
 }>()
 defineEmits<{
-  prompt: [text: string]
   image: [text: string]
   continue: []
   preview: [source: MessageSource]
   regenerate: [message: ChatMessage]
-  reuse: [message: ChatMessage]
-  handoff: [message: ChatMessage]
   attachment: [file: NonNullable<ChatMessage['attachments']>[number]]
 }>()
 const messageList = ref<HTMLElement | null>(null)
@@ -48,11 +45,7 @@ watch(
     <div v-if="status === 'loading'" class="chat-loading">
       <NSpin size="medium" /><span>正在读取本地工作区…</span>
     </div>
-    <ChatWelcome
-      v-else-if="!totalCount"
-      @prompt="$emit('prompt', $event)"
-      @image="$emit('image', $event)"
-    />
+    <ChatWelcome v-else-if="!totalCount" @image="$emit('image', $event)" />
     <MessageBubble
       v-for="item in messages"
       :key="item.id"
@@ -64,8 +57,6 @@ watch(
       @preview="$emit('preview', $event)"
       @attachment="$emit('attachment', $event)"
       @regenerate="$emit('regenerate', item)"
-      @reuse="$emit('reuse', item)"
-      @handoff="$emit('handoff', item)"
     />
     <NEmpty v-if="totalCount && !messages.length" description="没有找到匹配的消息" />
     <p v-if="error" role="alert" class="error-text">

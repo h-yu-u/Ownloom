@@ -45,7 +45,7 @@ export async function exportBackup(download: () => Promise<Blob>): Promise<FileE
   if (isTauri()) {
     try {
       return (await invoke<boolean>('export_backup'))
-        ? { kind: 'saved', filename: 'mlx-studio-backup.zip' }
+        ? { kind: 'saved', filename: 'ownloom-backup.zip' }
         : { kind: 'cancelled' }
     } catch {
       return {
@@ -55,7 +55,7 @@ export async function exportBackup(download: () => Promise<Blob>): Promise<FileE
       }
     }
   }
-  return exportBlob(await download(), 'mlx-studio-backup.zip')
+  return exportBlob(await download(), 'ownloom-backup.zip')
 }
 
 export async function pickProjectDirectory(): Promise<string | null> {

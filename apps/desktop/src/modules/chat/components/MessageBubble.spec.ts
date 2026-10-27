@@ -146,15 +146,35 @@ it('keeps unresolved citation feedback when only some sources exist', () => {
   wrapper.unmount()
 })
 
-it('places copy and regenerate in the answer toolbar without a tool-task primary action', async () => {
+it('keeps only copy and regenerate in the completed answer toolbar', async () => {
   const wrapper = mount(MessageBubble, {
     props: {
-      message: { id: 'answer', role: 'assistant', content: '**完整回答**', state: 'complete' },
+      message: {
+        id: 'answer',
+        role: 'assistant',
+        content: '**完整回答**',
+        state: 'complete',
+        parameters: { contextJobId: 'context' },
+        sources: [
+          {
+            id: 'w1',
+            kind: 'web',
+            title: '来源',
+            url: 'https://example.com',
+            retrievedAt: '',
+            representation: 'snippet_only',
+            contentHash: '',
+          },
+        ],
+      },
       canContinue: true,
     },
   })
   const toolbar = wrapper.get('[aria-label="回答操作"]')
-  expect(wrapper.text()).not.toContain('创建工具任务')
+  expect(toolbar.findAll('button').map((button) => button.attributes('aria-label'))).toEqual([
+    '复制回答',
+    '重新生成',
+  ])
   await toolbar.get('[aria-label="复制回答"]').trigger('click')
   await flushPromises()
   expect(copyText).toHaveBeenLastCalledWith('**完整回答**')
@@ -173,6 +193,8 @@ it('keeps streaming and user messages free of answer actions', () => {
   ]) {
     const wrapper = mount(MessageBubble, { props: { message } })
     expect(wrapper.find('[aria-label="回答操作"]').exists()).toBe(false)
+    expect(wrapper.find('.message-role').exists()).toBe(message.role === 'assistant')
+    expect(wrapper.attributes('aria-label')).toBe(message.role === 'user' ? '用户消息' : '助手消息')
     wrapper.unmount()
   }
 })

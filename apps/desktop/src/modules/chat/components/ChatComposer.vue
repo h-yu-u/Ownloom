@@ -106,9 +106,14 @@ function dragover(event: DragEvent): void {
       v-model:value="draftValue"
       type="textarea"
       :autosize="{ minRows: 2, maxRows: 6 }"
-      placeholder="给 MLX Studio 发送消息"
+      placeholder="给 Ownloom 发送消息"
       aria-label="消息内容"
       :bordered="false"
+      :theme-overrides="{
+        color: 'transparent',
+        colorHover: 'transparent',
+        colorFocus: 'transparent',
+      }"
       @keydown="handleKeydown"
       @compositionstart="composing = true"
       @compositionend="composing = false"
@@ -149,6 +154,7 @@ function dragover(event: DragEvent): void {
               ><StudioIcon name="globe" :size="20" /></NButton></template
           >{{ webEnabled ? '联网已开启' : '联网搜索' }}</NTooltip
         >
+        <slot name="model" />
       </div>
       <input
         ref="fileInput"
@@ -159,8 +165,16 @@ function dragover(event: DragEvent): void {
         @change="selected"
       />
       <div class="composer-send">
-        <slot name="model" />
-        <NButton v-if="generating ?? busy" type="warning" @click="emit('cancel')">停止生成</NButton>
+        <NButton
+          v-if="generating ?? busy"
+          circle
+          secondary
+          class="send-button"
+          aria-label="停止生成"
+          title="停止生成"
+          @click="emit('cancel')"
+          ><StudioIcon name="stop" :size="16"
+        /></NButton>
         <NButton
           v-else
           type="primary"

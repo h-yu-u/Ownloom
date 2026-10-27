@@ -1,6 +1,7 @@
 import { deriveTaskReadiness } from '../../../capabilities/models'
 import type { CodingControllerDependencies } from './coding-controller-ports'
 import { createCodingSubmission } from './coding-submission'
+import { createCodingPermissions } from './coding-permissions'
 import { createProjectSessionController } from './project-session-controller'
 import { projectCodingEvent } from './event-projection'
 import { decodeCodingProjection } from '@mlx-studio/api-client'
@@ -64,12 +65,21 @@ export function createCodingController(deps: CodingControllerDependencies) {
     busy,
     onRestored: refresh,
   })
+  const permissions = createCodingPermissions({
+    gateway: deps.gateway,
+    sessionId,
+    active,
+    pending,
+    guard,
+    refresh,
+  })
   const submission = createCodingSubmission({
     gateway: deps.gateway,
     projectId,
     sessionId,
     selectedModelId,
     mode,
+    permissionMode: permissions.mode,
     pending,
     busy,
     canSubmit: () => !snapshot.value?.session.archived && readiness.value.submitAllowed,
@@ -119,6 +129,9 @@ export function createCodingController(deps: CodingControllerDependencies) {
     if (owner !== epoch || id !== sessionId.value) return result.watermark
     const previous = snapshot.value?.watermark ?? result.watermark
     snapshot.value = result
+    sessions.value = sessions.value.map((item) =>
+      item.id === result.session.id ? result.session : item,
+    )
     if (
       result.events.some(
         (event) =>
@@ -301,6 +314,8 @@ export function createCodingController(deps: CodingControllerDependencies) {
     projectId,
     sessionId,
     mode,
+    permissionMode: permissions.mode,
+    setPermissions: permissions.change,
     pending,
     error,
     preparingModel,

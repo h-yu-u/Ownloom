@@ -1,7 +1,7 @@
 [project]
 name = "mlx-studio-runtime"
 version = "0.1.0"
-description = "Local MLX Studio supervisor and isolated inference worker"
+description = "Local Ownloom supervisor and isolated inference worker"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115,<1",
@@ -13,6 +13,7 @@ dependencies = [
   "pillow>=11,<13",
   "httpx>=0.28,<1",
   "keyring>=25,<26",
+  "tavily-python==0.8.5",
 ]
 
 [project.optional-dependencies]

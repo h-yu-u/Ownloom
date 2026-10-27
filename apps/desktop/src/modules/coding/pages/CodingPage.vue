@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { CapabilityPicker, type ExtensionSelection } from '../../../capabilities/extensions'
+import { RuntimeStatusBanner as RuntimeStatus } from '../../../capabilities/runtime'
+import StudioIcon from '../../../shared/components/StudioIcon.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NAlert, NButton, NEmpty, NInput, NModal, NSplit, useDialog } from 'naive-ui'
 import { useCodingStore } from '../stores/coding.store'
 import type { CodingSession } from '../application/ports'
-import { statusLabel } from '../domain/status'
 import CodingSidebar from '../components/CodingSidebar.vue'
 import CodingTimeline from '../components/CodingTimeline.vue'
 import CodingComposer from '../components/CodingComposer.vue'
@@ -32,6 +33,9 @@ const approvals = computed(
 )
 const currentSessionActive = computed(
   () => coding.busy && coding.active?.sessionId === coding.sessionId,
+)
+const composerMode = computed(() =>
+  currentSessionActive.value ? (coding.active?.mode ?? coding.mode) : coding.mode,
 )
 function sessionUrl(item: CodingSession): string {
   return `/coding/projects/${encodeURIComponent(item.projectId)}/sessions/${encodeURIComponent(item.id)}`
@@ -120,7 +124,7 @@ onUnmounted(() => coding.dispose())
     />
     <div class="coding-main">
       <header class="coding-header">
-        <div>
+        <div class="coding-title">
           <h1>{{ coding.snapshot?.session.title ?? '本地开发工作区' }}</h1>
           <small
             >{{ coding.snapshot?.project.path ?? selectedProject?.path ?? '选择项目后开始' }}
@@ -129,17 +133,26 @@ onUnmounted(() => coding.dispose())
             ></small
           >
         </div>
-        <div class="coding-header-actions">
+        <div class="coding-header-tools">
+          <RuntimeStatus
+            :busy="coding.busy || coding.pending || coding.preparingModel"
+            @reconnected="
+              coding.loadWorkspace(coding.projectId || undefined, coding.sessionId || undefined)
+            "
+          />
           <NButton
-            v-for="item in ['changes', 'files'] as const"
-            :key="item"
+            class="inspector-toggle"
+            :class="{ active: coding.panel }"
             size="small"
             quaternary
-            :aria-pressed="coding.panel === item"
+            :aria-label="coding.panel ? '收起变更与文件' : '展开变更与文件'"
+            :title="coding.panel ? '收起变更与文件' : '展开变更与文件'"
+            :aria-expanded="!!coding.panel"
+            aria-controls="coding-project-inspector"
             :disabled="!coding.sessionId"
-            @click="coding.inspect(item)"
-            >{{ item === 'changes' ? '变更' : '文件' }}</NButton
-          >
+            @click="coding.toggleInspector"
+            ><StudioIcon name="panel-right" />
+          </NButton>
         </div>
       </header>
       <NAlert
@@ -149,15 +162,6 @@ onUnmounted(() => coding.dispose())
         closable
         @close="coding.error = null"
         >{{ coding.error }}<NButton text @click="coding.loadWorkspace()">重试连接</NButton></NAlert
-      >
-      <NAlert v-if="coding.preparingModel" class="coding-alert" type="info">
-        正在准备本地模型…<NButton text @click="coding.cancelActive">停止</NButton>
-      </NAlert>
-      <NAlert v-if="coding.busy && !coding.preparingModel" class="coding-alert" type="info"
-        >{{ statusLabel(coding.active!.status) }} · {{ statusLabel(coding.active!.phase)
-        }}<span v-if="!currentSessionActive">
-          · 其他会话正在执行；切换查看不会停止任务</span
-        ></NAlert
       >
       <div class="coding-body">
         <NSplit
@@ -174,6 +178,7 @@ onUnmounted(() => coding.dispose())
               v-if="coding.snapshot"
               :events="coding.snapshot.events"
               :runs="coding.snapshot.runs"
+              :preparing="coding.preparingModel"
             />
             <NEmpty v-else class="coding-empty" description="打开项目并新建或选择开发会话" />
             <div v-if="approvals.length" class="coding-approvals">
@@ -189,9 +194,15 @@ onUnmounted(() => coding.dispose())
               v-model="coding.draftText"
               :active-status="coding.active?.status"
               :models="coding.models"
-              :model-id="coding.selectedModelId"
+              :model-id="
+                currentSessionActive
+                  ? (coding.active?.modelId ?? coding.selectedModelId)
+                  : coding.selectedModelId
+              "
               :verify-after="coding.verifyAfter"
-              :mode="coding.mode"
+              :mode="composerMode"
+              :permission-mode="coding.permissionMode"
+              :preparing="coding.preparingModel"
               :ready="!!coding.selectedModelId"
               :busy="coding.busy"
               :pending="coding.pending"
@@ -200,27 +211,29 @@ onUnmounted(() => coding.dispose())
               @verify="coding.verifyAfter = $event"
               @model="coding.selectedModelId = $event"
               @mode="coding.mode = $event"
+              @permissions="coding.setPermissions"
               @submit="submit"
               @queue="queue"
               @steer="steer"
-              @stop="coding.cancel"
+              @stop="coding.preparingModel ? coding.cancelActive() : coding.cancel()"
               ><template #capabilities
                 ><CapabilityPicker
+                  compact
                   :scope="{
                     workspace: 'coding',
                     kind: 'project',
                     scopeId: coding.projectId || 'unselected',
                   }"
-                  :verify-after="coding.verifyAfter"
-                  :mode="coding.mode"
+                  :mode="composerMode"
+                  :permission-mode="coding.permissionMode"
                   :disabled="coding.pending || !coding.projectId"
-                  @verify="coding.verifyAfter = $event"
                   @change="selection = $event" /></template
             ></CodingComposer>
           </template>
           <template #2>
             <CodingInspector
               v-if="coding.panel"
+              id="coding-project-inspector"
               :panel="coding.panel"
               :changes="coding.changes"
               :selected="coding.selectedChange"

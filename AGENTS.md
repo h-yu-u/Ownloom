@@ -1,4 +1,4 @@
-# MLX Studio Engineering Rules
+# Ownloom Engineering Rules
 
 This repository follows the [engineering rules](./docs/engineering.md) and the [architecture](./docs/architecture.md).
 

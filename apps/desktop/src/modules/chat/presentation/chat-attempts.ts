@@ -9,7 +9,7 @@ export function createChatAttempts(options: {
   conversationId: Ref<string | null>
   pending: Ref<boolean>
   modelId: Ref<string>
-  maxTokens: Ref<number>
+  maxTokens: Ref<number | null>
   temperature: Ref<number>
   start(id: string, after: number): void
 }) {

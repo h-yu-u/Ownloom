@@ -90,7 +90,7 @@ export function createImageWorkspace() {
   return createImageController({
     ...directoryDependencies(),
     gateway: createImageGateway(runtimeClient),
-    exportImage: (blob, id) => exportBlob(blob, `mlx-studio-${id}.png`),
+    exportImage: (blob, id) => exportBlob(blob, `ownloom-${id}.png`),
   })
 }
 export function createModelsWorkspace() {
@@ -105,7 +105,7 @@ export function createAudioWorkspace() {
   return createAudioController({
     ...directoryDependencies(),
     gateway: createAudioGateway(runtimeClient),
-    exportAudio: (blob, id) => exportBlob(blob, `mlx-studio-${id}.wav`),
+    exportAudio: (blob, id) => exportBlob(blob, `ownloom-${id}.wav`),
   })
 }
 

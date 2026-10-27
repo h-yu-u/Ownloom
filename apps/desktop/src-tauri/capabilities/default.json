@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "MLX Studio main window permissions",
+  "description": "Ownloom main window permissions",
   "windows": ["main"],
   "permissions": [
     "core:default",

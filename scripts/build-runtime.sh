@@ -47,7 +47,8 @@ uv run --frozen --project "$runtime_project" --python 3.12 \
   --paths "$runtime_project/src" \
   --collect-all mlx_studio_runtime \
   --collect-all pypdf --collect-all docx --collect-all PIL --collect-all lxml \
-  --collect-all httpx --hidden-import keyring.backends.macOS --copy-metadata keyring \
+  --collect-all httpx --collect-all tavily --collect-all tiktoken \
+  --hidden-import keyring.backends.macOS --copy-metadata keyring \
   "${collect_flags[@]}" \
   "$runtime_project/src/mlx_studio_runtime/entrypoints/http/main.py"
 

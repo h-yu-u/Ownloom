@@ -25,7 +25,7 @@ export async function buildSnapshot(
       .listApprovals(session.id)
       .map((item) => (item.status === 'pending' ? item : { ...item, parameters: {} })),
     verifications: checks.slice(-20),
-    events: repo.events(0, session.id).slice(-100),
+    events: repo.historyEvents(repo.watermark() + 1, session.id, 100),
     watermark: repo.watermark(),
     activeRun: repo.active() ?? null,
   }

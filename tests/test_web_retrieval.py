@@ -237,7 +237,7 @@ class WebRetrievalTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_tavily_200_with_failed_results_is_not_page_content(self):
         adapter = Tavily()
-        adapter._post = AsyncMock(
+        adapter._call = AsyncMock(
             return_value={
                 "results": [],
                 "failed_results": [{"url": "https://example.com"}],
@@ -246,7 +246,7 @@ class WebRetrievalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             await adapter.read(["https://example.com"], self.config, "test"), []
         )
-        adapter._post = AsyncMock(
+        adapter._call = AsyncMock(
             return_value={
                 "results": [
                     {"title": "Hit", "url": "https://example.com", "content": "Summary"}
@@ -254,7 +254,7 @@ class WebRetrievalTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         await adapter.search("question", self.config, "test")
-        self.assertFalse(adapter._post.call_args.args[3]["include_answer"])
+        self.assertFalse(adapter._call.call_args.args[3]["include_answer"])
 
     async def test_url_policy_rejects_loopback_private_ports_and_non_http(self):
         policy = PublicResultPolicy()
@@ -309,29 +309,25 @@ class WebRetrievalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["readCount"], 0)
 
     async def test_provider_redirect_cannot_forward_credentials(self):
-        request = httpx.Request("POST", "https://api.tavily.com/search")
-        response = httpx.Response(
-            302, headers={"location": "https://example.com"}, request=request
+        requests = []
+
+        def respond(request):
+            requests.append(request)
+            return httpx.Response(302, headers={"location": "https://example.com"})
+
+        with (
+            patch(
+                "mlx_studio_runtime.adapters.web.tavily.BoundedTransport",
+                return_value=httpx.MockTransport(respond),
+            ),
+            self.assertRaises(RuntimeFault),
+        ):
+            await Tavily().search(
+                "question",
+                WebConfig("id", 1, "tavily", "https://api.tavily.com", "ref"),
+                "private-key",
+            )
+        self.assertEqual(
+            [str(request.url) for request in requests],
+            ["https://api.tavily.com/search"],
         )
-        client = AsyncMock()
-
-        class Response:
-            async def __aenter__(self):
-                return response
-
-            async def __aexit__(self, *_):
-                pass
-
-        client.stream = lambda *_args, **_kwargs: Response()
-        client.__aenter__.return_value = client
-        with patch(
-            "mlx_studio_runtime.adapters.web.tavily.httpx.AsyncClient",
-            return_value=client,
-        ) as factory:
-            with self.assertRaises(RuntimeFault):
-                await Tavily().search(
-                    "question",
-                    WebConfig("id", 1, "tavily", "https://api.tavily.com", "ref"),
-                    "private-key",
-                )
-            self.assertFalse(factory.call_args.kwargs["follow_redirects"])

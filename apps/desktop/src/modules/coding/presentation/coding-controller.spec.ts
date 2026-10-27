@@ -71,6 +71,7 @@ function fixture() {
     submit: vi.fn(async () => run),
     cancelActive: vi.fn(async () => ({})),
     cancel: vi.fn(async () => ({})),
+    setPermissions: vi.fn(async (_id, permissionMode) => ({ ...run, permissionMode })),
     steer: vi.fn(async () => ({})),
     resolve: vi.fn(async () => ({})),
     changes: vi.fn(async () => ({ managed: [], workspace: '', diff: '', scope: '' })),
@@ -112,6 +113,47 @@ function fixture() {
   return { controller, gateway, release, observe }
 }
 describe('Coding workspace', () => {
+  it('updates the sidebar and current title from the accepted task snapshot', async () => {
+    const { controller, gateway } = fixture()
+    await controller.loadWorkspace('p', 's')
+    vi.mocked(gateway.snapshot).mockResolvedValue({
+      ...snapshot(),
+      session: { ...session, title: '帮我搭建一个图' },
+    })
+    await controller.send('帮我搭建一个图书馆系统')
+    expect(controller.snapshot.value?.session.title).toBe('帮我搭建一个图')
+    expect(controller.sessions.value.find((item) => item.id === 's')?.title).toBe('帮我搭建一个图')
+    controller.dispose()
+  })
+  it('keeps access choices scoped to a session and carries them into new tasks', async () => {
+    const { controller, gateway } = fixture()
+    await controller.loadWorkspace('p', 's')
+    await controller.setPermissions('full')
+    expect(controller.permissionMode.value).toBe('full')
+    await controller.send('task')
+    expect(gateway.submit).toHaveBeenCalledWith(
+      's',
+      expect.objectContaining({ permissionMode: 'full' }),
+    )
+    await controller.openSession('other')
+    expect(controller.permissionMode.value).toBe('ask')
+    controller.dispose()
+  })
+  it('changes the live run policy rather than approving individual commands', async () => {
+    const { controller, gateway } = fixture()
+    vi.mocked(gateway.snapshot).mockResolvedValue({ ...snapshot(), activeRun: run, runs: [run] })
+    await controller.loadWorkspace('p', 's')
+    vi.mocked(gateway.snapshot).mockResolvedValue({
+      ...snapshot(),
+      activeRun: { ...run, permissionMode: 'full' },
+      runs: [{ ...run, permissionMode: 'full' }],
+    })
+    await controller.setPermissions('full')
+    expect(gateway.setPermissions).toHaveBeenCalledWith('r', 'full')
+    expect(gateway.resolve).not.toHaveBeenCalled()
+    expect(controller.permissionMode.value).toBe('full')
+    controller.dispose()
+  })
   it('prepares an unverified model automatically before the first task', async () => {
     const { controller, gateway } = fixture()
     await controller.loadWorkspace('p', 's')

@@ -67,10 +67,14 @@ export class RunPolicy {
   ): Promise<void> {
     this.check()
     const { run, project, approvals, abort, update } = this.input
-    const policy = evaluateToolPolicy({ mode: run.mode, risk: tool.risk })
+    const policy = evaluateToolPolicy({
+      mode: run.mode,
+      risk: tool.risk,
+      permissionMode: this.input.repo.get('run', run.id).permissionMode,
+    })
     if (policy.decision === 'deny') throw new Error(policy.code)
-    if (policy.decision === 'allow') return
-    update({ status: 'awaiting_approval' })
+    if (tool.risk === 'read') return
+    if (policy.decision === 'ask') update({ status: 'awaiting_approval' })
     const allowed = await approvals.request(
       {
         runId: run.id,
@@ -82,6 +86,7 @@ export class RunPolicy {
         cwd: project.path,
       },
       signal ?? abort.signal,
+      policy.decision === 'allow',
     )
     this.check()
     update({ status: 'running' })
@@ -93,6 +98,8 @@ export class RunPolicy {
     content: string,
     expectedHash: string | null,
   ): Promise<void> {
+    this.check()
+    if (this.input.run.mode !== 'develop') throw new Error('READ_ONLY_MODE')
     if (
       !/(?:^|\/)(?:tests?|__tests__)(?:\/|$)|(?:^|\/)test_[^/]+|\.(?:test|spec)\.[^/]+$|(?:^|\/)(?:package\.json|pyproject\.toml|.*lock|[^/]*config[^/]*)$/.test(
         path,
@@ -100,7 +107,8 @@ export class RunPolicy {
     )
       return
     const { run, project, approvals, abort, update } = this.input
-    update({ status: 'awaiting_approval' })
+    const trusted = this.input.repo.get('run', run.id).permissionMode === 'full'
+    if (!trusted) update({ status: 'awaiting_approval' })
     const allowed = await approvals.request(
       {
         runId: run.id,
@@ -112,6 +120,7 @@ export class RunPolicy {
         cwd: project.path,
       },
       abort.signal,
+      trusted,
     )
     if (abort.signal.aborted) throw new Error('CANCELLED')
     update({ status: 'running' })

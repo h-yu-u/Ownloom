@@ -89,7 +89,7 @@ class WorkerHost:
         self,
         job_id: str,
         prompt: str,
-        max_tokens: int,
+        max_tokens: int | None,
         temperature: float,
         image_paths: list[str] | None = None,
         messages: list[dict[str, str]] | None = None,

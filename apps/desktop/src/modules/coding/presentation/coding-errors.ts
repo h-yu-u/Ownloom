@@ -10,6 +10,7 @@ const labels: Record<string, string> = {
   CODING_HOST_NOT_AVAILABLE: 'Coding 服务暂不可用，请重试连接。',
   RUN_NOT_READY: '任务仍在准备，请稍后再补充。输入已保留。',
   CODING_BUSY: '另一个开发任务正在执行，请停止它或等待完成。',
+  READ_ONLY_MODE: '分析和审查模式保持只读；请切换到开发模式后选择完全访问。',
   CODING_QUEUE_FULL: '已有一个下一任务排队，请等待它开始。',
   SESSION_IN_USE: '该会话仍有运行或排队任务，请先停止任务。',
   VERIFICATION_COMMANDS_REQUIRED: '请先在项目设置中填写验证命令。',

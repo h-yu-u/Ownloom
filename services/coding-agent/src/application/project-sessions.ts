@@ -71,6 +71,7 @@ export class ProjectSessions {
         return this.repo.save('session', {
           ...session,
           title: p.title === undefined ? session.title : string(p.title, 160),
+          ...(p.title === undefined ? {} : { titleSource: 'manual' as const }),
           pinned: typeof p.pinned === 'boolean' ? p.pinned : session.pinned,
           archived: typeof p.archived === 'boolean' ? p.archived : session.archived,
         })

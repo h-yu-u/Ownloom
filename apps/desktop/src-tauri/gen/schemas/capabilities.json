@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"MLX Studio main window permissions","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:allow-save"]}}
+{"default":{"identifier":"default","description":"Ownloom main window permissions","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:allow-save"]}}

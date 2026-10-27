@@ -152,7 +152,7 @@ export function tools(context: ToolContext): ToolDefinition[] {
     selected.push(
       tool(
         'run_command',
-        'Request a command with one-time local-user approval. Never use git commit/push/reset/clean.',
+        'Run a command under the selected access policy; the runtime asks approval when required. Never use git commit/push/reset/clean.',
         Type.Object(
           { command: Type.String({ minLength: 1, maxLength: 4096 }) },
           { additionalProperties: false },

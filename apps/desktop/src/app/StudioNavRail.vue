@@ -14,7 +14,9 @@ const links = [
 </script>
 <template>
   <nav class="icon-rail" aria-label="主导航">
-    <RouterLink to="/chat" class="rail-brand" aria-label="MLX Studio 首页">M</RouterLink>
+    <RouterLink to="/chat" class="rail-brand" aria-label="Ownloom 首页">
+      <img src="/ownloom.svg" alt="" width="32" height="32" />
+    </RouterLink>
     <RouterLink
       v-for="link in links"
       :key="link.to"
@@ -48,8 +50,6 @@ const links = [
 }
 .rail-brand {
   color: var(--text-primary);
-  font-size: 22px;
-  font-weight: 650;
   margin-bottom: 10px;
 }
 .rail-link:hover,

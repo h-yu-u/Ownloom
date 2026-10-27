@@ -156,6 +156,15 @@ export function createChatStream(deps: ChatStreamDependencies) {
     instanceId = ''
     phase.value = 'accepted'
     if (active) release = deps.observe(id, after, applyEvent, reconcile)
+    const owner = epoch
+    void deps.gateway
+      .list()
+      .then((items) => {
+        if (active && owner === epoch) deps.refresh(items)
+      })
+      .catch((cause: unknown) => {
+        if (active && owner === epoch) failed(cause)
+      })
   }
   async function resume(): Promise<void> {
     active = true
