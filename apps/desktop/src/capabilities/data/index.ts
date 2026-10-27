@@ -1,0 +1,1 @@
+export { createDataManagement } from './configuration'

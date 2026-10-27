@@ -1,0 +1,43 @@
+{
+  "name": "ownloom",
+  "private": true,
+  "license": "MIT",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.11.0",
+  "scripts": {
+    "dev": "pnpm build:coding && pnpm --filter @mlx-studio/desktop tauri dev --config src-tauri/tauri.dev.conf.json",
+    "dev:web": "pnpm build:coding && pnpm --filter @mlx-studio/desktop dev",
+    "api:generate": "pnpm --filter @mlx-studio/api-client generate",
+    "check": "pnpm tokens:check && pnpm check:docs && pnpm check:format && pnpm check:frontend && pnpm check:runtime && pnpm check:coding && pnpm check:boundaries",
+    "check:docs": "node --test scripts/check-docs.spec.mjs && node scripts/check-docs.mjs && prettier --check \"*.md\" \"docs/**/*.md\"",
+    "check:frontend": "pnpm --filter @mlx-studio/desktop typecheck && pnpm --filter @mlx-studio/desktop lint",
+    "check:runtime": "uv run --project services/runtime --python 3.12 ruff check services/runtime/src tests scripts/generate_coding_rpc.py scripts/verify_local_speech.py scripts/verify_release_bundle.py scripts/seed_acceptance_database.py scripts/verify_speech_quality.py scripts/verify_local_edit.py && uv run --project services/runtime --python 3.12 pyright --pythonpath services/runtime/.venv/bin/python services/runtime/src",
+    "check:boundaries": "uv run --project services/runtime --python 3.12 python scripts/generate_coding_rpc.py --check && node --test scripts/check-boundaries.spec.mjs && node scripts/check-boundaries.mjs && node scripts/check-source-quality.mjs",
+    "check:rust": "cargo fmt --check --manifest-path apps/desktop/src-tauri/Cargo.toml && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings",
+    "test": "pnpm test:frontend && pnpm test:runtime && pnpm test:coding && pnpm test:acceptance",
+    "test:frontend": "pnpm --filter @mlx-studio/desktop test",
+    "test:runtime": "pnpm build:coding && PYTHONPATH=services/runtime/src uv run --project services/runtime --python 3.12 python -m unittest discover -s tests -v",
+    "build:runtime:check": "python3 -c 'from pathlib import Path; [compile(p.read_text(), str(p), \"exec\") for p in Path(\"services/runtime/src\").rglob(\"*.py\")]'",
+    "build:runtime": "pnpm build:runtime:check",
+    "build:web": "pnpm --filter @mlx-studio/desktop build",
+    "build:sidecar": "bash scripts/build-runtime.sh",
+    "build:app": "pnpm build:coding:bundle && pnpm build:web && pnpm build:sidecar && CI=true pnpm --filter @mlx-studio/desktop tauri build --ci",
+    "build:desktop": "pnpm build:app",
+    "bootstrap": "pnpm install --frozen-lockfile && uv sync --project services/runtime --frozen --extra mlx-vlm --extra mflux --extra audio",
+    "test:rust": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "format": "prettier --write \"apps/desktop/src/**/*.{ts,vue,css}\" \"packages/api-client/src/**/*.ts\" \"scripts/*.mjs\" \"services/coding-agent/src/**/*.ts\" \"services/coding-agent/tests/*.mjs\" apps/desktop/vite.config.ts && uv run --project services/runtime --python 3.12 ruff format services/runtime/src tests scripts/check-python-boundaries.py",
+    "check:format": "prettier --check \"apps/desktop/src/**/*.{ts,vue,css}\" \"packages/api-client/src/**/*.ts\" \"scripts/*.mjs\" \"services/coding-agent/src/**/*.ts\" \"services/coding-agent/tests/*.mjs\" apps/desktop/vite.config.ts && uv run --project services/runtime --python 3.12 ruff format --check services/runtime/src tests scripts/check-python-boundaries.py scripts/generate_coding_rpc.py scripts/verify_local_speech.py scripts/verify_release_bundle.py scripts/seed_acceptance_database.py scripts/verify_speech_quality.py scripts/verify_local_edit.py",
+    "build:coding": "pnpm --filter @mlx-studio/coding-agent build",
+    "check:coding": "pnpm --filter @mlx-studio/coding-agent check",
+    "test:coding": "pnpm --filter @mlx-studio/coding-agent test",
+    "build:coding:bundle": "bash scripts/build-coding-host.sh",
+    "rpc:generate": "uv run --project services/runtime --python 3.12 python scripts/generate_coding_rpc.py",
+    "test:acceptance": "node --test scripts/acceptance.spec.mjs",
+    "tokens:generate": "node scripts/generate-design-tokens.mjs",
+    "tokens:check": "node scripts/generate-design-tokens.mjs --check"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "^16.10.4",
+    "prettier": "3.6.2"
+  }
+}

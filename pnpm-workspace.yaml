@@ -1,0 +1,14 @@
+packages:
+  - apps/desktop
+  - packages/api-client
+  - services/coding-agent
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true
+  "@google/genai": false
+  protobufjs: false
+
+# Keep workspace installs reproducible across interactive and sandboxed shells.
+enableGlobalVirtualStore: false
+storeDir: .build/pnpm-store

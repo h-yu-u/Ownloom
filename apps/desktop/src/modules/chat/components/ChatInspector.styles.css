@@ -1,0 +1,193 @@
+.inspector-actions :deep(.n-button__content) {
+  gap: 7px;
+}
+
+.chat-inspector {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.inspector-card {
+  padding: 19px 17px;
+}
+
+.inspector-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.inspector-heading h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.inspector-heading h2 svg {
+  color: var(--text-secondary);
+}
+
+.inspector-heading :deep(.n-button) {
+  color: var(--text-tertiary);
+}
+
+.parameter-control {
+  margin-bottom: 18px;
+}
+
+.output-help {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.output-length :deep(.n-input-number) {
+  width: 104px;
+}
+
+.parameter-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 11px;
+}
+
+.parameter-label label {
+  white-space: nowrap;
+}
+
+.parameter-label label > span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.parameter-label :deep(.n-input-number) {
+  width: 54px;
+  flex-shrink: 0;
+}
+
+.parameter-label :deep(.n-input-wrapper) {
+  padding: 0 8px;
+}
+
+.parameter-label :deep(.n-input) {
+}
+
+.parameter-value {
+  min-width: 54px;
+  padding: 6px 10px;
+  border: 1px solid var(--surface-hover);
+  border-radius: 9px;
+  text-align: center;
+  background: var(--surface-body);
+}
+
+.unavailable-parameter {
+  opacity: 0.6;
+}
+
+.advanced-settings {
+  border: 1px solid var(--surface-hover);
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-card);
+  font-size: 13px;
+}
+
+.advanced-settings :deep(.n-collapse-item__header-main) {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+.advanced-settings p {
+  margin: 5px 0;
+  font-size: 12px;
+}
+
+.session-info .inspector-heading {
+  margin-bottom: 17px;
+}
+
+.session-info dl {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+  font-size: 12px;
+}
+
+.session-info dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.session-info dt {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.session-info dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-info .status-dot {
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+}
+
+.inspector-actions {
+  padding: 19px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.inspector-actions :deep(.n-button) {
+  height: 44px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 1250px) {
+  .inspector-card {
+    padding: 17px 14px;
+  }
+}
+
+@media (max-width: 1250px) {
+  .parameter-label {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1250px) {
+  .parameter-label label > span {
+    font-size: 10px;
+  }
+}
+
+:global(.n-drawer) .chat-inspector {
+  overflow: visible;
+}
+
+:global(.n-drawer) .inspector-actions {
+  margin-top: 0;
+}

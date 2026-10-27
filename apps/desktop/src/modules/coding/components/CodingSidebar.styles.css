@@ -1,0 +1,132 @@
+.coding-sidebar {
+  width: 248px;
+  min-width: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 12px;
+  background: var(--surface-sidebar);
+  border-right: 1px solid var(--line);
+}
+.sidebar-heading,
+.heading-actions,
+.list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-heading,
+.project-switcher,
+.list-heading {
+  flex-shrink: 0;
+}
+.sidebar-heading {
+  padding-left: 8px;
+  margin-bottom: 6px;
+}
+h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.heading-actions {
+  color: var(--muted);
+  gap: 2px;
+}
+.project-switcher {
+  width: 100%;
+  padding: 0 9px;
+  justify-content: flex-start;
+  text-align: left;
+}
+.project-switcher :deep(.n-button__content) {
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  font-size: 13px;
+}
+.project-switcher span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-switcher svg,
+.pinned-marker {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.session-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.list-heading {
+  padding-left: 9px;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.session-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.session-list :deep(.session-row) {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 2px 6px 2px 10px;
+}
+.session-list :deep(.session-actions) {
+  opacity: 0;
+  pointer-events: none;
+}
+.session-list :deep(.session-row:hover .session-actions),
+.session-list :deep(.session-row:focus-within .session-actions),
+.session-list :deep(.session-row.menu-open .session-actions),
+.session-list :deep(.session-row.selected .session-actions) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pinned-marker {
+  display: flex;
+  align-items: center;
+}
+.sidebar-empty {
+  padding: 8px 10px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.load-more {
+  align-self: center;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+@media (hover: none) {
+  .session-list :deep(.session-actions) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+@media (max-width: 1000px) {
+  .coding-sidebar {
+    width: 216px;
+  }
+}
+@media (max-width: 680px) {
+  .coding-sidebar {
+    width: auto;
+    max-height: 240px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}

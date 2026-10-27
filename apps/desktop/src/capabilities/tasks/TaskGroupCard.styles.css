@@ -1,0 +1,91 @@
+.task-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-card);
+}
+.task-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.task-card-heading h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+.task-card-heading :deep(.n-tag) {
+  flex-shrink: 0;
+}
+.task-card-meta,
+.task-card-actions,
+.download-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.task-card-meta {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.task-phase,
+.task-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.task-error {
+  color: var(--status-error);
+}
+.task-card-actions {
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.task-card-actions a {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+.task-card-actions a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+.task-records {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.task-records summary {
+  padding-top: 10px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.task-records ol {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.task-records li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 6px 0;
+  color: var(--text-secondary);
+}
+.task-records li > span:first-child {
+  flex: 1;
+  min-width: 100px;
+}
+.task-records time {
+  color: var(--text-muted);
+}
+@media (max-width: 400px) {
+  .task-card {
+    padding: 12px;
+  }
+}

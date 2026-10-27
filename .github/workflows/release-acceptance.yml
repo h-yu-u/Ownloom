@@ -1,0 +1,58 @@
+name: Release artifact acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      text_model:
+        description: Absolute offline text/VLM model directory on the build host
+        required: true
+      image_model:
+        description: Absolute offline MFLUX model directory on the build host
+        required: true
+      preset_model:
+        description: Absolute offline Qwen3-TTS CustomVoice directory
+        required: true
+      clone_model:
+        description: Absolute offline Qwen3-TTS Base directory
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-models:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project services/runtime --frozen --extra mlx-vlm --extra mflux --extra audio
+      - run: pnpm check && pnpm test
+      - run: pnpm build:app
+        env:
+          MLX_STUDIO_BUILD_PROFILE: release
+      - name: Exercise the actual app resources offline
+        env:
+          TEXT_MODEL: ${{ inputs.text_model }}
+          IMAGE_MODEL: ${{ inputs.image_model }}
+          PRESET_MODEL: ${{ inputs.preset_model }}
+          CLONE_MODEL: ${{ inputs.clone_model }}
+        run: |
+          uv run --frozen --project services/runtime --python 3.12 \
+            python scripts/verify_release_bundle.py \
+            --app 'apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app' \
+            --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
+            --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-acceptance-evidence
+          path: .build/release-acceptance/

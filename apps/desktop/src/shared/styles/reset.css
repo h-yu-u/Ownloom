@@ -1,0 +1,118 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    sans-serif;
+  color: var(--text-primary);
+  background: var(--surface-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+html {
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  min-width: 360px;
+}
+
+button {
+  font: inherit;
+}
+
+input {
+  font: inherit;
+}
+
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
+}
+
+svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-hover);
+  border-radius: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *::before {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ownloom",
+  "mainBinaryName": "ownloom",
+  "version": "0.1.0",
+  "identifier": "local.mlxstudio.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "Ownloom",
+        "width": 1360,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:*; media-src 'self' blob:; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "dmg",
+      "app"
+    ],
+    "category": "public.app-category.productivity",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns"
+    ],
+    "externalBin": [
+      "binaries/mlx-studio-runtime"
+    ],
+    "resources": {
+      "resources/coding-agent/": "coding-agent/"
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": false
+    }
+  }
+}

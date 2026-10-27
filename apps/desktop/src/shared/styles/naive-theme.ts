@@ -1,0 +1,60 @@
+import type { GlobalThemeOverrides } from 'naive-ui'
+import { designTokens as t } from './token-values.generated'
+export const themeOverrides = {
+  common: {
+    primaryColor: t.action.primary,
+    primaryColorHover: t.action.hover,
+    primaryColorPressed: t.action.pressed,
+    bodyColor: t.surface.body,
+    cardColor: t.surface.card,
+    modalColor: t.surface.overlay,
+    popoverColor: t.surface.overlay,
+    textColorBase: t.text.primary,
+    textColor1: t.text.primary,
+    textColor2: t.text.secondary,
+    textColor3: t.text.tertiary,
+    borderColor: t.border.subtle,
+    borderRadius: `${t.radius.control}px`,
+    fontFamily: 'inherit',
+    successColor: t.status.success,
+    warningColor: t.status.warning,
+    errorColor: t.status.error,
+    infoColor: t.status.info,
+  },
+  Button: {
+    heightSmall: `${t.controlHeight.small}px`,
+    heightMedium: `${t.controlHeight.medium}px`,
+    heightLarge: `${t.controlHeight.large}px`,
+    fontWeight: '500',
+    textColorPrimary: t.action.onPrimary,
+    textColorHoverPrimary: t.action.onPrimary,
+    textColorPressedPrimary: t.action.onPrimary,
+    textColorFocusPrimary: t.action.onPrimary,
+  },
+  Slider: {
+    fillColor: t.action.pressed,
+    fillColorHover: t.action.primary,
+    railColor: t.border.strong,
+    handleSize: '17px',
+  },
+  Input: {
+    color: t.surface.sidebar,
+    colorFocus: t.surface.card,
+    border: `1px solid ${t.border.strong}`,
+    borderHover: `1px solid ${t.border.focus}`,
+    borderFocus: `1px solid ${t.border.focus}`,
+  },
+  Select: {
+    peers: {
+      InternalSelection: {
+        color: t.surface.sidebar,
+        colorActive: t.surface.card,
+        border: `1px solid ${t.border.strong}`,
+        borderHover: `1px solid ${t.border.focus}`,
+        borderActive: `1px solid ${t.border.focus}`,
+      },
+    },
+  },
+  Popover: { color: t.surface.overlay, borderRadius: `${t.radius.overlay}px` },
+  Drawer: { color: t.surface.overlay },
+} satisfies GlobalThemeOverrides

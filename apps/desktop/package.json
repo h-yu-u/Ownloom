@@ -1,0 +1,48 @@
+{
+  "name": "@mlx-studio/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc -b && vite build",
+    "typecheck": "vue-tsc -b --pretty false",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@lezer/highlight": "^1.2.5",
+    "@mlx-studio/api-client": "workspace:*",
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@vueuse/core": "^13.0.0",
+    "diff": "8.0.3",
+    "diff2html": "3.4.56",
+    "dompurify": "^3.2.4",
+    "marked": "^15.0.7",
+    "naive-ui": "^2.41.0",
+    "pinia": "^3.0.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0",
+    "@types/node": "^22.13.4",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^9.19.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "jsdom": "^26.0.0",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.24.0",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5",
+    "vue-tsc": "^2.2.0"
+  }
+}

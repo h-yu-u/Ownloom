@@ -1,0 +1,144 @@
+.hub-discovery {
+  padding: 26px;
+  margin: 20px 0 32px;
+  background: var(--surface-card);
+}
+.hub-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 27px;
+}
+.hub-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  color: var(--text-secondary);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text-secondary) 27%, transparent),
+    color-mix(in srgb, var(--text-secondary) 27%, transparent)
+  );
+  border: 1px solid var(--text-secondary);
+}
+.hub-heading h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.hub-heading p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.hub-heading > .n-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.hub-select-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.hub-select-label span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.hub-picker-row {
+  display: flex;
+  gap: 12px;
+}
+.hub-picker-row > .n-select {
+  flex: 1;
+  min-width: 0;
+}
+.hub-picker-row > .n-button {
+  flex-shrink: 0;
+}
+.hub-picker-row .n-button :deep(.n-button__content) {
+  gap: 8px;
+}
+.hub-selection {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px 18px;
+  margin-top: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-card) 50%, transparent);
+}
+.hub-selection > svg {
+  color: var(--text-secondary);
+}
+.hub-selection > .n-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.selected-model-info {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.selected-model-info strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+.selected-model-info span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.hub-notice {
+  margin-top: 16px;
+  font-size: 12px;
+}
+.hub-notice .n-button {
+  margin-left: 12px;
+}
+.hub-footnote {
+  display: flex;
+  align-items: start;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin: 16px 0 0;
+  line-height: 1.7;
+}
+.hub-footnote svg {
+  margin-top: 2px;
+}
+@media (max-width: 900px) {
+  .hub-heading > .n-tag {
+    display: none;
+  }
+}
+@media (max-width: 680px) {
+  .hub-discovery {
+    padding: 18px;
+  }
+  .hub-heading {
+    align-items: start;
+    gap: 12px;
+  }
+  .hub-heading h2 {
+    font-size: 17px;
+  }
+  .hub-select-label {
+    align-items: start;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .hub-picker-row {
+    flex-direction: column;
+  }
+  .hub-selection {
+    padding: 12px;
+  }
+}

@@ -1,0 +1,59 @@
+.chat-welcome {
+  width: 100%;
+  margin: auto;
+  padding: 24px 0 30px;
+  text-align: center;
+}
+.chat-welcome h1 {
+  font-size: clamp(26px, 2.8vw, 38px);
+  letter-spacing: -1px;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+.chat-welcome p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.welcome-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 25px;
+}
+.example-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+.example-card:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+@media (max-width: 680px) {
+  .chat-welcome {
+    padding-bottom: 22px;
+  }
+  .chat-welcome h1 {
+    font-size: 26px;
+  }
+  .welcome-suggestions {
+    gap: 7px;
+  }
+  .example-card {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}

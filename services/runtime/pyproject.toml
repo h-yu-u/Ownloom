@@ -1,0 +1,58 @@
+[project]
+name = "mlx-studio-runtime"
+version = "0.1.0"
+description = "Local Ownloom supervisor and isolated inference worker"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "pydantic>=2.10,<3",
+  "huggingface-hub>=1.5,<2",
+  "pypdf>=6.1,<7",
+  "python-docx>=1.2,<2",
+  "pillow>=11,<13",
+  "httpx>=0.28,<1",
+  "keyring>=25,<26",
+  "tavily-python==0.8.5",
+]
+
+[project.optional-dependencies]
+mlx-lm = ["mlx-lm>=0.24,<1"]
+mlx-vlm = [
+    "jinja2>=3.1,<4",
+    "mlx==0.32.1 ; sys_platform == 'darwin'",
+    "mlx-vlm==0.6.14",
+]
+mflux = [
+    "mflux==0.22.0",
+]
+audio = [
+    "mlx-audio==0.5.9",
+]
+
+[dependency-groups]
+build = [
+    "pyinstaller==6.16.0",
+]
+dev = [
+  "numpy>=2,<3",
+  "pyright>=1.1.390,<2",
+  "ruff>=0.9,<1",
+]
+
+[tool.ruff]
+extend-exclude = ["src/mlx_studio_runtime/domain/generated"]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["src"]
+
+[tool.uv]
+package = false

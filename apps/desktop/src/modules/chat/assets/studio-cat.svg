@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="330" viewBox="0 0 640 330">
+<defs><linearGradient id="bg"><stop stop-color="#bcb2ad"/><stop offset=".5" stop-color="#e4d8cc"/><stop offset="1" stop-color="#b4a39a"/></linearGradient><radialGradient id="fur" cx=".35" cy=".3"><stop stop-color="#fff7e9"/><stop offset=".7" stop-color="#dfc9b2"/><stop offset="1" stop-color="#b99c85"/></radialGradient><radialGradient id="eye"><stop stop-color="#cbb788"/><stop offset="1" stop-color="#817a4f"/></radialGradient><filter id="soft"><feGaussianBlur stdDeviation="3"/></filter></defs>
+<path fill="url(#bg)" d="M0 0h640v330H0z"/><path stroke="#f4e9de" stroke-width="40" opacity=".4" filter="url(#soft)" d="M70 0v330M170 0v330M550 0v330"/>
+<ellipse cx="345" cy="340" rx="154" ry="147" fill="url(#fur)"/><path d="m230 162-21-123q-1-17 18-7l86 62m69 2 79-62q15-10 13 10l-15 133" fill="url(#fur)"/><path d="m227 53 61 50-49 31zm170 55 57-51-8 80z" fill="#c99991"/>
+<path d="M218 158q5-74 114-77 110-2 129 84l-7 66q-34 67-115 68-99-9-119-76z" fill="url(#fur)"/>
+<g fill="#a88470" opacity=".45"><path d="m302 85 20 37 8-39 12 39 13-39 14 43 9-37zM224 168l44 17-42 5 42 16-42 4zm231 2-40 16 40 4-40 15 39 7z"/></g>
+<path d="M262 165q25-24 51 6-23 28-51-6m102 6q25-30 51-6-28 34-51 6" fill="#54483c"/>
+<ellipse cx="288" cy="169" rx="21" ry="20" fill="url(#eye)"/><ellipse cx="389" cy="169" rx="21" ry="20" fill="url(#eye)"/>
+<ellipse cx="290" cy="168" rx="8" ry="18" fill="#242b29"/><ellipse cx="386" cy="168" rx="8" ry="18" fill="#242b29"/><g fill="#fff"><circle cx="282" cy="161" r="5"/><circle cx="381" cy="161" r="5"/></g>
+<ellipse cx="313" cy="217" rx="32" ry="25" fill="#f6e9d9"/><ellipse cx="364" cy="217" rx="32" ry="25" fill="#f6e9d9"/><path d="m328 205 20 1-10 12z" fill="#b47f7b"/><path d="M338 218v10m0 0q-9 8-18 0m18 0q9 8 18 0" fill="none" stroke="#826858" stroke-width="2"/>
+<g stroke="#f9eee2" stroke-width="2" fill="none" opacity=".85"><path d="m305 215-119-14m119 23-120 7m120 2-110 23m174-41 118-17m-118 25 123 6m-123 5 110 25"/></g></svg>

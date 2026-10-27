@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project services/runtime --frozen
+      - run: pnpm api:generate
+      - name: Verify generated API types are current
+        run: git diff --exit-code -- packages/api-client/src/generated-schema.d.ts
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build:web
+
+  rust:
+    runs-on: macos-14
+    env:
+      TAURI_CONFIG: '{"bundle":{"externalBin":[],"resources":[]}}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Provide sidecar placeholder for compile-time validation
+        run: |
+          mkdir -p apps/desktop/src-tauri/binaries
+          touch apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin
+      - run: cargo fmt --check --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml

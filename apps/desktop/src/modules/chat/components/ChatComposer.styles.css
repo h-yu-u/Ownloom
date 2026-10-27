@@ -1,0 +1,82 @@
+.composer {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-card);
+  padding: 12px 12px 10px;
+  transition: border-color 0.18s;
+}
+.composer:focus-within {
+  border-color: var(--border-strong);
+}
+.composer :deep(.n-input__textarea-el) {
+  min-height: 56px;
+}
+.composer-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.composer-tools,
+.composer-send {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.composer-tools {
+  flex: 1;
+  flex-wrap: wrap;
+}
+.composer-send {
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+.composer-tools :deep(.n-button) {
+  height: 32px;
+  padding: 0 8px;
+  color: var(--text-tertiary);
+}
+.composer-tools :deep(.n-button__content) {
+  gap: 6px;
+  font-size: 12px;
+}
+.composer-tools :deep(.network-toggle.is-enabled) {
+  color: var(--accent);
+}
+.send-button.n-button {
+  height: 36px;
+  width: 36px;
+  flex-shrink: 0;
+}
+.send-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 8px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+@media (max-width: 680px) {
+  .composer {
+    padding: 12px 10px 10px;
+  }
+  .composer-actions {
+    gap: 4px;
+  }
+  .composer-tools {
+    gap: 3px;
+  }
+}

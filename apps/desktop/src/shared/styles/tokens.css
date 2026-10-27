@@ -1,0 +1,9 @@
+@import './tokens.generated.css';
+:root {
+  --muted: var(--text-tertiary);
+  --text-muted: var(--text-tertiary);
+  --line: var(--border-subtle);
+  --accent: var(--action-primary);
+  --space-panel: var(--space-4);
+  --radius-button: var(--radius-control);
+}

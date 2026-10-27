@@ -1,0 +1,11 @@
+{
+  "name": "@mlx-studio/api-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "generate": "uv run --project ../../services/runtime --python 3.12 python ../../scripts/generate_openapi.py && openapi-typescript ../../.build/openapi.json -o src/generated-schema.d.ts"
+  },
+  "devDependencies": { "openapi-typescript": "^7.6.1" }
+}

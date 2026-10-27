@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+.build/
+dist/
+.venv/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/
+services/runtime/data/
+services/runtime/.runtime/
+*.log
+apps/desktop/src-tauri/resources/coding-agent/

@@ -1,0 +1,9 @@
+[project]
+name = "mlx-studio-text-spike"
+version = "0.1.0"
+description = "P0-02 mlx-lm text generation feasibility spike"
+requires-python = ">=3.12"
+dependencies = ["mlx-lm"]
+
+[tool.uv]
+package = false

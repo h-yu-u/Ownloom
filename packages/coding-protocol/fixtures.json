@@ -1,0 +1,185 @@
+[
+  {
+    "method": "settings.get",
+    "kind": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "method": "unknown",
+    "kind": "params",
+    "value": {},
+    "valid": false
+  },
+  {
+    "method": "sessions.list",
+    "kind": "params",
+    "value": {
+      "projectId": "p",
+      "before": null,
+      "limit": 100
+    },
+    "valid": true
+  },
+  {
+    "method": "sessions.list",
+    "kind": "params",
+    "value": {
+      "projectId": "p",
+      "limit": 501
+    },
+    "valid": false
+  },
+  {
+    "method": "sessions.update",
+    "kind": "params",
+    "value": {
+      "id": "s",
+      "archived": true
+    },
+    "valid": true
+  },
+  {
+    "method": "sessions.update",
+    "kind": "params",
+    "value": {
+      "id": "s",
+      "archived": "true"
+    },
+    "valid": false
+  },
+  {
+    "method": "sessions.update",
+    "kind": "params",
+    "value": {
+      "id": "s",
+      "extra": 1
+    },
+    "valid": false
+  },
+  {
+    "method": "approvals.resolve",
+    "kind": "params",
+    "value": {
+      "id": "a",
+      "allowed": false
+    },
+    "valid": true
+  },
+  {
+    "method": "approvals.resolve",
+    "kind": "params",
+    "value": {
+      "id": "a",
+      "allowed": 1
+    },
+    "valid": false
+  },
+  {
+    "method": "events.list",
+    "kind": "params",
+    "value": {
+      "after": true
+    },
+    "valid": false
+  },
+  {
+    "method": "events.list",
+    "kind": "params",
+    "value": {
+      "after": -1
+    },
+    "valid": false
+  },
+  {
+    "method": "events.wait",
+    "kind": "result",
+    "value": {
+      "events": [],
+      "watermark": 42
+    },
+    "valid": true
+  },
+  {
+    "method": "events.wait",
+    "kind": "result",
+    "value": {
+      "events": [],
+      "watermark": "42"
+    },
+    "valid": false
+  },
+  {
+    "method": "runs.submit",
+    "kind": "params",
+    "value": {
+      "sessionId": "s",
+      "submissionId": "r",
+      "text": "task",
+      "mode": "develop",
+      "provider": {
+        "modelId": "m",
+        "baseUrl": "http://127.0.0.1:1/internal/v1/inference",
+        "token": "test",
+        "contextWindow": 32768
+      }
+    },
+    "valid": true
+  },
+  {
+    "method": "runs.submit",
+    "kind": "params",
+    "value": {
+      "sessionId": "s",
+      "submissionId": "r",
+      "text": "task",
+      "mode": "unknown",
+      "provider": {}
+    },
+    "valid": false
+  },
+  {
+    "method": "sessions.update",
+    "kind": "params",
+    "value": {
+      "id": "s",
+      "title": "🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀"
+    },
+    "valid": true
+  },
+  {
+    "method": "sessions.update",
+    "kind": "params",
+    "value": {
+      "id": "s",
+      "title": "🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀"
+    },
+    "valid": false
+  },
+  {
+    "method": "runs.permissions",
+    "kind": "params",
+    "value": {
+      "id": "run",
+      "permissionMode": "full"
+    },
+    "valid": true
+  },
+  {
+    "method": "runs.permissions",
+    "kind": "params",
+    "value": {
+      "id": "run",
+      "permissionMode": "auto"
+    },
+    "valid": false
+  },
+  {
+    "method": "runs.permissions",
+    "kind": "params",
+    "value": {
+      "id": "run"
+    },
+    "valid": false
+  }
+]
