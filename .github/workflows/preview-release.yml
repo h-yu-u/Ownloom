@@ -1,0 +1,147 @@
+name: Preview release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag on main, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate tag, main ancestry and application versions
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: python scripts/preview_release.py validate "$RELEASE_TAG"
+
+  build:
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check Apple Silicon build host
+        run: |
+          test "$(uname -m)" = arm64
+          node -e 'if (process.arch !== "arm64") throw new Error("Node must be arm64")'
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project services/runtime --python 3.12 --frozen
+      - name: Check sources, generated contracts and tests
+        env:
+          UV_NO_SYNC: '1'
+          TAURI_CONFIG: '{"bundle":{"externalBin":[],"resources":[]}}'
+        run: |
+          pnpm api:generate
+          git diff --exit-code -- packages/api-client/src/generated-schema.d.ts
+          pnpm check
+          pnpm test
+          pnpm check:rust
+          pnpm test:rust
+      - name: Release disk space used by Rust debug checks
+        run: rm -rf apps/desktop/src-tauri/target/debug
+      - name: Build complete app with ad-hoc signing
+        env:
+          MLX_STUDIO_BUILD_PROFILE: release
+        run: |
+          pnpm build:app
+          git diff --exit-code
+      - name: Exercise the app from the final DMG and prepare public assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="apps/desktop/src-tauri/target/release/bundle/dmg/Ownloom_"$RELEASE_VERSION"_aarch64.dmg"
+          hdiutil verify "$dmg"
+          mount="$RUNNER_TEMP/ownloom-preview"
+          mkdir "$mount"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount"
+          trap 'hdiutil detach "$mount"' EXIT
+          sh scripts/run-bundle-acceptance.sh "$mount/Ownloom.app" \
+            --profile smoke --duration-seconds 0 --cycles 2 \
+            --output .build/preview-acceptance
+          python scripts/preview_release.py collect "$RELEASE_TAG" \
+            --commit "$RELEASE_SHA" --app "$mount/Ownloom.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-${{ needs.validate.outputs.tag }}
+          path: .build/preview-release/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the release tag still identifies the tested commit
+        run: python scripts/preview_release.py validate "$RELEASE_TAG"
+      - uses: actions/download-artifact@v4
+        with:
+          name: preview-${{ needs.validate.outputs.tag }}
+          path: .build/preview-release
+      - name: Upload verified assets, then publish the prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: python -m scripts.publish_preview_release "$RELEASE_REPOSITORY" "$RELEASE_TAG" "$RELEASE_SHA"

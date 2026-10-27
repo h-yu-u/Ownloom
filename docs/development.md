@@ -130,7 +130,7 @@ Markdown 不在源码 `pnpm format` 的写入范围中。修改文档后运行 `
 
 默认 Sidecar `release` profile 使用独立 `.build/runtime/venv-release`，收集真实引擎。仅验证替身时可运行 `MLX_STUDIO_BUILD_PROFILE=fake pnpm build:sidecar`；fake profile 不含真实推理依赖，不能作为正式发布产物。
 
-应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。发布步骤见[发布验收](./release-acceptance.md)。
+应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[预览版发布](./preview-release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
 
 ## 维护入口
 

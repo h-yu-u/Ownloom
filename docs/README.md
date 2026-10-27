@@ -14,6 +14,7 @@
 | 修改或审查代码                 | [编码规范](code-standards.md)、[贡献指南](contributors.md)、[经验记录](../LESSONS.md) |
 | 找到某项行为的源码和维护边界   | [子系统索引](subsystems/README.md)                                                    |
 | 判断验证覆盖及发布准备情况     | [验证矩阵](verification.md)、[发布验收](release-acceptance.md)                        |
+| 自动构建并发布预览版           | [预览版发布](preview-release.md)                                                      |
 
 ## 文档职责
 
