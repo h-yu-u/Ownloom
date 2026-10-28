@@ -35,6 +35,34 @@ jobs:
       - run: pnpm test
       - run: pnpm build web
 
+  coding-bundle:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build and check the deployed Coding bundle
+        run: pnpm build coding-bundle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coding-bundle-evidence
+          path: |
+            .build/coding/bundle-size.json
+            .build/coding/bundle-check.json
+            apps/desktop/src-tauri/resources/coding-agent/provenance.json
+          if-no-files-found: warn
+          retention-days: 7
+
   runtime-bundle:
     runs-on: macos-15
     timeout-minutes: 35

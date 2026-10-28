@@ -18,7 +18,7 @@
 | 单元/集成         | 前端、Python、Coding、验收工具和 Rust 测试源码                                                                                | 原生 GUI、模型质量或全部故障已覆盖                    |
 | FakeEngine        | 隔离 fixture 验证任务、协议、取消、持久化和恢复                                                                               | 真实引擎及打包依赖可用                                |
 | 源码真实模型      | 维护者曾记录固定模型的本机推理                                                                                                | 当前发行包或其他模型通过                              |
-| 包内 Runtime/Node | 资源验收脚本与历史限定报告                                                                                                    | 安装、正式签名、公证或独立干净机器通过                |
+| 包内 Runtime/Node | 独立构建 CI、资源验收脚本与历史限定报告；Coding 裁剪产物在仓库外运行 Host/Pi/MCP/SQLite 检查                                  | 真实模型、安装、正式签名、公证或独立干净机器通过      |
 | 原生 UI           | 维护者记录的限定交互样本                                                                                                      | 全部输入法、辅助功能和用户数据路径通过                |
 | 发行验证          | [手动工作流](../.github/workflows/release-acceptance.yml)要求 Apple Silicon 自托管 runner 与固定模型                          | 工作流已经执行、发布或公证；该工作流不发布应用        |
 | 正式版分发        | [发布流程](../.github/workflows/release.yml)校验版本、构建完整应用、检查 DMG 内启动与附件摘要后发布正式 Release 并设为 Latest | 正式签名、公证、真实模型、原生 GUI 或干净机器验收通过 |

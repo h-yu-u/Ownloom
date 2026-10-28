@@ -82,7 +82,7 @@ Host 重启把未结束运行标为 `interrupted`、拒绝旧待审批操作，�
 
 Host RPC 版本当前为 2，与 Runtime 握手及 `/internal/v1` 分开。修改 [schema.json](../../packages/coding-protocol/schema.json) 后运行 `pnpm generate rpc`；生成内容包含两端类型/校验数据、扩展 HTTP DTO 和 Coding 限额，再通过 OpenAPI 生成前端类型。
 
-发行资源由 [build-coding-host.sh](../../scripts/build/build-coding-host.sh) 打包固定 Node、Host、锁定依赖与内置 Skill，并生成来源摘要。冻结 Runtime 从固定资源目录启动 Host，不接受前端给出的任意程序路径；仅 Web 构建成功不能验证这条分发链路。
+发行资源由 [build-coding-host.sh](../../scripts/build/build-coding-host.sh) 打包固定 Node、Host、锁定依赖与内置 Skill，并生成来源摘要。依赖副本的裁剪规则、体积报告和仓库外包内验收见[开发指南](../development.md#coding-host-依赖边界)。冻结 Runtime 从固定资源目录启动 Host，不接受前端给出的任意程序路径；仅 Web 构建成功不能验证这条分发链路。
 
 ## 验证命令
 

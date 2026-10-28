@@ -22,6 +22,5 @@ install -m 755 "$node_path" "$repo_root/.build/coding-deploy/bin/node"
 # Build output only. User projects, model files and global Pi data are never copied.
 rm -rf "$bundle_directory"
 mv "$repo_root/.build/coding-deploy" "$bundle_directory"
-node scripts/build/validate-coding-bundle.mjs "$bundle_directory"
-"$bundle_directory/bin/node" --input-type=module -e 'import("./apps/desktop/src-tauri/resources/coding-agent/dist/adapters/pi-session.js").then(() => process.stderr.write("Bundled Pi adapter loaded.\n"))'
+node scripts/build/validate-coding-bundle.mjs "$bundle_directory" "$repo_root/.build/coding"
 

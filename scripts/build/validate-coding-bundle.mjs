@@ -1,8 +1,15 @@
-import { verifyExtensionsBundle } from '../acceptance/verify-extensions-bundle.mjs'
-import { readdir, readFile, realpath, unlink, rm, writeFile } from 'node:fs/promises'
+import { verifyCodingBundle } from '../acceptance/verify-coding-bundle.mjs'
+import { pruneCodingDependencies } from './coding-bundle-policy.mjs'
+import { mkdir, readdir, readFile, realpath, unlink, rm, writeFile } from 'node:fs/promises'
 import { resolve, join, relative, isAbsolute } from 'node:path'
 import { createHash } from 'node:crypto'
+if (!process.argv[2] || !process.argv[3])
+  throw new Error('Require the deployed Coding bundle and evidence directories')
 const root = resolve(process.argv[2])
+const evidence = resolve(process.argv[3])
+await mkdir(evidence, { recursive: true })
+for (const name of ['bundle-size.json', 'bundle-check.json'])
+  await rm(join(evidence, name), { force: true })
 const { protocolVersion } = JSON.parse(
   await readFile(new URL('../../packages/coding-protocol/schema.json', import.meta.url), 'utf8'),
 )
@@ -28,16 +35,17 @@ async function visit(directory) {
   }
 }
 await visit(root)
-const pi = JSON.parse(
-  await readFile(join(root, 'node_modules/@earendil-works/pi-coding-agent/package.json'), 'utf8'),
+const size = await pruneCodingDependencies(root)
+await writeFile(join(evidence, 'bundle-size.json'), JSON.stringify(size, null, 2) + '\n')
+process.stdout.write(
+  `Coding dependencies: ${size.before.bytes} -> ${size.after.bytes} bytes; removed ${size.removed.files} files (${size.removed.bytes} bytes).\n`,
 )
-if (pi.version !== '1.2.0') throw new Error('Unexpected Pi SDK version')
 await writeFile(
   join(root, 'provenance.json'),
   JSON.stringify(
     {
       protocolVersion,
-      piVersion: pi.version,
+      piVersion: size.piVersion,
       nodeVersion: process.versions.node,
       nodeSha256: createHash('sha256')
         .update(await readFile(join(root, 'bin/node')))
@@ -47,5 +55,6 @@ await writeFile(
     2,
   ),
 )
-await verifyExtensionsBundle(root)
-process.stdout.write('Coding bundle links and pinned runtime validated.\n')
+const check = await verifyCodingBundle(root)
+await writeFile(join(evidence, 'bundle-check.json'), JSON.stringify(check, null, 2) + '\n')
+process.stdout.write('Pruned Coding bundle and pinned runtime validated outside the workspace.\n')
