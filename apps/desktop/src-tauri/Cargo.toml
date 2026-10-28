@@ -1,6 +1,6 @@
 [package]
 name = "mlx-studio"
-version = "0.1.1"
+version = "0.1.2"
 description = "Ownloom local AI workbench"
 authors = ["Ownloom"]
 edition = "2021"
