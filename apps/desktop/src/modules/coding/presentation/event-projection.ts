@@ -16,6 +16,7 @@ export function projectCodingEvent(
   event: CodingEvent,
   projection: CodingProjection | null,
 ): CodingSnapshot | null {
+  if (event.seq <= snapshot.watermark) return snapshot
   if (!projection && /^(run\.|approval\.|verification\.)/.test(event.type)) return null
   const sameSession = event.sessionId === snapshot.session.id
   const next = {
