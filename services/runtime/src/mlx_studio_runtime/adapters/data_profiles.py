@@ -1,15 +1,23 @@
 """Validated restores create a separate data profile; the previous profile stays intact."""
 
+import asyncio
 import hashlib
 import json
 import shutil
 import sqlite3
 import stat
+import time
 import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any
 from zipfile import BadZipFile, ZipFile
 
+from mlx_studio_runtime.adapters.temporary_data import (
+    TEMPORARY_TTL,
+    discard_temporary,
+    prune_temporaries,
+)
+from mlx_studio_runtime.application.task_completion import finish_owned_task
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
 MAX_ARCHIVE = 4 * 1024**3
@@ -50,14 +58,59 @@ class DataProfiles:
     def __init__(self, database: Path) -> None:
         self.root = profile_base(database)
         self.staging = self.root / ".restore"
+        self._active: set[str] = set()
+        self._uploads: set[str] = set()
+        prune_temporaries(self.staging)
 
     def upload_path(self) -> tuple[str, Path]:
+        prune_temporaries(self.staging, self._active | self._uploads)
         identifier = str(uuid.uuid4())
         directory = self.staging / identifier
         directory.mkdir(parents=True, mode=0o700)
+        self._uploads.add(identifier)
         return identifier, directory / "backup.zip"
 
     def validate(self, identifier: str) -> dict[str, Any]:
+        identifier = _identifier(identifier)
+        directory = self.staging / identifier
+        if identifier in self._active:
+            raise RuntimeFault(RuntimeErrorInfo("RESTORE_BUSY", "备份仍在校验中"))
+        if not directory.is_dir() or directory.stat().st_mtime < time.time() - TEMPORARY_TTL:
+            self.discard_upload(identifier)
+            raise RuntimeFault(
+                RuntimeErrorInfo("RESTORE_NOT_FOUND", "恢复预览已过期，请重新选择备份")
+            )
+        self._active.add(identifier)
+        try:
+            shutil.rmtree(directory / "verified", ignore_errors=True)
+            return self._validate(identifier)
+        except BaseException:
+            discard_temporary(self.staging, directory)
+            raise
+        finally:
+            self._active.discard(identifier)
+            self._uploads.discard(identifier)
+
+    async def inspect(self, identifier: str) -> dict[str, Any]:
+        work = asyncio.get_running_loop().run_in_executor(None, self.validate, identifier)
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            try:
+                await finish_owned_task(work)
+            except Exception:
+                pass
+            self.discard_upload(identifier)
+            raise
+
+    def discard_upload(self, identifier: str) -> None:
+        identifier = _identifier(identifier)
+        if identifier in self._active:
+            raise RuntimeFault(RuntimeErrorInfo("RESTORE_BUSY", "备份仍在校验中"))
+        discard_temporary(self.staging, self.staging / identifier)
+        self._uploads.discard(identifier)
+
+    def _validate(self, identifier: str) -> dict[str, Any]:
         directory = self.staging / _identifier(identifier)
         source = directory / "backup.zip"
         try:
@@ -148,13 +201,13 @@ class DataProfiles:
 
     def prepare(self, identifier: str) -> tuple[Path, Path]:
         identifier = _identifier(identifier)
-        # Revalidate immediately before importing, including hashes of every media file.
-        self.validate(identifier)
         source = self.staging / identifier / "verified"
         target = self.root / "profiles" / identifier
         data = target / "data"
         if (data / "coding" / "restore-complete").is_file():
             return source / "node", data / "coding"
+        # Revalidate immediately before importing, including hashes of every media file.
+        self.validate(identifier)
         if target.exists():
             shutil.rmtree(target)
         target.mkdir(parents=True, mode=0o700)
@@ -165,6 +218,19 @@ class DataProfiles:
         if (source / "media").is_dir():
             shutil.copytree(source / "media", target / "media")
         return source / "node", data / "coding"
+
+    async def prepare_async(self, identifier: str) -> tuple[Path, Path]:
+        work = asyncio.get_running_loop().run_in_executor(None, self.prepare, identifier)
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            try:
+                await finish_owned_task(work)
+            except Exception:
+                pass
+            self.discard(identifier)
+            self.discard_upload(identifier)
+            raise
 
     def discard(self, identifier: str) -> None:
         target = self.root / "profiles" / _identifier(identifier)
@@ -182,10 +248,12 @@ class DataProfiles:
         pointer = self.root / "active-profile.json"
         previous = json.loads(pointer.read_text()).get("id") if pointer.is_file() else None
         if previous == identifier:
+            self.discard_upload(identifier)
             return {"requiresRestart": True, "profileId": identifier}
         temporary = pointer.with_suffix(".pending")
         temporary.write_text(json.dumps({"id": identifier, "previous": previous}))
         temporary.replace(pointer)
+        self.discard_upload(identifier)
         return {"requiresRestart": True, "profileId": identifier}
 
     def rollback(self) -> dict[str, bool]:

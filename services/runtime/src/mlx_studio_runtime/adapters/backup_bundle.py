@@ -9,14 +9,39 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from mlx_studio_runtime.adapters.data_profiles import MAX_ARCHIVE, MAX_EXPANDED
 from mlx_studio_runtime.adapters.storage_management import StorageManagement
+from mlx_studio_runtime.adapters.temporary_data import (
+    discard_temporary,
+    owned_directory,
+    prune_temporaries,
+)
+from mlx_studio_runtime.application.task_completion import finish_owned_task
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
 
 def create_backup(storage: StorageManagement, node: Path, allowed_node: Path) -> Path:
-    if not node.resolve().is_relative_to((allowed_node / "exports").resolve()):
+    node_root = allowed_node / "exports"
+    owned_directory(node_root, node)
+    exports = storage.database.path.parent / "exports"
+    directory = exports / str(uuid.uuid4())
+    try:
+        prune_temporaries(exports)
+        directory.mkdir(parents=True, mode=0o700)
+        return _write_backup(storage, node, directory)
+    except BaseException:
+        discard_temporary(exports, directory)
+        raise
+    finally:
+        # Node transfers ownership of this immutable temporary export to its caller.
+        discard_temporary(node_root, node)
+
+
+def release_backup(storage: StorageManagement, archive: Path) -> None:
+    if archive.name != "ownloom-backup.zip":
         raise ValueError("BACKUP_PATH_INVALID")
-    directory = storage.database.path.parent / "exports" / str(uuid.uuid4())
-    directory.mkdir(parents=True, mode=0o700)
+    discard_temporary(storage.database.path.parent / "exports", archive.parent)
+
+
+def _write_backup(storage: StorageManagement, node: Path, directory: Path) -> Path:
     database = directory / "runtime.db"
     storage.backup(database)
     target = directory / "ownloom-backup.zip"
@@ -51,10 +76,23 @@ def create_backup(storage: StorageManagement, node: Path, allowed_node: Path) ->
     if target.stat().st_size > MAX_ARCHIVE:
         target.unlink()
         raise RuntimeFault(RuntimeErrorInfo("BACKUP_TOO_LARGE", "压缩备份超过当前恢复上限 4 GiB"))
+    database.unlink()
     return target
 
 
 async def create_backup_async(storage: StorageManagement, node: Path, allowed_node: Path) -> Path:
     import asyncio
 
-    return await asyncio.to_thread(create_backup, storage, node, allowed_node)
+    work = asyncio.get_running_loop().run_in_executor(
+        None, create_backup, storage, node, allowed_node
+    )
+    try:
+        return await asyncio.shield(work)
+    except asyncio.CancelledError:
+        try:
+            archive = await finish_owned_task(work)
+        except Exception:
+            pass
+        else:
+            release_backup(storage, archive)
+        raise

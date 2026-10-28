@@ -1,6 +1,5 @@
 """Authenticated explicit cleanup, recovery, protection and owner-coordinated export."""
 
-import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -9,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from mlx_studio_runtime.composition_root import RuntimeApplication
+from mlx_studio_runtime.entrypoints.http.temporary_file import TemporaryFileResponse
 
 
 class ResourceProtection(BaseModel):
@@ -94,10 +94,9 @@ def register_data_routes(
 
     @app.post("/internal/v1/storage/backup", dependencies=dependencies)
     async def backup() -> FileResponse:
-        return FileResponse(
+        return TemporaryFileResponse(
             await service.data.backup(),
-            media_type="application/zip",
-            filename="ownloom-backup.zip",
+            service.data.release_backup,
         )
 
     @app.post(
@@ -115,10 +114,15 @@ def register_data_routes(
                     if total > 4 * 1024**3:
                         raise HTTPException(413, "BACKUP_TOO_LARGE")
                     output.write(chunk)
-            return await asyncio.to_thread(service.profiles.validate, identifier)
+            return await service.profiles.inspect(identifier)
         except BaseException:
-            path.unlink(missing_ok=True)
+            service.profiles.discard_upload(identifier)
             raise
+
+    @app.delete("/internal/v1/storage/restore/{identifier}", dependencies=dependencies)
+    async def discard_preview(identifier: str) -> dict[str, bool]:
+        service.profiles.discard_upload(identifier)
+        return {"discarded": True}
 
     @app.post("/internal/v1/storage/restore/{identifier}/activate", dependencies=dependencies)
     async def activate_backup(identifier: str) -> dict[str, bool]:

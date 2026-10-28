@@ -66,6 +66,7 @@ class BackupAdmissionTests(unittest.IsolatedAsyncioTestCase):
 
             service.coding.call = AsyncMock(return_value={"directory": str(root)})
             service.data.export = export
+            service.data.release_backup = lambda _: None
             try:
                 async with httpx.AsyncClient(
                     transport=httpx.ASGITransport(app=app),

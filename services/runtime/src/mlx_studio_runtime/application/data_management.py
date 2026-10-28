@@ -1,5 +1,6 @@
 """Task projection and backup barrier; data owners provide their own snapshots."""
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ from mlx_studio_runtime.application.data_admission import DataAdmission
 from mlx_studio_runtime.application.downloads import Downloads
 from mlx_studio_runtime.application.job_scheduler import JobScheduler
 from mlx_studio_runtime.application.queries import Queries
+from mlx_studio_runtime.application.task_completion import finish_owned_task
 from mlx_studio_runtime.application.task_projection import link_task_parents, runtime_task
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
@@ -23,6 +25,7 @@ class DataManagement:
         preparation_busy: Callable[[], bool],
         export: Callable[[Path], Awaitable[Path]],
         prepare_profile: Callable[[str], Awaitable[None]],
+        release_backup: Callable[[Path], None],
     ) -> None:
         self.queries, self.coding, self.downloads, self.scheduler = (
             queries,
@@ -32,6 +35,7 @@ class DataManagement:
         )
         self.preparation_busy, self.export = preparation_busy, export
         self.prepare_profile = prepare_profile
+        self.release_backup = release_backup
         self.admission = DataAdmission()
 
     @property
@@ -82,8 +86,21 @@ class DataManagement:
         self._require_idle()
         async with self.admission.exclusive():
             self._require_idle()
-            node = await self.coding.call("data.export", {})
-            return await self.export(Path(node["directory"]))
+            build = asyncio.create_task(self._export_snapshot())
+            try:
+                return await asyncio.shield(build)
+            except asyncio.CancelledError:
+                try:
+                    archive = await finish_owned_task(build)
+                except Exception:
+                    pass  # The failing adapter owns cleanup of its partial output.
+                else:
+                    self.release_backup(archive)
+                raise
+
+    async def _export_snapshot(self) -> Path:
+        node = await self.coding.call("data.export", {})
+        return await self.export(Path(node["directory"]))
 
     async def restore_profile(self, identifier: str) -> None:
         self._require_idle()

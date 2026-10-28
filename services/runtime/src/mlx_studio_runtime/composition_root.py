@@ -8,7 +8,7 @@ from mlx_studio_runtime.adapters.attachment_derivatives import AttachmentDerivat
 from mlx_studio_runtime.adapters.attachment_files import AttachmentFiles
 from mlx_studio_runtime.adapters.attachment_preparation_executor import PreparationExecutor
 from mlx_studio_runtime.adapters.audio_files import AudioFiles
-from mlx_studio_runtime.adapters.backup_bundle import create_backup_async
+from mlx_studio_runtime.adapters.backup_bundle import create_backup_async, release_backup
 from mlx_studio_runtime.adapters.coding_model_identity import coding_model_identity
 from mlx_studio_runtime.adapters.data_profiles import DataProfiles
 from mlx_studio_runtime.adapters.diagnostics import HostDiagnostics
@@ -36,6 +36,7 @@ from mlx_studio_runtime.adapters.persistence.text_assistant_repository import (
 from mlx_studio_runtime.adapters.persistence.web_config_repository import WebConfigRepository
 from mlx_studio_runtime.adapters.secret_store import KeychainSecrets
 from mlx_studio_runtime.adapters.storage_management import StorageManagement
+from mlx_studio_runtime.adapters.temporary_data import prune_temporaries
 from mlx_studio_runtime.adapters.web.tavily import Tavily
 from mlx_studio_runtime.adapters.web.url_policy import PublicResultPolicy
 from mlx_studio_runtime.adapters.worker_host import WorkerHost
@@ -72,6 +73,8 @@ class RuntimeApplication:
     def __init__(self, store: SQLiteRepositories, runtime_source: Path) -> None:
         self.store = store
         self.profiles = DataProfiles(store.database_path)
+        prune_temporaries(store.database_path.parent / "exports")
+        prune_temporaries(store.database_path.parent / "coding" / "exports")
         self.storage = StorageManagement(store.database)
         self.handoffs = ContextHandoffs(
             store.conversations,
@@ -206,6 +209,7 @@ class RuntimeApplication:
             ),
             lambda node: create_backup_async(self.storage, node, self.agent_host.directory),
             self._restore_profile,
+            lambda archive: release_backup(self.storage, archive),
         )
         self.model_removal = RemoveModel(
             ModelRemovalPorts(
@@ -231,10 +235,8 @@ class RuntimeApplication:
         )
 
     async def _restore_profile(self, identifier: str) -> None:
-        import asyncio
-
         try:
-            _, target = await asyncio.to_thread(self.profiles.prepare, identifier)
+            _, target = await self.profiles.prepare_async(identifier)
             if not (target / "restore-complete").is_file():
                 await self.coding.call("data.restore.profile", {"identifier": identifier})
             self.profiles.activate(identifier)

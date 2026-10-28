@@ -219,6 +219,7 @@ def _status_for_code(code: str) -> int:
         "CODING_BUSY",
         "SESSION_IN_USE",
         "RESTORE_CONFLICT",
+        "RESTORE_BUSY",
         "FILE_VERSION_CONFLICT",
         "PROJECT_HAS_SESSIONS",
         "BACKUP_BUSY",

@@ -28,6 +28,7 @@ class DataRecoveryTests(unittest.IsolatedAsyncioTestCase):
         backup = await self.service.data.backup()
         identifier, incoming = self.service.profiles.upload_path()
         shutil.copyfile(backup, incoming)
+        self.service.data.release_backup(backup)
         preview = self.service.profiles.validate(identifier)
         self.assertTrue(preview["requiresRestart"])
         self.assertGreaterEqual(preview["files"], 5)
