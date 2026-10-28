@@ -60,7 +60,7 @@
 
 当前外层装配范围的函数长度例外：Runtime 的 `RuntimeApplication.__init__`、`create_app`、`register_conversation_routes`、`register_attachment_routes`，前端的 `createChatController`、`createChatDraftController`、`createChatStream`、`createChatAttempts`、`createAttachmentPreviewController`。其独立 handler/action 仍需保持小职责；不得把解析、检索或数据库规则塞进这些装配函数。
 
-扩展模块的局部例外保留原有资源连续性理由：`guardedTransport`、`mcpResources`、`openPi` 同时维持 SDK 回调、连接代际、准入与 awaitable close；`ManagedSkillFiles.import` 连续处理暂存发布及失败补偿；`ResourceResolver.resolve`、`Extensions.dispatch` 负责单一快照推导或协议分派；`AgentChat.execute` 连续处理审批、Pi 订阅与 finally 清理；扩展 controller 工厂、`McpServerForm.save` 和 composition root 保留局部响应式状态及装配。具体实现入口见[扩展参考](subsystems/extensions.md)。这些例外不豁免类型、依赖边界、文件硬上限与行为回归，新增职责仍须拆分。
+扩展模块的局部例外保留原有资源连续性理由：`guardedTransport`、`mcpResources`、`openPi` 同时维持 SDK 回调、连接代际、准入与 awaitable close；`ResourceResolver.resolve`、`Extensions.dispatch` 负责单一快照推导或协议分派；`AgentChat.execute` 连续处理审批、Pi 订阅与 finally 清理；扩展 controller 工厂、`McpServerForm.save` 和 composition root 保留局部响应式状态及装配。具体实现入口见[扩展参考](subsystems/extensions.md)。这些例外不豁免类型、依赖边界、文件硬上限与行为回归，新增职责仍须拆分。
 
 [源码检查器](../scripts/checks/check-source-quality.mjs)执行文件硬上限和公共样式归属；函数长度、嵌套复杂度和例外合理性仍由评审负责。
 

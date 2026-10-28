@@ -27,7 +27,7 @@
 
 统一入口为设置中的“扩展能力”，包含 Skills、MCP 服务和内置工具。管理扩展不要求创建 Coding 项目。
 
-Skill 导入先预览正文、文件清单、依赖和目标工作区，再按预览摘要确认创建受管版本。系统复制到暂存目录，校验普通文件、大小和摘要，再原子发布。正文需要名称和描述 frontmatter；脚本作为静态资源保存，不自动执行 setup 或安装步骤。
+Skill 导入先预览正文、文件清单、依赖和目标工作区，再按预览摘要确认创建受管版本。文件适配器先复制并校验暂存包，应用层确认摘要与名称后才发布版本目录；元数据事务成功后转交文件所有权。失败时撤销本次创建的目录，不占用下一次发布的 revision，也不删除已有的相同内容版本。预览只读取暂存包并在结束时释放。正文需要名称和描述 frontmatter；脚本作为静态资源保存，不自动执行 setup 或安装步骤。
 
 MCP stdio 配置使用已安装程序的绝对路径、参数数组和工作目录；远程 HTTP 使用 HTTPS，回环服务可使用 HTTP。公开环境变量/headers 与秘密字段分开维护，凭据只返回配置状态和引用。
 
@@ -84,7 +84,7 @@ HTTP transport 不重定向、不启动 OAuth、不自动刷新凭据或重放�
 | ------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 模型可见工具              | 最多 16，包含基础工具和 `read_skill` | [resolver.ts](../../services/coding-agent/src/extensions/application/resolver.ts)                                                                                                               |
 | 运行工具调用 / 媒体创建   | 最多 48 / 4 次                       | [tool-gateway.ts](../../services/coding-agent/src/application/tool-gateway.ts)、[capability_ledger.py](../../services/runtime/src/mlx_studio_runtime/adapters/persistence/capability_ledger.py) |
-| Skill 包 / 文件数         | 20 MiB / 200                         | [skill-files.ts](../../services/coding-agent/src/adapters/extensions/skill-files.ts)                                                                                                            |
+| Skill 包 / 文件数         | 20 MiB / 200                         | [skill-package.ts](../../services/coding-agent/src/adapters/extensions/skill-package.ts)                                                                                                            |
 | Skill 正文 / 单次引用读取 | 64 KiB / 256 KiB                     | 同上                                                                                                                                                                                            |
 | 结构化结果                | 深度 24、节点 2048，并限制序列化大小 | [transport.ts](../../services/coding-agent/src/adapters/extensions/transport.ts)                                                                                                                |
 
@@ -101,6 +101,6 @@ pnpm test runtime
 pnpm build coding-bundle
 ```
 
-执行目录为仓库根目录。重点测试：[extensions](../../services/coding-agent/tests/extensions.test.mjs)、[pi-extensions](../../services/coding-agent/tests/pi-extensions.test.mjs)、[管理 API](../../tests/test_extension_api.py)、[凭据异步与取消边界](../../tests/test_extension_secret_boundary.py)、[运行授权](../../tests/test_extension_capabilities.py)、[跨模态工作流](../../tests/test_extension_workflows.py)。这些测试使用受控服务、FakeEngine 或秘密替身，不读取用户 Keychain。
+执行目录为仓库根目录。重点测试：[extensions](../../services/coding-agent/tests/extensions.test.mjs)、[Skill 发布回滚](../../services/coding-agent/tests/skill-publication.test.mjs)、[pi-extensions](../../services/coding-agent/tests/pi-extensions.test.mjs)、[管理 API](../../tests/test_extension_api.py)、[凭据异步与取消边界](../../tests/test_extension_secret_boundary.py)、[运行授权](../../tests/test_extension_capabilities.py)、[跨模态工作流](../../tests/test_extension_workflows.py)。这些测试使用受控服务、FakeEngine 或秘密替身，不读取用户 Keychain。
 
 真实 MCP、签名身份下的 Keychain、真实媒体模型与最终包内资源需单独验证。维护变更时更新本页对应路径与限制，将实际结果集中记录到[验证范围](../verification.md)；函数长度例外统一维护在[代码规范](../code-standards.md)，不藏在功能验收记录中。
