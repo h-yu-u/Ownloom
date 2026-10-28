@@ -144,6 +144,7 @@ export function installWorkspaces(): void {
       cleanup: async () => dataEndpoints(await runtimeClient()).cleanup(),
       restore: async (id) => dataEndpoints(await runtimeClient()).restore(id),
       inspect: async (file) => (await runtimeClient()).inspectBackup(file),
+      discardPreview: async (id) => dataEndpoints(await runtimeClient()).discardPreview(id),
       activate: async (id) => dataEndpoints(await runtimeClient()).activateProfile(id),
       rollback: async () => dataEndpoints(await runtimeClient()).rollbackProfile(),
       restart: restartRuntimeProcess,

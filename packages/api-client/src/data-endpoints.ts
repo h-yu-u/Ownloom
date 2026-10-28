@@ -61,6 +61,8 @@ export function dataEndpoints(transport: Pick<Transport, 'get' | 'post' | 'delet
         }),
       }
     },
+    discardPreview: (id: string) =>
+      transport.delete(`${root}/storage/restore/${encodeURIComponent(id)}`),
     activateProfile: (id: string) =>
       transport.post(`${root}/storage/restore/${encodeURIComponent(id)}/activate`),
     rollbackProfile: () => transport.post(`${root}/storage/restore/rollback`),
