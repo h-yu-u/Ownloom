@@ -52,9 +52,18 @@ class ModelRuntime:
         temperature: float,
         image_paths: list[str],
         messages: list[dict[str, str]],
+        conversation_id: str | None = None,
+        cache_suffix: str = "",
     ) -> AsyncIterator[dict[str, Any]]:
         return self._execution_worker().generate(
-            job_id, prompt, max_tokens, temperature, image_paths, messages
+            job_id,
+            prompt,
+            max_tokens,
+            temperature,
+            image_paths,
+            messages,
+            conversation_id,
+            cache_suffix,
         )
 
     def generate_image(

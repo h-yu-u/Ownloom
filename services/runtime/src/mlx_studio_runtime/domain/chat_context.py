@@ -162,9 +162,12 @@ def build_context(
 ) -> dict[str, Any]:
     limit = context_length or 8192
     task = question.strip() or DEFAULT_TASK
-    system = SYSTEM + (f"\n用户本地当前时间：{current_time}。" if current_time else "")
+    system = SYSTEM
+    time_suffix = f"\n\n用户本地当前时间：{current_time}。" if current_time else ""
     reserve = output_reserve(limit, output_tokens)
-    available = limit - reserve - image_count * 2048 - token_bound(system + task) - 512
+    available = (
+        limit - reserve - image_count * 2048 - token_bound(system + task + time_suffix) - 512
+    )
     if available <= 0:
         raise RuntimeFault(
             RuntimeErrorInfo("CONTEXT_BUDGET_EXCEEDED", "问题、输出或视觉输入超出上下文预算")
@@ -197,14 +200,15 @@ def build_context(
     messages = [
         {"role": "system", "content": system},
         *retained,
-        {"role": "user", "content": user_text},
+        {"role": "user", "content": user_text + time_suffix},
     ]
     budget = calculate_budget(messages, limit, output_tokens, image_count)
     return {
         "schemaVersion": 1,
         "templateStrategy": "current-user-visual-v1",
         "messages": messages,
-        "prompt": user_text,
+        "prompt": user_text + time_suffix,
+        "cacheSuffix": time_suffix,
         "sources": sources,
         "budget": budget,
     }

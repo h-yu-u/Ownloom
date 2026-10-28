@@ -9,6 +9,22 @@ from mlx_studio_runtime.domain.errors import RuntimeFault
 
 
 class ChatContextTests(unittest.TestCase):
+    def test_current_time_changes_only_the_uncached_tail_not_the_stable_history(self):
+        history = [{"role": "user", "content": "remember JADE-47"}]
+        first = build_context(
+            "code?", history, [], [], 8192, 64, 0, "2026-10-28T10:00:00"
+        )
+        second = build_context(
+            "code?", history, [], [], 8192, 64, 0, "2026-10-28T10:00:30"
+        )
+        self.assertEqual(first["messages"][:-1], second["messages"][:-1])
+        self.assertEqual(first["prompt"], first["messages"][-1]["content"])
+        self.assertNotEqual(first["cacheSuffix"], second["cacheSuffix"])
+        self.assertEqual(
+            second["messages"][-1]["content"], "code?" + second["cacheSuffix"]
+        )
+        self.assertEqual(history, [{"role": "user", "content": "remember JADE-47"}])
+
     def test_automatic_output_uses_remaining_window_without_reserving_it_before_sources(
         self,
     ):

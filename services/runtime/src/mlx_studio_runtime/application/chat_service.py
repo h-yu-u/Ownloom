@@ -134,6 +134,8 @@ class ChatService:
                     request["temperature"],
                     self.preparation.image_paths(snapshot),
                     snapshot["messages"],
+                    request["conversationId"],
+                    snapshot.get("cacheSuffix", ""),
                 ),
             )
         except RuntimeFault as error:

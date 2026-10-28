@@ -89,7 +89,11 @@ class FreshnessTests(unittest.TestCase):
             current_time=NOW.isoformat(),
         )
         system = snapshot["messages"][0]["content"]
-        self.assertIn(NOW.isoformat(), system)
+        self.assertNotIn(NOW.isoformat(), system)
+        self.assertTrue(
+            snapshot["messages"][-1]["content"].endswith(snapshot["cacheSuffix"])
+        )
+        self.assertIn(NOW.isoformat(), snapshot["cacheSuffix"])
         self.assertIn("检索时间不是发布时间", system)
         self.assertIn("须标明实际日期", system)
         self.assertIn("无日期页面不能证明今日状态", system)

@@ -1,5 +1,6 @@
 """Concrete text/VLM engine loading, streaming and cleanup inside the Worker."""
 
+import logging
 import sys
 import time
 from collections.abc import Callable, Iterator
@@ -7,6 +8,7 @@ from contextlib import redirect_stdout
 from typing import Any, cast
 
 from mlx_studio_runtime.adapters.text_engines.generation_stats import native_generation_stats
+from mlx_studio_runtime.adapters.text_engines.prefix_cache import ChatPrefixCache
 from mlx_studio_runtime.adapters.worker_runtime.context import WorkerContext
 from mlx_studio_runtime.domain.generation_stats import GenerationStats
 
@@ -30,6 +32,7 @@ class EngineSession:
         self.generation_tokens = 0
         self.generation_stats: GenerationStats | None = None
         self.context_limit = 8192
+        self.prefix_cache = ChatPrefixCache()
 
     def emit(self, event_type: str, payload: dict[str, Any]) -> None:
         if self.event_sink is None:
@@ -82,28 +85,12 @@ class EngineSession:
         self.finish_reason = "stop"
         self.generation_tokens = 0
         self.generation_stats = None
-        had_stats = False
-        self.emit("generation.started", {"job_id": job_id})
+        completed = False
+        self.prefix_cache.begin(self.model, self.engine, payload)
         try:
-            for chunk in self._chunks(payload, prompt, max_tokens, temperature):
-                if self.cancel.is_set() or self.shutdown.is_set():
-                    self.emit("generation.cancelled", {"job_id": job_id})
-                    return
-                stats = self._chat_stats_payload(include_unknown=had_stats)
-                if chunk or stats:
-                    self.emit("generation.delta", {"job_id": job_id, "text": chunk, **stats})
-                had_stats = self.generation_stats is not None
-                if self.engine == "fake":
-                    time.sleep(0.015)
-            terminal = "cancelled" if self.cancel.is_set() else "completed"
-            self.emit(
-                f"generation.{terminal}",
-                {
-                    "job_id": job_id,
-                    "finish_reason": self.finish_reason,
-                    "generation_tokens": self.generation_tokens,
-                    **self._chat_stats_payload(),
-                },
+            self.emit("generation.started", {"job_id": job_id})
+            completed = self._stream_chat(
+                payload, self._chunks(payload, prompt, max_tokens, temperature)
             )
         except Exception as error:
             if self.cancel.is_set() or self.shutdown.is_set():
@@ -119,6 +106,40 @@ class EngineSession:
                     "message": "模型推理失败",
                 },
             )
+        finally:
+            self.prefix_cache.finish(
+                completed and not self.cancel.is_set() and not self.shutdown.is_set()
+            )
+
+    def _stream_chat(self, payload: dict[str, Any], chunks: Iterator[str]) -> bool:
+        job_id = str(payload["job_id"])
+        had_stats = False
+        try:
+            for chunk in chunks:
+                if self.cancel.is_set() or self.shutdown.is_set():
+                    self.emit("generation.cancelled", {"job_id": job_id})
+                    return False
+                stats = self._chat_stats_payload(include_unknown=had_stats)
+                if chunk or stats:
+                    self.emit("generation.delta", {"job_id": job_id, "text": chunk, **stats})
+                had_stats = self.generation_stats is not None
+                if self.engine == "fake":
+                    time.sleep(0.015)
+        finally:
+            close = getattr(chunks, "close", None)
+            if callable(close):
+                close()
+        terminal = "cancelled" if self.cancel.is_set() or self.shutdown.is_set() else "completed"
+        self.emit(
+            f"generation.{terminal}",
+            {
+                "job_id": job_id,
+                "finish_reason": self.finish_reason,
+                "generation_tokens": self.generation_tokens,
+                **self._chat_stats_payload(),
+            },
+        )
+        return terminal == "completed"
 
     def _chunks(
         self,
@@ -179,9 +200,37 @@ class EngineSession:
         if not isinstance(image_paths, list) or len(image_paths) > 4:
             raise ValueError("zero to four image paths are supported")
         from mlx_vlm import stream_generate  # type: ignore[import-not-found]
-        from mlx_vlm.prompt_utils import apply_chat_template  # type: ignore[import-not-found]
 
         paths = [str(path) for path in image_paths]
+        formatted = self._vlm_prompt(prompt, paths, messages)
+        max_tokens = self._check_budget(
+            self.processor.tokenizer, formatted, max_tokens, len(paths) * 2048
+        )
+        responses = stream_generate(
+            model=self.model,
+            processor=self.processor,
+            prompt=formatted,
+            image=paths,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            verbose=False,
+            **self.prefix_cache.options,
+        )
+        try:
+            for response in responses:
+                self.record_chat_completion(response)
+                if self.cancel.is_set() or self.shutdown.is_set():
+                    return
+                text = response if isinstance(response, str) else getattr(response, "text", "")
+                yield str(text) if text else ""
+        finally:
+            close = getattr(responses, "close", None)
+            if callable(close):
+                close()
+
+    def _vlm_prompt(self, prompt: str, paths: list[str], messages: object) -> str:
+        from mlx_vlm.prompt_utils import apply_chat_template  # type: ignore[import-not-found]
+
         normalized = normalize_messages(messages, prompt)
         if paths and len(normalized) > 1:
             background = "\n".join(f"{item['role']}: {item['content']}" for item in normalized[:-1])
@@ -204,23 +253,40 @@ class EngineSession:
         )
         if not isinstance(formatted, str):
             raise ValueError("Chat template did not produce a text prompt")
-        max_tokens = self._check_budget(
-            self.processor.tokenizer, formatted, max_tokens, len(paths) * 2048
-        )
-        for response in stream_generate(
-            model=self.model,
-            processor=self.processor,
-            prompt=formatted,
-            image=paths,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            verbose=False,
-        ):
-            self.record_chat_completion(response)
-            if self.cancel.is_set():
+        self._cache_boundary(normalized, formatted)
+        return formatted
+
+    def _cache_boundary(self, messages: list[dict[str, str]], formatted: str) -> None:
+        suffix = self.prefix_cache.suffix
+        if not self.prefix_cache.options or not suffix:
+            return
+        try:
+            from mlx_vlm.prompt_utils import apply_chat_template  # type: ignore[import-not-found]
+
+            if not messages[-1]["content"].endswith(suffix):
+                self.prefix_cache.clear()
                 return
-            text = response if isinstance(response, str) else getattr(response, "text", "")
-            yield str(text) if text else ""
+            stable = [
+                *messages[:-1],
+                {**messages[-1], "content": messages[-1]["content"][: -len(suffix)]},
+            ]
+            rendered = apply_chat_template(
+                self.processor,
+                self.model_config,
+                stable,
+                num_images=0,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+            self.prefix_cache.guard_suffix(
+                self.processor.tokenizer.encode(formatted),
+                self.processor.tokenizer.encode(rendered),
+            )
+        except Exception as error:
+            logging.getLogger(__name__).warning(
+                "Chat cache boundary unavailable: %s", type(error).__name__
+            )
+            self.prefix_cache.clear()
 
     def record_chat_completion(self, response: object) -> None:
         self.record_completion(response)
@@ -257,6 +323,7 @@ class EngineSession:
             yield reply[start : start + 5]
 
     def unload(self) -> None:
+        self.prefix_cache.clear()
         self.model = None
         self.tokenizer = None
         self.processor = None

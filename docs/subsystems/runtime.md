@@ -73,6 +73,8 @@ stateDiagram-v2
 
 当前 Runtime 握手版本以 [PROTOCOL_VERSION](../../services/runtime/src/mlx_studio_runtime/__init__.py) 为准；Host RPC 的独立版本见 [Coding](./coding.md)。Worker 协议使用命令 ID、Job ID、序列、实例代际和尝试标识，双方协商 UTF-8 帧及结果上限。
 
+普通聊天的 `generation.start` 可附带应用层提供的 `conversation_id` 与 `cache_suffix`，用于隔离会话缓存及标记易变的输入尾部；缺省分别为 `None` 与空字符串，不改变握手版本。缓存属于文本 Worker 的引擎会话，生命周期及容量规则见[多轮前缀缓存](./chat.md#多轮前缀缓存)。`inference.start` 在结构化推理前清空普通聊天缓存。MLX 编译仍由 `WorkerContext.configure_device` 关闭，前缀复用不会改变这项退出兼容策略。
+
 | 限额                            | 当前实现       | 权威来源                                                                                      |
 | ------------------------------- | -------------- | --------------------------------------------------------------------------------------------- |
 | Worker 帧 / 最终结果            | 各 16 MiB      | [worker_protocol.py](../../services/runtime/src/mlx_studio_runtime/domain/worker_protocol.py) |

@@ -26,6 +26,7 @@ class TextDriver:
         self.session.generate(payload)
 
     def infer(self, payload: dict[str, Any]) -> None:
+        self.session.prefix_cache.clear()
         generate_structured(self.session, payload)
 
     def close(self) -> None:

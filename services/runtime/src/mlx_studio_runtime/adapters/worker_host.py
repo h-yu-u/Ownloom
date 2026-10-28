@@ -93,6 +93,8 @@ class WorkerHost:
         temperature: float,
         image_paths: list[str] | None = None,
         messages: list[dict[str, str]] | None = None,
+        conversation_id: str | None = None,
+        cache_suffix: str = "",
     ) -> AsyncIterator[dict[str, Any]]:
         command_id = await self._send(
             "generation.start",
@@ -103,6 +105,8 @@ class WorkerHost:
                 "temperature": temperature,
                 "image_paths": image_paths or [],
                 "messages": messages or [],
+                "conversation_id": conversation_id,
+                "cache_suffix": cache_suffix,
             },
         )
         async for event in self._events_until_terminal(job_id, command_id):

@@ -84,6 +84,8 @@ class InferenceWorker(Protocol):
         temperature: float,
         image_paths: list[str],
         messages: list[dict[str, str]],
+        conversation_id: str | None = None,
+        cache_suffix: str = "",
     ) -> AsyncIterator[dict[str, Any]]: ...
     def infer(self, job_id: str, request: dict[str, object]) -> AsyncIterator[dict[str, Any]]: ...
     def generate_image(
@@ -155,6 +157,8 @@ class TextInference(Protocol):
         temperature: float,
         image_paths: list[str],
         messages: list[dict[str, str]],
+        conversation_id: str | None = None,
+        cache_suffix: str = "",
     ) -> AsyncIterator[dict[str, Any]]: ...
 
 

@@ -148,6 +148,16 @@ class CompletionPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 snapshot = service.chat.preparation.contexts.load(
                     sent["jobId"], conversation["id"], sent["turnId"]
                 )
+                self.assertEqual(
+                    snapshot["prompt"], snapshot["messages"][-1]["content"]
+                )
+                self.assertTrue(snapshot["prompt"].endswith(snapshot["cacheSuffix"]))
+                self.assertEqual(
+                    service.queries.conversation(conversation["id"])["messages"][0][
+                        "content"
+                    ],
+                    "hello",
+                )
                 self.assertGreater(snapshot["budget"]["outputReserve"], 8192)
                 reused = await service.chat.send_message(
                     conversation["id"],
