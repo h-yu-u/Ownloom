@@ -151,7 +151,7 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 
 [构建校验器](../scripts/build/validate-coding-bundle.mjs)生成 `.build/coding/bundle-size.json`，记录 `node_modules` 普通文件的裁剪前后数量、字节数与三个互不重复的分类；Node 本体、Host 自有文件和链接不计入该统计，也不能将差值直接解释为 DMG 压缩收益。`provenance.json` 继续记录 Node/Pi/RPC 来源。
 
-[包内 Coding 验收](../scripts/acceptance/verify-coding-bundle.mjs)把裁剪产物复制到仓库外的临时目录，使用副本内的 Node，防止缺失依赖被工作区 `node_modules` 补齐。它检查 Host 握手、内置资源与关闭，并在副本上复用 Pi 流式响应、MCP 和 SQLite 仓库测试；测试文件与隔离资料库不进入发布资源。结果写入 `.build/coding/bundle-check.json`。[CI 的 `coding-bundle` job](../.github/workflows/ci.yml)运行同一构建并上传两份报告与来源记录。这里的模型响应来自本地协议假服务，不代表真实模型、完整 `.app`、签名或干净机器验收。
+[包内 Coding 验收](../scripts/acceptance/verify-coding-bundle.mjs)把裁剪产物复制到仓库外的临时目录，使用副本内的 Node，防止缺失依赖被工作区 `node_modules` 补齐。它检查 Host 握手、内置资源与关闭，并在副本上复用 Pi 流式响应、MCP 和 SQLite 仓库测试；测试文件与隔离资料库不进入发布资源。结果写入 `.build/coding/bundle-check.json`。[CI 的 `coding-bundle` job](../.github/workflows/ci.yml)先在 macOS 上执行 `pnpm test coding`，覆盖完整 Host 回归和打包策略，再运行同一构建并上传两份报告与来源记录。源码回归检查平台路径等行为，包内验收检查部署副本及其依赖，两者分别保留。这里的模型响应来自本地协议假服务，不代表真实模型、完整 `.app`、签名或干净机器验收。
 
 ### Runtime Sidecar 依赖边界
 
