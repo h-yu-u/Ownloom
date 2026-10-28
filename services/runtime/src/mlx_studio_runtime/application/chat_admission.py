@@ -1,10 +1,12 @@
 """Request identity is frozen before consulting mutable settings or performing preparation."""
 
+import asyncio
 import hashlib
 import json
 import uuid
 from dataclasses import dataclass
 from typing import Any
+from weakref import WeakValueDictionary
 
 from mlx_studio_runtime.application.chat_preparation import ChatPreparation
 from mlx_studio_runtime.application.ports import (
@@ -42,8 +44,16 @@ class ChatAdmission:
         self.scheduler = scheduler
         self.journal = journal
         self.preparation = preparation
+        self._locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
     async def admit(
+        self, conversation_id: str, intent: dict[str, Any], request_id: str | None
+    ) -> tuple[Job | None, dict[str, Any]]:
+        lock = self._locks.setdefault(conversation_id, asyncio.Lock())
+        async with lock:
+            return await self._admit(conversation_id, intent, request_id)
+
+    async def _admit(
         self, conversation_id: str, intent: dict[str, Any], request_id: str | None
     ) -> tuple[Job | None, dict[str, Any]]:
         previous = self.journal.find(conversation_id, request_id) if request_id else None
@@ -75,21 +85,10 @@ class ChatAdmission:
             if options["enabled"]
             else None
         )
-        target_parameters = target.get("parameters", {}) if target else {}
-        accepted = target_parameters.get("acceptedSnapshot")
-        if target_parameters.get("acceptedContextJobId"):
-            accepted = self.preparation.contexts.job(target_parameters["acceptedContextJobId"])[
-                "request"
-            ]["acceptedSnapshot"]
-        accepted = accepted or self.preparation.accept(
+        accepted = self._previous_snapshot(target) or self.preparation.accept(
             conversation, ids, intent["visual_selection"], model, target["id"] if target else None
         )
-        if self.preparation.extensions and "skillContext" not in accepted:
-            skill_context = await self.preparation.extensions.text_skills(
-                {"workspace": "chat", "kind": "workspace", "scopeId": "default"},
-                intent.get("extension_selection") or {"skillIds": [], "toolIds": []},
-            )
-            accepted = {**accepted, "skillContext": skill_context}
+        accepted = await self._with_skills(accepted, intent.get("extension_selection"))
         accepted = bind_turn_references(accepted, turn_id)
         self.preparation.validate_visuals(accepted["visuals"], model)
         job = Job(str(uuid.uuid4()), "chat", JobState.QUEUED, model.id)
@@ -109,14 +108,47 @@ class ChatAdmission:
             "sourceContextJobId": intent["source_context_job_id"],
         }
         snapshot = self._load_reuse_snapshot(intent, request, model)
-        if self.preparation.extensions and accepted.get("skillContext"):
-            await self.preparation.extensions.validate_text(accepted["skillContext"]["snapshot"])
-            self.preparation.extensions.bind_text(job.id, accepted["skillContext"]["snapshot"])
         plan = ChatAcceptance(job, request, target is None, config, snapshot)
-        await self.scheduler.lifecycle.register(
-            job, request, persist=lambda: self._persist(plan, request_id, digest)
-        )
+        await self._register(plan, request_id, digest)
         return job, request
+
+    async def _with_skills(
+        self, snapshot: dict[str, Any], selection: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        if not self.preparation.extensions or "skillContext" in snapshot:
+            return snapshot
+        context = await self.preparation.extensions.text_skills(
+            {"workspace": "chat", "kind": "workspace", "scopeId": "default"},
+            selection or {"skillIds": [], "toolIds": []},
+        )
+        return {**snapshot, "skillContext": context}
+
+    def _previous_snapshot(self, target: dict[str, Any] | None) -> dict[str, Any] | None:
+        parameters: dict[str, Any] = target.get("parameters", {}) if target else {}
+        if parameters.get("acceptedContextJobId"):
+            return self.preparation.contexts.job(parameters["acceptedContextJobId"])["request"][
+                "acceptedSnapshot"
+            ]
+        return parameters.get("acceptedSnapshot")
+
+    async def _register(self, plan: ChatAcceptance, request_id: str | None, digest: str) -> None:
+        extensions = self.preparation.extensions
+        skill_context = plan.request["acceptedSnapshot"].get("skillContext")
+        if extensions and skill_context:
+            await extensions.validate_text(skill_context["snapshot"])
+        # Model control and conversation deletion can run while Skills RPC is awaited.
+        self._require_conversation(plan.request["conversationId"])
+        self._require_model(plan.job.model_id or "")
+        if extensions and skill_context:
+            extensions.bind_text(plan.job.id, skill_context["snapshot"])
+        try:
+            await self.scheduler.lifecycle.register(
+                plan.job, plan.request, persist=lambda: self._persist(plan, request_id, digest)
+            )
+        except BaseException:
+            if extensions:
+                extensions.release_text(plan.job.id)
+            raise
 
     async def _prepare_legacy(
         self, target: dict[str, Any] | None, ids: list[str], conversation_id: str

@@ -8,6 +8,8 @@ Coding 面向本地项目的分析、开发和审查。Vue 负责交互，Python
 
 Pi transcript 是模型上下文的权威来源，Coding SQLite 是产品状态的权威来源。普通聊天不代存 Coding 历史。Coding 文件工具受项目路径约束，获授权的 shell 命令以本机用户身份执行；应用审批不等于操作系统沙箱。
 
+Application 依照实际用例接收 [repository-ports.ts](../../services/coding-agent/src/application/repository-ports.ts) 中的窄仓库接口。任务投影、Coding 快照、Agent 查询只声明读取能力；会话管理、审批、命令验证、transcript 和运行收尾分别声明所需写入能力。Agent 会话创建位于命令分发，查询模块没有保存接口。具体 Repository 仍统一管理 SQLite 和事务，不按表拆出多套数据库所有者。
+
 ## 事实来源
 
 | 主题                    | 代码入口与关键符号                                                                                                                                                                                                                                  |
@@ -53,11 +55,21 @@ shell 环境只包含明确工具链路径和少量运行变量，不继承桌�
 
 受管文件工具拒绝越界、符号链接、凭据/私钥路径、依赖及构建目录。写入要求先读并提交预期摘要；真正打开的文件仍需与目标路径一致。修改前保留恢复记录，崩溃后不能确认完成的写入保留 `pending`。
 
+工具在请求审批前将路径规范化为项目相对路径，审批记录、敏感文件策略和实际写入使用同一个目标；`/.`、重复分隔符、绝对路径或 `..` 别名不能改变审批要求。测试和验证配置的名称判断不区分大小写，写入时仍重新校验路径及文件摘要。
+
 撤销前比对当前内容与该次写入结果，外部编辑后拒绝覆盖。命令产生的修改不能可靠归因到某次受管文件写入，不自动 reset、stash 或回滚整个项目。
 
 Node 在同一事务保存产品状态与事件，提交后唤醒等待者。观察器使用持久化序列、快照 watermark 与增量投影；首次打开、缺口和重连时恢复快照。文件正文按需读取，不能塞进每条事件和重连快照。
 
+同一会话观察代际内，HTTP 快照与 SSE 投影共用单调递增的 watermark：迟到快照不能覆盖较新的事件，已被快照涵盖的事件只推进观察器游标，不重复投影。打开会话（包括重连后重新加载工作区）会释放旧观察器、递增归属代际并清空快照基线，因此可以接纳新数据源的较低序列；旧代际的快照和回调始终失效。
+
+文件版本索引与文件系统观察器由每个 Host 的 `projectWorkspace` 实例拥有，指纹捕获和快照查询共享该实例。首次捕获才启动观察器，查询只检查已保存的元数据。移除项目、清理能力探针和关闭 Host 都释放相应索引与观察器；关闭后不能重新捕获，迟到的捕获结果或旧观察器回调不能覆盖重新登记的目录状态。
+
 Host 重启把未结束运行标为 `interrupted`、拒绝旧待审批操作，不自动重放命令。Pi JSONL 恢复校验会话身份、cwd、完整行和父链；上下文文件存在不等于完整可用。
+
+Coding 与 Agent Chat 共用 Host 级运行故障门禁。任务先确定业务结果，再等待审批、Pi/transcript 和运行授权清理完成，最后发布终态并释放运行槽位；清理期间仍保留所有权，取消不能被迟到成功覆盖。清理失败记录 `interrupted` / `CODING_CLEANUP_FAILED`，停止排队任务和两种新运行，并保留资源引用；需要重启 Host 恢复接纳。后台运行、取消和到期任务的拒绝均进入该故障边界，不作为未处理 Promise 逃逸。
+
+故障门禁也在撤销文件修改、创建能力探针和删除 Coding 会话的副作用之前检查，不能用数据库中的终态替代资源已释放的判断。备份和恢复检查内存中的运行占用。能力探针只在自己的运行不再持有资源时删除目录与记录；故障探针保留现场，其他排队任务不会阻止已经释放的探针清理。正常状态下，删除会话仍按该会话是否有活动运行决定，不限制无关会话；[故障副作用回归](../../services/coding-agent/tests/fault-side-effects.test.mjs)覆盖这些边界。
 
 删除会话事务删除 Coding 产品记录，不删除用户项目，也不自动删除独立 Pi JSONL。数据库、transcript 和项目文件不共享事务；备份与恢复见[存储](./storage.md)。
 
@@ -97,6 +109,6 @@ pnpm check boundaries
 pnpm build coding-bundle
 ```
 
-契约变化另运行 `pnpm generate rpc` 和 `pnpm generate api`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
+契约变化另运行 `pnpm generate rpc` 和 `pnpm generate api`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[工作区资源生命周期](../../services/coding-agent/tests/workspace-lifecycle.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
 
 真实模型与包内 Host 使用 [verify_local_coding.py](../../scripts/verify/verify_local_coding.py)；参数和环境以脚本 `--help` 为准。协议假服务、FakeEngine、真实模型开发任务和最终安装包分别记录结果，统一进入[验证范围](../verification.md)，不以历史单机结果替代当前版本验收。

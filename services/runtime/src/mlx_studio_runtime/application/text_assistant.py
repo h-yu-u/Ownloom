@@ -70,11 +70,15 @@ class TextAssistant:
             calculate_budget(messages, model.context_length or 8192, 2048, 0)
             job = Job(str(uuid.uuid4()), "text-assistant", JobState.QUEUED, model.id)
             self.extensions.bind_text(job.id, context["snapshot"])
-            await self.scheduler.lifecycle.register(
-                job,
-                {**request, "skillContext": context},
-                persist=lambda: self.attempts.save(request["submissionId"], digest, job.id),
-            )
+            try:
+                await self.scheduler.lifecycle.register(
+                    job,
+                    {**request, "skillContext": context},
+                    persist=lambda: self.attempts.save(request["submissionId"], digest, job.id),
+                )
+            except BaseException:
+                self.extensions.release_text(job.id)
+                raise
             task = self.scheduler.schedule(job, lambda: self._execute(job, messages, context))
             task.add_done_callback(lambda _: self.extensions.release_text(job.id))
             return self.get(job.id)

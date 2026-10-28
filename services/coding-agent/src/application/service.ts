@@ -6,18 +6,19 @@ import { rpcMethod, validateRpc } from '../protocol/validation.js'
 import type { RpcMethod, RpcParamsMap, RpcResultMap } from '../protocol/generated/types.js'
 import { localProvider } from './local-provider.js'
 import { defaultSettings, validateSettings } from '../domain/settings.js'
-import type { RepositoryPort } from './ports.js'
+import type { ServiceRepository } from './repository-ports.js'
 import type { ProjectSessions } from './project-sessions.js'
 import type { ChangeService } from './changes.js'
 import type { CapabilityVerifier } from './capability-verifier.js'
 import { object, string, mode } from '../domain/types.js'
 import { Runs } from './runs.js'
 import { taskSummaries } from './task-summaries.js'
+import { DataAdmission, readMethods } from './data-admission.js'
 export class CodingService {
   constructor(
-    readonly repo: RepositoryPort,
+    readonly repo: ServiceRepository,
     private runs: Runs,
-    sessions: ProjectSessions,
+    private sessions: ProjectSessions,
     changes: ChangeService,
     private verifier: CapabilityVerifier,
     private extensions?: Extensions,
@@ -28,27 +29,19 @@ export class CodingService {
   ) {
     this.handlers = { ...this.handlers, ...sessions.handlers, ...changes.handlers }
   }
-  private exporting = false
+  private admission = new DataAdmission()
   private handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
     'data.restore.profile': async (p) => {
-      if (this.repo.active() || this.agent?.busy) throw new Error('BACKUP_BUSY')
+      if (this.runs.busy || this.repo.active() || this.agent?.busy || this.extensions?.busy)
+        throw new Error('BACKUP_BUSY')
       if (!this.restoreProfile) throw new Error('RESTORE_NOT_AVAILABLE')
-      this.exporting = true
-      try {
-        return await this.restoreProfile(string(p.identifier))
-      } finally {
-        this.exporting = false
-      }
+      return this.restoreProfile(string(p.identifier))
     },
     'data.export': async () => {
-      if (this.repo.active() || this.agent?.busy) throw new Error('BACKUP_BUSY')
+      if (this.runs.busy || this.repo.active() || this.agent?.busy || this.extensions?.busy)
+        throw new Error('BACKUP_BUSY')
       if (!this.backup) throw new Error('BACKUP_NOT_AVAILABLE')
-      this.exporting = true
-      try {
-        return await this.backup()
-      } finally {
-        this.exporting = false
-      }
+      return this.backup()
     },
     'tasks.list': async () => [
       ...taskSummaries(this.repo, 'coding'),
@@ -159,7 +152,6 @@ export class CodingService {
     }
   }
   async dispatch<M extends RpcMethod>(method: M, raw: RpcParamsMap[M]): Promise<RpcResultMap[M]> {
-    if (this.exporting) throw new Error('BACKUP_IN_PROGRESS')
     await this.extensions?.ready
     const key = rpcMethod(method)
     validateRpc(key, 'params', raw)
@@ -170,7 +162,12 @@ export class CodingService {
           ? (params: Record<string, unknown>) => this.extensions!.dispatch(key, params)
           : this.handlers[key]
     if (!handler) throw new Error('UNKNOWN_METHOD')
-    const result: unknown = await handler(object(raw))
+    const action = () => handler(object(raw))
+    const result: unknown = await (key === 'data.export' || key === 'data.restore.profile'
+      ? this.admission.exclusive(action)
+      : readMethods.has(key)
+        ? action()
+        : this.admission.run(action))
     validateRpc(key, 'result', result)
     return result as RpcResultMap[M]
   }
@@ -178,10 +175,14 @@ export class CodingService {
   private closing?: Promise<void>
   close(): Promise<void> {
     return (this.closing ??= (async () => {
-      await this.runs.close()
-      await this.agent?.close()
-      this.closeAgentRepository?.()
-      await this.extensions?.close()
+      try {
+        await this.runs.close()
+        await this.agent?.close()
+        this.closeAgentRepository?.()
+        await this.extensions?.close()
+      } finally {
+        this.sessions.close()
+      }
     })())
   }
 }

@@ -1,4 +1,4 @@
-import { beginCapture, captureFile } from './workspace-version.js'
+import type { WorkspaceVersions } from './workspace-version.js'
 import { constants } from 'node:fs'
 import { open, lstat, realpath, readdir, mkdir } from 'node:fs/promises'
 import { resolve, relative, isAbsolute, dirname, join } from 'node:path'
@@ -165,17 +165,17 @@ export async function registerProject(path: string): Promise<Project> {
     commands: [],
   }
 }
-export async function fingerprint(root: string): Promise<string> {
-  const capture = beginCapture(root)
+export async function fingerprint(root: string, versions: WorkspaceVersions): Promise<string> {
+  const capture = versions.begin(root)
   const digest = createHash('sha256')
   let paths: string[]
   try {
     paths = (await files(root, '.', true)).sort()
   } catch (error) {
     if (error instanceof Error && error.message === 'WORKSPACE_ROOT_CHANGED') throw error
-    return capture('partial:index-unavailable')
+    return capture.finish('partial:index-unavailable')
   }
-  if (paths.length >= 100000) return capture('partial:file-limit')
+  if (paths.length >= 100000) return capture.finish('partial:file-limit')
   let bytesRead = 0
   for (const path of paths) {
     let target: string, file
@@ -183,27 +183,27 @@ export async function fingerprint(root: string): Promise<string> {
       target = await safePath(root, path)
       file = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW)
     } catch {
-      return capture('partial:file-unavailable')
+      return capture.finish('partial:file-unavailable')
     }
     try {
       const info = await file.stat()
       bytesRead += info.size
       if (!info.isFile() || info.size > 64 * 1024 * 1024 || bytesRead > 256 * 1024 * 1024)
-        return capture(`partial:${digest.digest('hex')}`)
+        return capture.finish(`partial:${digest.digest('hex')}`)
       const content = createHash('sha256')
       for await (const bytes of file.createReadStream({ autoClose: false })) content.update(bytes)
       const after = await file.stat()
       if (after.mtimeMs !== info.mtimeMs || after.size !== info.size)
         throw new Error('FILE_VERSION_CONFLICT')
-      await captureFile(root, target, after)
+      await capture.file(target, after)
       digest.update(path).update(content.digest('hex'))
     } catch {
-      return capture('partial:file-changed')
+      return capture.finish('partial:file-changed')
     } finally {
       await file.close()
     }
   }
-  return capture(digest.digest('hex'))
+  return capture.finish(digest.digest('hex'))
 }
 export class Workspace {
   constructor(

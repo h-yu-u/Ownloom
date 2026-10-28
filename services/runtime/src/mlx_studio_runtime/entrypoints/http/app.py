@@ -26,6 +26,7 @@ from mlx_studio_runtime.entrypoints.http.contracts import (
     ErrorEnvelope,
 )
 from mlx_studio_runtime.entrypoints.http.conversation_routes import register_conversation_routes
+from mlx_studio_runtime.entrypoints.http.data_admission import DataAdmissionMiddleware
 from mlx_studio_runtime.entrypoints.http.data_routes import register_data_routes
 from mlx_studio_runtime.entrypoints.http.event_routes import register_event_routes
 from mlx_studio_runtime.entrypoints.http.extension_routes import register_extension_routes
@@ -96,20 +97,11 @@ def create_app(
         expose_headers=["X-Request-ID"],
     )
 
+    app.add_middleware(DataAdmissionMiddleware, admission=service.data.admission)
+
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
         request.state.request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
-        if service.data.busy and request.method not in {"GET", "HEAD"}:
-            return JSONResponse(
-                status_code=409,
-                content={
-                    "error": {
-                        "code": "BACKUP_IN_PROGRESS",
-                        "message": "正在导出一致快照",
-                        "retryable": True,
-                    }
-                },
-            )
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -227,8 +219,11 @@ def _status_for_code(code: str) -> int:
         "CODING_BUSY",
         "SESSION_IN_USE",
         "RESTORE_CONFLICT",
+        "RESTORE_BUSY",
         "FILE_VERSION_CONFLICT",
         "PROJECT_HAS_SESSIONS",
+        "BACKUP_BUSY",
+        "BACKUP_IN_PROGRESS",
     }:
         return 409
     if code == "MODEL_REMOVAL_FAILED":

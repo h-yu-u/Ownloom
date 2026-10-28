@@ -1,7 +1,7 @@
 import { verificationStatus } from '../domain/verification.js'
-import type { RepositoryPort } from './ports.js'
+import type { SnapshotRepository } from './repository-ports.js'
 export async function buildSnapshot(
-  repo: RepositoryPort,
+  repo: SnapshotRepository,
   fingerprint: (root: string) => Promise<string>,
   id: string,
 ) {

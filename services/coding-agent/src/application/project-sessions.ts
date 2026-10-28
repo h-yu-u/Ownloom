@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { buildSnapshot } from './snapshot.js'
-import type { RepositoryPort, ProjectPort } from './ports.js'
+import type { ProjectPort } from './ports.js'
+import type { ProjectSessionsRepository } from './repository-ports.js'
 import { string } from '../domain/types.js'
 export class ProjectSessions {
   constructor(
-    private repo: RepositoryPort,
+    private repo: ProjectSessionsRepository,
     private projects: ProjectPort,
+    private checkAdmission: () => void,
   ) {}
+  close(): void {
+    this.projects.close()
+  }
   handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
     'projects.list': async (p) => {
       return this.repo.list('project')
@@ -37,7 +42,9 @@ export class ProjectSessions {
         const id = string(p.id)
         if (this.repo.listSessions(id, undefined, 1).length > 0)
           throw new Error('PROJECT_HAS_SESSIONS')
+        const project = this.repo.find('project', id)
         this.repo.delete('project', id)
+        if (project) this.projects.release(project.path)
         return { removed: true }
       }
     },
@@ -79,6 +86,7 @@ export class ProjectSessions {
     },
     'sessions.remove': async (p) => {
       {
+        this.checkAdmission()
         const id = string(p.id)
         if (this.repo.active(id)) throw new Error('SESSION_IN_USE')
         this.repo.get('session', id)

@@ -128,6 +128,7 @@ export function createCodingController(deps: CodingControllerDependencies) {
     const result = await deps.gateway.snapshot(id)
     if (owner !== epoch || id !== sessionId.value) return result.watermark
     const previous = snapshot.value?.watermark ?? result.watermark
+    if (result.watermark < previous) return previous
     snapshot.value = result
     sessions.value = sessions.value.map((item) =>
       item.id === result.session.id ? result.session : item,

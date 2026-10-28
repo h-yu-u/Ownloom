@@ -1,4 +1,5 @@
-import type { PiSession, RepositoryPort, RunPorts } from './ports.js'
+import type { PiSession, RunPorts } from './ports.js'
+import type { VerificationRepository } from './repository-ports.js'
 import { completedRunPatch } from '../domain/verification.js'
 import type { Run, Project } from '../domain/types.js'
 import { randomUUID } from 'node:crypto'
@@ -56,7 +57,7 @@ export async function promptAndVerify(input: {
 }
 
 export async function finalizeRun(input: {
-  repo: RepositoryPort
+  repo: VerificationRepository
   ports: RunPorts
   run: Run
   root: string

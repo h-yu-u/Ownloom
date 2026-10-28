@@ -38,6 +38,8 @@ Coding/工具助手草稿按项目和会话隔离，以 ID/revision 决定是否
 
 默认绑定按工作区、项目或工具助手 scope 解释；明确空选择不能继续继承，读取失败不能被保存为空默认值。音色“保存并用于当前草稿”只回填引用，不能自动生成。
 
+隐私页拥有尚未提交激活的恢复预览。取消预览或离页会释放暂存；选择另一份备份前须先释放旧预览，失败时保留旧目标供重试；离页后才返回的校验结果也会释放。激活请求发起后，预览标识的处理权移交后端，页面释放或响应丢失不会发出丢弃请求，仍可按同一标识重试。实现见 [restore-preview.ts](../../apps/desktop/src/capabilities/data/restore-preview.ts)，持久化和过期清理语义见[存储](./storage.md)。
+
 ### 任务中心
 
 [分组规则](../../apps/desktop/src/capabilities/tasks/task-groups.ts)以 `groupId` 或 owner/session 身份归并，不能按同名标题合并。主任务决定卡片状态，子推理步骤默认折叠，旧失败步骤不能覆盖主任务成功；待批准和活动任务优先显示。
@@ -48,7 +50,7 @@ Coding/工具助手草稿按项目和会话隔离，以 ID/revision 决定是否
 
 恢复作品需检查目标草稿版本；缺失项明确显示，不能静默选择其他模型或音色。列表、详情和文件错误独立；删除 A 的迟到响应不能影响已选中的 B。
 
-保存返回已保存、已发起浏览器下载、取消或失败等明确结果。读取期间离页不得弹出迟到的保存窗口，已经发生的保存结果不能改成取消。实现见 [files.ts](../../apps/desktop/src/platform/files.ts)。
+保存返回已保存、已发起浏览器下载、取消或失败等明确结果。导出归属信号经过聊天、媒体、诊断端口传至平台，在 Blob 读取字节后、调用原生保存窗口前再次校验；读取期间离页只返回已失效，不弹迟到窗口或显示迟到的读取错误。原生调用已经开始后不撤销保存，仍返回实际保存、取消或失败结果。实现见 [export-operation.ts](../../apps/desktop/src/shared/lib/export-operation.ts)和 [files.ts](../../apps/desktop/src/platform/files.ts)。
 
 Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/MarkdownContent.vue)及受控渲染器。HTML、危险链接和引用定位走既有安全路径。外链由平台验证 HTTP/HTTPS 和凭据，不能开放通用 Shell 权限或改变聊天 Hash 路由。
 

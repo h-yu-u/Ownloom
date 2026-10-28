@@ -149,7 +149,7 @@ export function createChatStream(deps: ChatStreamDependencies) {
     deps.state.value.error = cause instanceof Error ? cause.message : '聊天恢复失败'
   }
   function start(id: string, after: number): void {
-    active = true
+    if (!active) return
     release?.()
     textRevision = 0
     projectionVersion = 0

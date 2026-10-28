@@ -8,6 +8,7 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from mlx_studio_runtime.application.task_completion import finish_owned_task
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 
 MAX_REFERENCE_BYTES = 12 * 1024 * 1024
@@ -69,7 +70,15 @@ class AudioFiles:
         relative = f"audio/references/{asset_id}.wav"
         pending = self.temporary(asset_id)
         try:
-            await asyncio.to_thread(pending.write_bytes, content)
+            write = asyncio.get_running_loop().run_in_executor(None, pending.write_bytes, content)
+            try:
+                await asyncio.shield(write)
+            except asyncio.CancelledError:
+                try:
+                    await finish_owned_task(write)
+                except Exception:
+                    pass
+                raise
             pending.replace(self.root / relative)
         finally:
             self.discard(pending)

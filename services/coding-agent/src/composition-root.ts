@@ -15,10 +15,11 @@ import { CapabilityVerifier } from './application/capability-verifier.js'
 import { projectWorkspace } from './adapters/project-workspace.js'
 import { Repository } from './adapters/repository.js'
 import { Commands } from './adapters/commands.js'
-import { fingerprint, git, instructions, Workspace } from './adapters/workspace.js'
+import { git, instructions, Workspace } from './adapters/workspace.js'
 import { openPi } from './adapters/pi-session.js'
 import { Runs } from './application/runs.js'
 import { CodingService } from './application/service.js'
+import { RunAdmission } from './application/run-lifecycle.js'
 export function createCodingService(
   repo: Repository,
   processEvent?: (pid: number, state: 'start' | 'end') => void,
@@ -46,40 +47,49 @@ export function createCodingService(
     read: files.read.bind(files),
     check: extensions.resolver.check.bind(extensions.resolver),
   }
-  const runs: Runs = new Runs(repo, {
-    extensions: resources,
-    activate: activateCapability,
-    closeCapability,
-    commands: new Commands(processEvent),
-    fingerprint,
-    instructions,
-    verificationManifest,
-    gitStatus: (root) => git(root, 'status'),
-    workspace: (root, run) => new Workspace(repo, root, run),
-    open: (input) => openPi({ ...input, extensions: resources, processEvent }),
-  })
-  const agentRepo = new Repository(join(repo.directory, 'agent-chat'), 'agent-chat.db')
-  const agent = new AgentChat({
-    repo: agentRepo,
-    extensions,
-    codingBusy: () => !!repo.active(),
-    modelAllowed: (provider) => {
-      const capability = repo.find('capability', provider.modelId)
-      return (
-        capability?.status === 'verified' && capability.modelFingerprint === provider.fingerprint
-      )
-    },
-    activate: activateCapability,
-    closeCapability,
-    open: (input) => openPi({ ...input, workspace: 'chat', extensions: resources, processEvent }),
-  })
+  const admission = new RunAdmission()
+  const checkAdmission = () => admission.check()
   const projects = projectWorkspace(repo)
+  const runs: Runs = new Runs(
+    repo,
+    {
+      extensions: resources,
+      activate: activateCapability,
+      closeCapability,
+      commands: new Commands(processEvent),
+      fingerprint: projects.fingerprint,
+      instructions,
+      verificationManifest,
+      gitStatus: (root) => git(root, 'status'),
+      workspace: (root, run) => new Workspace(repo, root, run),
+      open: (input) => openPi({ ...input, extensions: resources, processEvent }),
+    },
+    admission,
+  )
+  const agentRepo = new Repository(join(repo.directory, 'agent-chat'), 'agent-chat.db')
+  const agent = new AgentChat(
+    {
+      repo: agentRepo,
+      extensions,
+      codingBusy: () => runs.busy,
+      modelAllowed: (provider) => {
+        const capability = repo.find('capability', provider.modelId)
+        return (
+          capability?.status === 'verified' && capability.modelFingerprint === provider.fingerprint
+        )
+      },
+      activate: activateCapability,
+      closeCapability,
+      open: (input) => openPi({ ...input, workspace: 'chat', extensions: resources, processEvent }),
+    },
+    admission,
+  )
   return new CodingService(
     repo,
     runs,
-    new ProjectSessions(repo, projects),
-    new ChangeService(repo, projects),
-    new CapabilityVerifier(repo, runs, projects),
+    new ProjectSessions(repo, projects, checkAdmission),
+    new ChangeService(repo, projects, checkAdmission),
+    new CapabilityVerifier(repo, runs, projects, checkAdmission),
     extensions,
     agent,
     () => agentRepo.close(),

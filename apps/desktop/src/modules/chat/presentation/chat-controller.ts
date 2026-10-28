@@ -1,4 +1,5 @@
 import { deriveTaskReadiness } from '../../../capabilities/models'
+import { RequestScope } from '../../../capabilities/requests'
 import { createExportOperation } from '../../../shared/lib/export-operation'
 import type { FileExportResult } from '../../../shared/lib/file-export'
 import type { ExtensionSelection } from '@mlx-studio/api-client'
@@ -12,16 +13,12 @@ import type {
 import { conversationTitle } from '../domain/conversation-list'
 import { formatConversation } from '../domain/export-conversation'
 import { SubmitChat, submissionAttachments } from '../application/submit-chat'
-import {
-  initialChatState,
-  reduceChatState,
-  type ChatState,
-  type ChatMessage,
-} from '../domain/chat-state'
+import { initialChatState, type ChatState } from '../domain/chat-state'
 import type { ChatGateway } from '../application/ports'
 import { createChatStream } from './chat-stream-controller'
 import type { createChatDraftController } from './chat-draft-controller'
 import { createChatAttempts } from './chat-attempts'
+import { projectConversation, projectSubmission } from './chat-projection'
 
 interface ChatDependencies {
   gateway: ChatGateway
@@ -31,7 +28,7 @@ interface ChatDependencies {
   runtimeAvailable?(): boolean
   models: Readonly<Ref<readonly ModelSummary[]>>
   refreshModels(): Promise<void>
-  exportText(content: string, filename: string): Promise<FileExportResult>
+  exportText(content: string, filename: string, signal?: AbortSignal): Promise<FileExportResult>
   observe(
     id: string,
     after: number,
@@ -45,6 +42,7 @@ export function createChatController(deps: ChatDependencies) {
   const conversationId = ref<string | null>(null)
   const selectedModelId = ref('')
   const pending = ref(false)
+  const navigating = ref(false)
   const maxTokens = ref<number | null>(null)
   const nextCursor = ref<string | null>(null)
   const temperature = ref(0.7)
@@ -64,8 +62,7 @@ export function createChatController(deps: ChatDependencies) {
   const submission = new SubmitChat(deps.gateway)
   let readEpoch = 0
   let readAbort: AbortController | undefined
-  let viewActive = true
-  let viewEpoch = 0
+  const view = new RequestScope()
   const drafts = deps.draftFactory?.(conversationId)
   const stream = createChatStream({
     gateway: deps.gateway,
@@ -82,6 +79,9 @@ export function createChatController(deps: ChatDependencies) {
     state,
     conversationId,
     pending,
+    navigating,
+    view,
+    refresh: loadWorkspace,
     modelId: selectedModelId,
     maxTokens,
     temperature,
@@ -93,36 +93,27 @@ export function createChatController(deps: ChatDependencies) {
     drafts?.restore(item)
     conversationId.value = item.id
     if (selectModel) selectedModelId.value = item.modelId ?? selectedModelId.value
-    const messages: ChatMessage[] = item.messages
-      .filter((message) => message.role !== 'system')
-      .map((message) => ({
-        ...message,
-        role: message.role === 'user' ? 'user' : 'assistant',
-        state: 'complete',
-        finishReason: message.parameters.finishReason === 'length' ? 'length' : undefined,
-      }))
-    state.value = reduceChatState(state.value, { type: 'conversation.loaded', messages })
-    if (item.activeJobId)
-      state.value = {
-        ...state.value,
-        status: 'sending',
-        activeJobId: item.activeJobId,
-        messages: [
-          ...messages,
-          { id: item.activeJobId, role: 'assistant', content: '', state: 'streaming' },
-        ],
-      }
+    state.value = projectConversation(state.value, item)
   }
   async function openConversation(id: string): Promise<void> {
     if (pending.value) return
     stream.dispose()
     const epoch = ++readEpoch
+    const owner = view.owner
+    navigating.value = true
     readAbort?.abort()
     readAbort = new AbortController()
-    const item = await deps.gateway.get(id, readAbort.signal)
-    if (epoch === readEpoch) {
-      present(item)
-      await stream.resume()
+    try {
+      const item = await deps.gateway.get(id, readAbort.signal)
+      if (epoch === readEpoch && view.owns(owner)) {
+        present(item)
+        await stream.resume()
+      }
+    } catch (cause) {
+      if (epoch === readEpoch && view.owns(owner)) await stream.resume()
+      throw cause
+    } finally {
+      if (epoch === readEpoch) navigating.value = false
     }
   }
   async function loadMore(): Promise<void> {
@@ -144,18 +135,20 @@ export function createChatController(deps: ChatDependencies) {
     nextCursor.value = page.nextCursor ?? null
   }
   async function loadWorkspace(): Promise<void> {
-    viewActive = true
-    const owner = ++viewEpoch
+    view.reset()
+    const owner = view.owner
     if (pending.value) return
-    if (busy.value && state.value.activeJobId) {
-      await stream.resume()
-      return
-    }
-    await stream.resume()
-    state.value = { ...state.value, status: 'loading', error: null }
+    navigating.value = true
     try {
+      if (busy.value && state.value.activeJobId) {
+        await stream.resume()
+        return
+      }
+      await stream.resume()
+      if (!view.owns(owner)) return
+      state.value = { ...state.value, status: 'loading', error: null }
       const [, items] = await Promise.all([deps.refreshModels(), deps.gateway.list()])
-      if (owner !== viewEpoch || !viewActive) return
+      if (!view.owns(owner)) return
       conversations.value = items
       if (!models.value.some((model) => model.id === selectedModelId.value)) {
         selectedModelId.value =
@@ -168,11 +161,14 @@ export function createChatController(deps: ChatDependencies) {
       state.value = { ...state.value, status: 'idle' }
       if (conversationId.value) await openConversation(conversationId.value)
     } catch (cause) {
-      state.value = { ...state.value, status: 'error', error: errorText(cause) }
+      if (view.owns(owner))
+        state.value = { ...state.value, status: 'error', error: errorText(cause) }
+    } finally {
+      if (view.owns(owner)) navigating.value = false
     }
   }
   async function newConversation(): Promise<void> {
-    if (pending.value) return
+    if (pending.value || navigating.value) return
     stream.dispose()
     pending.value = true
     try {
@@ -182,10 +178,11 @@ export function createChatController(deps: ChatDependencies) {
       conversations.value = [item, ...conversations.value]
     } finally {
       pending.value = false
+      if (view.owns(view.owner)) await stream.resume()
     }
   }
   async function deleteConversation(id: string): Promise<void> {
-    if (busy.value || pending.value) return
+    if (busy.value || pending.value || navigating.value) return
     pending.value = true
     try {
       await deps.gateway.delete(id)
@@ -206,7 +203,7 @@ export function createChatController(deps: ChatDependencies) {
     if (conversationId.value) await deleteConversation(conversationId.value)
   }
   async function updateConversation(id: string, patch: ConversationPatch): Promise<void> {
-    if (busy.value || pending.value) return
+    if (busy.value || pending.value || navigating.value) return
     pending.value = true
     try {
       const updated = await deps.gateway.update(id, patch)
@@ -222,12 +219,24 @@ export function createChatController(deps: ChatDependencies) {
     const item = conversations.value.find((entry) => entry.id === id)
     if (item) await updateConversation(id, { pinned: !item.pinned })
   }
+  async function submissionConversation(modelId: string, owner: number): Promise<string> {
+    if (conversationId.value) return conversationId.value
+    const item = await deps.gateway.create(modelId)
+    drafts?.bind(item.id)
+    conversationId.value = item.id
+    conversations.value = [item, ...conversations.value]
+    if (view.owns(owner)) {
+      present(item)
+      await stream.resume()
+    }
+    return item.id
+  }
   async function send(
     content: string,
     files: File[] = [],
     selection?: ExtensionSelection,
   ): Promise<boolean> {
-    if (!readiness.value.submitAllowed) return false
+    if (!view.owns(view.owner) || navigating.value || !readiness.value.submitAllowed) return false
     const draft = drafts?.draft.value.text === content ? drafts.draft.value : undefined
     if (
       (!content.trim() && !files.length && !draft?.attachments.length) ||
@@ -236,15 +245,16 @@ export function createChatController(deps: ChatDependencies) {
     )
       return false
     pending.value = true
+    const owner = view.owner
+    const parameters = {
+      modelId: selectedModelId.value,
+      maxTokens: maxTokens.value,
+      temperature: temperature.value,
+    }
     try {
-      if (!conversationId.value) {
-        const item = await deps.gateway.create(selectedModelId.value)
-        drafts?.bind(item.id)
-        present(item)
-        conversations.value = [item, ...conversations.value]
-      }
+      const target = await submissionConversation(parameters.modelId, owner)
       const result = await submission.run({
-        conversationId: conversationId.value!,
+        conversationId: target,
         content,
         files,
         attachments: files.length ? undefined : submissionAttachments(draft),
@@ -253,27 +263,20 @@ export function createChatController(deps: ChatDependencies) {
         webSearchProvider: draft?.webSearchEnabled ? deps.gateway.webSearch : undefined,
         visualSelection: draft?.visualSelection,
         selection,
-        modelId: selectedModelId.value,
-        maxTokens: maxTokens.value,
-        temperature: temperature.value,
+        ...parameters,
       })
       if (!result) return false
       if (draft) drafts?.consume(draft.key, draft.revision)
-      state.value = reduceChatState(state.value, {
-        type: 'send.started',
-        userMessage: {
-          id: result.userMessageId ?? crypto.randomUUID(),
-          role: 'user',
-          content: result.content,
-          state: 'complete',
-          attachments: result.attachments,
-        },
-        assistantMessage: { id: result.jobId, role: 'assistant', content: '', state: 'streaming' },
+      if (!view.owns(owner) || target !== conversationId.value) return true
+      state.value = projectSubmission(state.value, {
+        ...result,
+        messageId: result.userMessageId ?? crypto.randomUUID(),
       })
       stream.start(result.jobId, result.after)
       return true
     } finally {
       pending.value = false
+      if (!view.owns(owner) && view.owns(view.owner)) void loadWorkspace()
     }
   }
   async function cancel(): Promise<void> {
@@ -294,15 +297,15 @@ export function createChatController(deps: ChatDependencies) {
     return exporting.run({
       id: conversationId.value ?? 'new',
       read: async () => new Blob([content]),
-      write: () => deps.exportText(content, 'ownloom-conversation.md'),
+      write: (_blob, signal) => deps.exportText(content, 'ownloom-conversation.md', signal),
     })
   }
   function dispose(): void {
     exporting.invalidate()
     stream.dispose()
     drafts?.disposePreview()
-    viewActive = false
-    viewEpoch += 1
+    view.dispose()
+    navigating.value = false
     readEpoch += 1
     readAbort?.abort()
   }
@@ -313,7 +316,7 @@ export function createChatController(deps: ChatDependencies) {
     conversations,
     conversationId,
     selectedModelId,
-    pending,
+    pending: computed(() => pending.value || navigating.value),
     maxTokens,
     temperature,
     busy,

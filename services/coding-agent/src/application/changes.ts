@@ -1,9 +1,11 @@
-import type { RepositoryPort, ProjectPort } from './ports.js'
+import type { ProjectPort } from './ports.js'
+import type { ChangeRepository } from './repository-ports.js'
 import { string } from '../domain/types.js'
 export class ChangeService {
   constructor(
-    private repo: RepositoryPort,
+    private repo: ChangeRepository,
     private projects: ProjectPort,
+    private checkAdmission: () => void,
   ) {}
   handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
     'sessions.files': async (p) => {
@@ -27,6 +29,7 @@ export class ChangeService {
     'changes.get': async (p) => this.repo.changeDetail(string(p.id)),
     'changes.restore': async (p) => {
       {
+        this.checkAdmission()
         if (this.repo.active()) throw new Error('CODING_BUSY')
         const change = this.repo.get('change', string(p.id)),
           root = this.projectPath(change.sessionId)

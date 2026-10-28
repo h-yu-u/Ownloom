@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { NButton, NAlert, NSpace } from 'naive-ui'
 import { createDataManagement } from '../../../capabilities/data'
 import PageHeader from '../../../shared/ui/PageHeader.vue'
 const data = createDataManagement()
 onMounted(data.load)
+onBeforeUnmount(data.dispose)
 function inspect(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
   if (file) void data.inspect(file)
 }
 const size = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -44,9 +47,12 @@ const size = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
       <ul>
         <li v-for="warning in data.preview.value.warnings" :key="warning">{{ warning }}</li>
       </ul>
-      <NButton :disabled="data.pending.value || data.restartRequired.value" @click="data.activate"
-        >确认恢复为新资料库</NButton
-      >
+      <NSpace>
+        <NButton :disabled="data.pending.value || data.restartRequired.value" @click="data.activate"
+          >确认恢复为新资料库</NButton
+        >
+        <NButton :disabled="data.pending.value" @click="data.cancelPreview">取消预览</NButton>
+      </NSpace>
     </template>
     <NSpace
       ><NButton :disabled="data.pending.value" @click="data.rollback">撤销上次资料库切换</NButton>

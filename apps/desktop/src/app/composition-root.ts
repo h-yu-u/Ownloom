@@ -81,8 +81,8 @@ export function createChatWorkspace() {
       ),
     models: toRef(directory, 'items'),
     refreshModels,
-    exportText: (content, filename) =>
-      exportBlob(new Blob([content], { type: 'text/markdown;charset=utf-8' }), filename),
+    exportText: (content, filename, signal) =>
+      exportBlob(new Blob([content], { type: 'text/markdown;charset=utf-8' }), filename, signal),
     observe: (id, after, event, resync) => observer.watch(id, after, { event, resync }),
   })
 }
@@ -90,7 +90,7 @@ export function createImageWorkspace() {
   return createImageController({
     ...directoryDependencies(),
     gateway: createImageGateway(runtimeClient),
-    exportImage: (blob, id) => exportBlob(blob, `ownloom-${id}.png`),
+    exportImage: (blob, id, signal) => exportBlob(blob, `ownloom-${id}.png`, signal),
   })
 }
 export function createModelsWorkspace() {
@@ -105,7 +105,7 @@ export function createAudioWorkspace() {
   return createAudioController({
     ...directoryDependencies(),
     gateway: createAudioGateway(runtimeClient),
-    exportAudio: (blob, id) => exportBlob(blob, `ownloom-${id}.wav`),
+    exportAudio: (blob, id, signal) => exportBlob(blob, `ownloom-${id}.wav`, signal),
   })
 }
 
@@ -144,6 +144,7 @@ export function installWorkspaces(): void {
       cleanup: async () => dataEndpoints(await runtimeClient()).cleanup(),
       restore: async (id) => dataEndpoints(await runtimeClient()).restore(id),
       inspect: async (file) => (await runtimeClient()).inspectBackup(file),
+      discardPreview: async (id) => dataEndpoints(await runtimeClient()).discardPreview(id),
       activate: async (id) => dataEndpoints(await runtimeClient()).activateProfile(id),
       rollback: async () => dataEndpoints(await runtimeClient()).rollbackProfile(),
       restart: restartRuntimeProcess,

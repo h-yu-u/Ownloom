@@ -1,9 +1,10 @@
-import type { PiSession, RepositoryPort } from './ports.js'
+import type { PiSession } from './ports.js'
+import type { RunEventRepository } from './repository-ports.js'
 import type { Run } from '../domain/types.js'
 
 export function subscribeRun(
   pi: PiSession,
-  repo: RepositoryPort,
+  repo: RunEventRepository,
   runId: string,
   update: (patch: Partial<Run>) => void,
 ): void {

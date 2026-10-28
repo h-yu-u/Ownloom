@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { verificationStatus } from '../domain/verification.js'
-import type { RepositoryPort, RunPorts } from './ports.js'
+import type { RunPorts } from './ports.js'
+import type { CommandRepository } from './repository-ports.js'
 import type { Run } from '../domain/types.js'
 import type { Approvals } from './approvals.js'
 export class RunCommands {
   constructor(
     private input: {
-      repo: RepositoryPort
+      repo: CommandRepository
       ports: RunPorts
       approvals: Approvals
       update(id: string, patch: Partial<Run>): void

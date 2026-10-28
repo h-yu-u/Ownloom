@@ -16,8 +16,10 @@ class RuntimeControl:
         self.restart_lock = asyncio.Lock()
 
     async def load(self, model_id: str) -> dict[str, Any]:
+        self.scheduler.check_resources_available()
         self.scheduler.check_model_available(model_id)
         async with self.scheduler.lock:
+            self.scheduler.check_resources_available()
             self.scheduler.check_model_available(model_id)
             return await self.inference.load(model_id)
 

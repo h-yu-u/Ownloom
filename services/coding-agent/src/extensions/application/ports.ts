@@ -34,23 +34,27 @@ export interface ExtensionRepository {
   wait(after: number): Promise<{ events: Event[]; watermark: number }>
   close(): void
 }
+export interface SkillContent {
+  name: string
+  description: string
+  files: Skill['files']
+  digest: string
+  sourceRef: string
+}
+export interface SkillPublication {
+  readonly value: SkillContent
+  read(relativePath: string): Promise<string>
+  publish(): Promise<void>
+  commit(): void
+  abort(): Promise<void>
+}
 export interface SkillFiles {
   preview(
     path: string,
     workspaces: Skill['workspaces'],
     requiredCapabilities: string[],
   ): Promise<{ skill: Skill; body: string; diagnostics: string[] }>
-  import(
-    path: string,
-    id: string,
-    revision: number,
-  ): Promise<{
-    name: string
-    description: string
-    files: Skill['files']
-    digest: string
-    sourceRef: string
-  }>
+  stage(path: string, id: string, revision: number): Promise<SkillPublication>
   read(skill: Skill, relativePath: string): Promise<string>
 }
 export interface McpConnections {

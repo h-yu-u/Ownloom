@@ -1,7 +1,7 @@
 import { fileIntegrity } from './backup-integrity.js'
 import { validateTranscript } from './transcript.js'
 import { randomUUID, createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile, readdir, lstat } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, lstat, rm } from 'node:fs/promises'
 import { join, relative, isAbsolute } from 'node:path'
 import type { Repository } from './repository.js'
 import type { ExtensionsRepository } from './extensions/repository.js'
@@ -14,6 +14,20 @@ export async function exportData(
 ) {
   const directory = join(repo.directory, 'exports', randomUUID())
   await mkdir(directory, { recursive: true, mode: 0o700 })
+  try {
+    return await writeExport(repo, agent, extensions, directory)
+  } catch (error) {
+    await rm(directory, { recursive: true, force: true })
+    throw error
+  }
+}
+
+async function writeExport(
+  repo: Repository,
+  agent: Repository,
+  extensions: ExtensionsRepository,
+  directory: string,
+) {
   repo.exportDatabase(join(directory, 'coding.db'))
   agent.exportDatabase(join(directory, 'agent-chat.db'))
   extensions.exportDatabase(join(directory, 'extensions.db'))

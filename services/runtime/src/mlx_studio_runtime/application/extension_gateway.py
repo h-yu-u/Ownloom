@@ -8,6 +8,10 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from mlx_studio_runtime.application.coding_gateway import CodingGateway
+from mlx_studio_runtime.application.extension_credentials import (
+    resolve_connection,
+    stage_credential,
+)
 from mlx_studio_runtime.application.secret_ports import SecretStorePort
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 from mlx_studio_runtime.domain.generated.coding_rpc import RpcMethod
@@ -109,26 +113,7 @@ class ExtensionGateway:
                 raise RuntimeFault(
                     RuntimeErrorInfo("INVALID_CREDENTIAL_FIELD", "凭据类型与连接方式不匹配")
                 )
-            public_intent = {
-                **payload,
-                "credential": {k: v for k, v in credential.items() if k != "value"},
-            }
-            intent = hashlib.sha256(json.dumps(public_intent, sort_keys=True).encode()).hexdigest()
-            reference = (
-                "mcp-" + hashlib.sha256((body["mutationId"] + ":" + field).encode()).hexdigest()
-            )
-            staged = json.dumps(
-                {"intent": intent, "value": credential["value"], "kind": credential["kind"]},
-                sort_keys=True,
-            )
-            existing = self.secrets.find(reference)
-            if existing is not None and existing != staged:
-                raise RuntimeFault(
-                    RuntimeErrorInfo("IDEMPOTENCY_CONFLICT", "请求编号已用于其他凭据")
-                )
-            if existing is None:
-                self.secrets.set(reference, staged)
-            refs[field] = reference
+            refs[field] = await stage_credential(self.secrets, payload, credential)
         public_credential = {key: value for key, value in credential.items() if key != "value"}
         payload["credentialIntent"] = hashlib.sha256(
             json.dumps(public_credential, sort_keys=True).encode()
@@ -137,12 +122,10 @@ class ExtensionGateway:
         payload["transport"] = transport
         return await self.call("extensions.mcp.save", payload)
 
-    def connection(self, server: dict[str, Any]) -> dict[str, str]:
-        values: dict[str, str] = {}
-        for field, reference in server["transport"]["secretRefs"].items():
-            saved = json.loads(self.secrets.resolve(reference))
-            values[field] = ("Bearer " if saved["kind"] == "bearer" else "") + saved["value"]
-        return values
+    async def connection(self, server: dict[str, Any]) -> dict[str, str]:
+        return await asyncio.to_thread(
+            resolve_connection, self.secrets, server["transport"]["secretRefs"]
+        )
 
     async def test(self, identifier: str, revision: int) -> Any:
         server = await self.coding.call(
@@ -153,7 +136,7 @@ class ExtensionGateway:
             {
                 "id": identifier,
                 "configRevision": revision,
-                "connectionSecrets": self.connection(server),
+                "connectionSecrets": await self.connection(server),
             },
         )
 
@@ -172,7 +155,7 @@ class ExtensionGateway:
             server["id"]: {
                 "revision": server["revision"],
                 "digest": server["digest"],
-                "values": self.connection(server),
+                "values": await self.connection(server),
             }
             for server in result["snapshot"]["servers"]
         }

@@ -29,6 +29,15 @@ class ModelRuntime:
         self.phase = "stopped"
         self.state = RuntimeState.READY
         self.worker_restarts = 0
+        self._release_failed = False
+
+    def check_resources_available(self) -> None:
+        if self._release_failed:
+            raise RuntimeFault(
+                RuntimeErrorInfo(
+                    "RUNTIME_RESOURCES_NOT_AVAILABLE", "Worker 资源释放失败，请重启", True
+                )
+            )
 
     def _execution_worker(self) -> InferenceWorker:
         if self.worker is None:
@@ -62,6 +71,7 @@ class ModelRuntime:
         return self._execution_worker().infer(job_id, request)
 
     async def load(self, model_id: str) -> dict[str, Any]:
+        self.check_resources_available()
         manifest = self.models.get(model_id)
         if manifest is None:
             raise RuntimeFault(RuntimeErrorInfo("MODEL_NOT_FOUND", "找不到此模型"))
@@ -73,7 +83,11 @@ class ModelRuntime:
                     details={"engine": manifest.engine},
                 )
             )
-        if self.active_model_id == model_id and self.worker is not None:
+        if (
+            self.active_model_id == model_id
+            and self.worker is not None
+            and self.state is RuntimeState.READY
+        ):
             return {"modelId": model_id, "state": "loaded"}
         await self.stop()
         self.loading_model_id = model_id
@@ -123,6 +137,7 @@ class ModelRuntime:
                 await worker.stop()
             except BaseException:
                 if self.worker is worker:
+                    self._release_failed = True
                     self.state = RuntimeState.DEGRADED
                     self.phase = "failed"
                 raise
@@ -132,6 +147,7 @@ class ModelRuntime:
         self.active_model_id = None
         self.loading_model_id = None
         self.phase = "stopped"
+        self._release_failed = False
         if model_id:
             self.repository.update_state(model_id, "available")
             await self.events.publish("model.unloaded", {"model_id": model_id})

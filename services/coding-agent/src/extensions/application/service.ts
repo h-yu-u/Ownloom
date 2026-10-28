@@ -11,6 +11,9 @@ export class Extensions {
     this.resolver = new ResourceResolver(ports)
     this.ready = this.seed()
   }
+  get busy(): boolean {
+    return this.operations.size > 0
+  }
   private async seed(): Promise<void> {
     for (const builtin of this.ports.builtinSkills ?? []) {
       if (this.ports.repo.catalog().skills.some((skill) => skill.id === builtin.id)) continue
@@ -44,30 +47,38 @@ export class Extensions {
       expectedRevision = p.expectedRevision ?? 0
     if (p.id && expectedRevision > 0 && repo.skill(p.id).revision !== expectedRevision)
       throw new Error('EXTENSION_REVISION_CONFLICT')
-    const imported = await files.import(p.path, id, expectedRevision + 1)
-    if (p.expectedDigest && p.expectedDigest !== imported.digest)
-      throw new Error('SKILL_CONTENT_CHANGED')
-    if (repo.catalog().skills.some((item) => item.id !== id && item.name === imported.name))
-      throw new Error('SKILL_NAME_CONFLICT')
-    const skill: Skill = {
-      ...imported,
-      id,
-      revision: expectedRevision + 1,
-      contentRevision: expectedRevision + 1,
-      source,
-      enabled: true,
-      workspaces: p.workspaces,
-      requiredCapabilities: p.requiredCapabilities,
+    const publication = await files.stage(p.path, id, expectedRevision + 1)
+    try {
+      const imported = publication.value
+      if (p.expectedDigest && p.expectedDigest !== imported.digest)
+        throw new Error('SKILL_CONTENT_CHANGED')
+      if (repo.catalog().skills.some((item) => item.id !== id && item.name === imported.name))
+        throw new Error('SKILL_NAME_CONFLICT')
+      const skill: Skill = {
+        ...imported,
+        id,
+        revision: expectedRevision + 1,
+        contentRevision: expectedRevision + 1,
+        source,
+        enabled: true,
+        workspaces: p.workspaces,
+        requiredCapabilities: p.requiredCapabilities,
+      }
+      await publication.publish()
+      const result = repo.commit({
+        mutationId: p.mutationId,
+        intent,
+        targetId: id,
+        expectedRevision,
+        kind: 'skill',
+        value: skill,
+        event: 'skill.version_published',
+      })
+      publication.commit()
+      return result
+    } finally {
+      await publication.abort()
     }
-    return repo.commit({
-      mutationId: p.mutationId,
-      intent,
-      targetId: id,
-      expectedRevision,
-      kind: 'skill',
-      value: skill,
-      event: 'skill.version_published',
-    })
   }
   private saveServer(p: RpcParamsMap['extensions.mcp.save']) {
     const { repo, digest } = this.ports,

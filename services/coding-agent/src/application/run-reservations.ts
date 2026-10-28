@@ -14,6 +14,9 @@ export class RunReservations<T> {
   get busy(): boolean {
     return !!this.main
   }
+  owns(id: string): boolean {
+    return this.main?.id === id || this.queue.some((item) => item.id === id)
+  }
   check(queue: boolean): void {
     if (this.stopped) throw new Error('HOST_SHUTTING_DOWN')
     if (this.main && !queue) throw new Error('CODING_BUSY')

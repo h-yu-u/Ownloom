@@ -116,7 +116,12 @@ class AgentHost:
             async with self.write_lock:
                 self.process.stdin.write((json.dumps(frame, ensure_ascii=False) + "\n").encode())
                 await self.process.stdin.drain()
-            async with asyncio.timeout(1300 if method == "capabilities.verify" else 30):
+            deadline = 1300 if method == "capabilities.verify" else 30
+            # Data owners may still be writing after a control RPC deadline. Their callers
+            # retain cancellation ownership until the actual completion reply or Host exit.
+            if method in {"data.export", "data.restore.profile"}:
+                deadline = None
+            async with asyncio.timeout(deadline):
                 return await future
         except (BrokenPipeError, TimeoutError) as error:
             raise RuntimeFault(

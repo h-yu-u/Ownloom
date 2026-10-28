@@ -8,7 +8,7 @@ from mlx_studio_runtime.adapters.attachment_derivatives import AttachmentDerivat
 from mlx_studio_runtime.adapters.attachment_files import AttachmentFiles
 from mlx_studio_runtime.adapters.attachment_preparation_executor import PreparationExecutor
 from mlx_studio_runtime.adapters.audio_files import AudioFiles
-from mlx_studio_runtime.adapters.backup_bundle import create_backup_async
+from mlx_studio_runtime.adapters.backup_bundle import create_backup_async, release_backup
 from mlx_studio_runtime.adapters.coding_model_identity import coding_model_identity
 from mlx_studio_runtime.adapters.data_profiles import DataProfiles
 from mlx_studio_runtime.adapters.diagnostics import HostDiagnostics
@@ -36,6 +36,7 @@ from mlx_studio_runtime.adapters.persistence.text_assistant_repository import (
 from mlx_studio_runtime.adapters.persistence.web_config_repository import WebConfigRepository
 from mlx_studio_runtime.adapters.secret_store import KeychainSecrets
 from mlx_studio_runtime.adapters.storage_management import StorageManagement
+from mlx_studio_runtime.adapters.temporary_data import prune_temporaries
 from mlx_studio_runtime.adapters.web.tavily import Tavily
 from mlx_studio_runtime.adapters.web.url_policy import PublicResultPolicy
 from mlx_studio_runtime.adapters.worker_host import WorkerHost
@@ -59,6 +60,7 @@ from mlx_studio_runtime.application.model_catalog import ModelCatalog
 from mlx_studio_runtime.application.model_removal import ModelRemovalPorts, RemoveModel
 from mlx_studio_runtime.application.model_runtime import ModelRuntime
 from mlx_studio_runtime.application.queries import Queries
+from mlx_studio_runtime.application.restore_profile import RestoreProfile, RestoreProfilePorts
 from mlx_studio_runtime.application.runtime_control import RuntimeControl
 from mlx_studio_runtime.application.runtime_overview import RuntimeOverview, RuntimeSnapshot
 from mlx_studio_runtime.application.speech_generation_service import SpeechGenerationService
@@ -72,6 +74,8 @@ class RuntimeApplication:
     def __init__(self, store: SQLiteRepositories, runtime_source: Path) -> None:
         self.store = store
         self.profiles = DataProfiles(store.database_path)
+        prune_temporaries(store.database_path.parent / "exports")
+        prune_temporaries(store.database_path.parent / "coding" / "exports")
         self.storage = StorageManagement(store.database)
         self.handoffs = ContextHandoffs(
             store.conversations,
@@ -193,6 +197,18 @@ class RuntimeApplication:
                 lambda: self.inference.worker.pid if self.inference.worker else None,
             ),
         )
+        restore = RestoreProfile(
+            RestoreProfilePorts(
+                prepare=self.profiles.prepare_async,
+                complete=lambda target: (target / "restore-complete").is_file(),
+                import_node=lambda identifier: self.coding.call(
+                    "data.restore.profile", {"identifier": identifier}
+                ),
+                activate=self.profiles.activate,
+                discard=self.profiles.discard,
+                discard_upload=self.profiles.discard_upload,
+            )
+        )
         self.data = DataManagement(
             self.queries,
             self.coding,
@@ -205,7 +221,8 @@ class RuntimeApplication:
                 ).fetchone()
             ),
             lambda node: create_backup_async(self.storage, node, self.agent_host.directory),
-            self._restore_profile,
+            restore.execute,
+            lambda archive: release_backup(self.storage, archive),
         )
         self.model_removal = RemoveModel(
             ModelRemovalPorts(
@@ -229,18 +246,6 @@ class RuntimeApplication:
             ImageFiles(store.media_path),
             attachments.paths,
         )
-
-    async def _restore_profile(self, identifier: str) -> None:
-        import asyncio
-
-        try:
-            _, target = await asyncio.to_thread(self.profiles.prepare, identifier)
-            if not (target / "restore-complete").is_file():
-                await self.coding.call("data.restore.profile", {"identifier": identifier})
-            self.profiles.activate(identifier)
-        except BaseException:
-            self.profiles.discard(identifier)
-            raise
 
     async def close(self) -> None:
         await self.downloads.close()
