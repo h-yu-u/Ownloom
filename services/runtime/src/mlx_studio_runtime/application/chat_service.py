@@ -13,6 +13,7 @@ from mlx_studio_runtime.application.ports import (
     TextInference,
 )
 from mlx_studio_runtime.domain.errors import ContextRebuildRequired, RuntimeErrorInfo, RuntimeFault
+from mlx_studio_runtime.domain.generation_stats import GenerationStats, read_generation_stats
 from mlx_studio_runtime.domain.jobs import Job, JobEvent, JobState
 from mlx_studio_runtime.domain.models import ModelManifest
 
@@ -156,6 +157,7 @@ class ChatService:
         if result is None:
             return
         output, completion = result
+        generation_stats = read_generation_stats(completion.get("generationStats"))
 
         def persist() -> None:
             self.conversations.save_message(
@@ -171,6 +173,7 @@ class ChatService:
                         "temperature": request["temperature"],
                         "finishReason": completion.get("finish_reason", "stop"),
                         "generationTokens": completion.get("generation_tokens"),
+                        **({"generationStats": generation_stats} if generation_stats else {}),
                         "jobId": job.id,
                         "contextJobId": job.id,
                         "attemptMode": request["operation"],
@@ -193,7 +196,7 @@ class ChatService:
     ) -> tuple[str, dict[str, Any]] | None:
         output: list[str] = []
         completion: dict[str, Any] | None = None
-        revision = 0
+        generation_stats: GenerationStats | None = None
         async for event in events:
             kind, payload = event["type"], event["payload"]
             if kind == "generation.delta":
@@ -201,10 +204,13 @@ class ChatService:
                     continue
                 delta = str(payload.get("text", ""))
                 output.append(delta)
-                self.job_lifecycle.append_output(job_id, delta)
-                revision += 1
-                await self.events.publish(
-                    kind, {"job_id": job_id, "text": delta, "textRevision": revision}
+                if "generationStats" in payload:
+                    generation_stats = read_generation_stats(payload["generationStats"])
+                await self._publish_delta(
+                    job_id,
+                    delta,
+                    generation_stats,
+                    include_stats="generationStats" in payload or generation_stats is not None,
                 )
             elif kind == "generation.completed":
                 completion = payload
@@ -224,7 +230,28 @@ class ChatService:
             return None
         if completion is None:
             raise RuntimeError("WORKER_ENDED_EARLY")
+        final_stats = read_generation_stats(completion.get("generationStats"))
+        if final_stats != generation_stats:
+            await self._publish_delta(job_id, "", final_stats)
         return "".join(output), completion
+
+    async def _publish_delta(
+        self,
+        job_id: str,
+        text: str,
+        generation_stats: GenerationStats | None,
+        include_stats: bool = True,
+    ) -> None:
+        self.job_lifecycle.append_output(job_id, text, generation_stats)
+        await self.events.publish(
+            "generation.delta",
+            {
+                "job_id": job_id,
+                "text": text,
+                "textRevision": self.job_lifecycle.text_revision(job_id),
+                **({"generationStats": generation_stats} if include_stats else {}),
+            },
+        )
 
     async def regenerate(
         self, conversation_id: str, model_id: str, max_tokens: int | None = None

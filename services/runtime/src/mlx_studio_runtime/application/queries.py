@@ -12,6 +12,7 @@ from mlx_studio_runtime.application.ports import (
     JobRepository,
 )
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
+from mlx_studio_runtime.domain.generation_stats import read_generation_stats
 
 
 class Queries:
@@ -40,6 +41,12 @@ class Queries:
         if item is None:
             raise RuntimeFault(RuntimeErrorInfo("CONVERSATION_NOT_FOUND", "找不到此会话"))
         item["activeJobId"] = self.contexts.busy(conversation_id) if self.contexts else None
+        for message in item["messages"]:
+            message["generationStats"] = (
+                read_generation_stats(message.get("parameters", {}).get("generationStats"))
+                if message["role"] == "assistant"
+                else None
+            )
         return item
 
     def rename(self, conversation_id: str, title: str) -> dict[str, Any]:
@@ -91,10 +98,17 @@ class Queries:
             if key not in {"acceptedSnapshot", "content"}
         }
         result_text = item.pop("resultText", "")
+        result_stats = item.pop("resultGenerationStats", None)
+        generation_stats = self.lifecycle.generation_stats(job_id)
+        if item["state"] == "succeeded":
+            generation_stats = result_stats
+        elif item["state"] in {"failed", "cancelled", "cancelling"}:
+            generation_stats = None
         return dict(
             item,
             text=self.lifecycle.output_text(job_id) or result_text,
             textRevision=self.lifecycle.text_revision(job_id),
+            generationStats=generation_stats,
             sources=sources,
         )
 

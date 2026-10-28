@@ -6,7 +6,9 @@ from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
 from typing import Any, cast
 
+from mlx_studio_runtime.adapters.text_engines.generation_stats import native_generation_stats
 from mlx_studio_runtime.adapters.worker_runtime.context import WorkerContext
+from mlx_studio_runtime.domain.generation_stats import GenerationStats
 
 
 class EngineSession:
@@ -26,6 +28,7 @@ class EngineSession:
         self.engine = "fake"
         self.finish_reason = "stop"
         self.generation_tokens = 0
+        self.generation_stats: GenerationStats | None = None
         self.context_limit = 8192
 
     def emit(self, event_type: str, payload: dict[str, Any]) -> None:
@@ -78,14 +81,18 @@ class EngineSession:
         temperature = max(0.0, min(float(payload.get("temperature", 0.7)), 2.0))
         self.finish_reason = "stop"
         self.generation_tokens = 0
+        self.generation_stats = None
+        had_stats = False
         self.emit("generation.started", {"job_id": job_id})
         try:
             for chunk in self._chunks(payload, prompt, max_tokens, temperature):
                 if self.cancel.is_set() or self.shutdown.is_set():
                     self.emit("generation.cancelled", {"job_id": job_id})
                     return
-                if chunk:
-                    self.emit("generation.delta", {"job_id": job_id, "text": chunk})
+                stats = self._chat_stats_payload(include_unknown=had_stats)
+                if chunk or stats:
+                    self.emit("generation.delta", {"job_id": job_id, "text": chunk, **stats})
+                had_stats = self.generation_stats is not None
                 if self.engine == "fake":
                     time.sleep(0.015)
             terminal = "cancelled" if self.cancel.is_set() else "completed"
@@ -95,6 +102,7 @@ class EngineSession:
                     "job_id": job_id,
                     "finish_reason": self.finish_reason,
                     "generation_tokens": self.generation_tokens,
+                    **self._chat_stats_payload(),
                 },
             )
         except Exception as error:
@@ -155,7 +163,7 @@ class EngineSession:
             max_tokens=max_tokens,
             sampler=sampler,
         ):
-            self.record_completion(response)
+            self.record_chat_completion(response)
             if self.cancel.is_set():
                 return
             yield response.text
@@ -208,12 +216,20 @@ class EngineSession:
             temperature=temperature,
             verbose=False,
         ):
-            self.record_completion(response)
+            self.record_chat_completion(response)
             if self.cancel.is_set():
                 return
             text = response if isinstance(response, str) else getattr(response, "text", "")
-            if text:
-                yield str(text)
+            yield str(text) if text else ""
+
+    def record_chat_completion(self, response: object) -> None:
+        self.record_completion(response)
+        self.generation_stats = native_generation_stats(self.engine, response)
+
+    def _chat_stats_payload(self, include_unknown: bool = False) -> dict[str, object]:
+        if self.generation_stats is not None or include_unknown:
+            return {"generationStats": self.generation_stats}
+        return {}
 
     def record_completion(self, response: Any) -> None:
         reason = getattr(response, "finish_reason", None)
@@ -247,6 +263,7 @@ class EngineSession:
         self.model_config = None
         self.model_id = None
         self.engine = "fake"
+        self.generation_stats = None
 
 
 def normalize_messages(messages: object, prompt: str) -> list[dict[str, str]]:

@@ -5,6 +5,7 @@ from types import MappingProxyType
 from typing import Any
 
 from mlx_studio_runtime.application.ports import EventPublisher, JobRepository, Transaction
+from mlx_studio_runtime.domain.generation_stats import GenerationStats
 from mlx_studio_runtime.domain.jobs import (
     Job,
     JobEvent,
@@ -24,6 +25,7 @@ class JobLifecycle:
         self._items: dict[str, Job] = {}
         self._output: dict[str, str] = {}
         self._text_revisions: dict[str, int] = {}
+        self._generation_stats: dict[str, GenerationStats] = {}
 
     def save_result(self, job_id: str, result: dict[str, Any]) -> None:
         self.store.save_result(job_id, result)
@@ -44,6 +46,10 @@ class JobLifecycle:
     def text_revision(self, job_id: str) -> int:
         return self._text_revisions.get(job_id, 0)
 
+    def generation_stats(self, job_id: str) -> GenerationStats | None:
+        stats = self._generation_stats.get(job_id)
+        return stats.copy() if stats is not None else None
+
     async def set_phase(self, job_id: str, phase: str) -> None:
         if terminal_state(self.get(job_id).state) or self.cancellation_requested(job_id):
             return
@@ -60,6 +66,7 @@ class JobLifecycle:
                 self._items.pop(job.id)
                 self._output.pop(job.id, None)
                 self._text_revisions.pop(job.id, None)
+                self._generation_stats.pop(job.id, None)
 
     async def register(
         self, job: Job, request: dict[str, object], persist: Callable[[], None] | None = None
@@ -111,6 +118,7 @@ class JobLifecycle:
                 persist()
             self.store.update(job_id, updated.state.value, updated.error_code)
         self._items[job_id] = updated
+        self._generation_stats.pop(job_id, None)
         await self.events.publish(
             f"job.{updated.state.value}",
             {
@@ -130,8 +138,14 @@ class JobLifecycle:
             return await self.finish(job_id, JobEvent.CANCEL_COMPLETE)
         return await self.finish(job_id, JobEvent.FAIL, error_code)
 
-    def append_output(self, job_id: str, text: str) -> None:
+    def append_output(
+        self, job_id: str, text: str, generation_stats: GenerationStats | None = None
+    ) -> None:
         if self.get(job_id).state is not JobState.RUNNING:
             return
         self._output[job_id] = self._output.get(job_id, "") + text
         self._text_revisions[job_id] = self.text_revision(job_id) + 1
+        if generation_stats is None:
+            self._generation_stats.pop(job_id, None)
+        else:
+            self._generation_stats[job_id] = generation_stats.copy()
