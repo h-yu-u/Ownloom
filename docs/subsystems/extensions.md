@@ -60,6 +60,8 @@ Coding 的能力选择器可保存工作区/项目默认值，本次提交会冻
 
 目录 revision 与内容 contentRevision 分离。元数据更新不会让已经启动的运行读到另一个 Skill 内容；`expectedRevision` 拒绝冲突写入。相同 mutation/submission 编号与相同意图返回原结果，不同意图冲突。
 
+MCP 凭据的读取、查重和写入由 [extension_credentials.py](../../services/runtime/src/mlx_studio_runtime/application/extension_credentials.py) 在线程中调用同步 SecretStore，不阻塞 Supervisor 事件循环。凭据写入使用稳定的 mutation 引用；已发起的系统写入无法取消，因此保存请求被取消时继续持有保存锁，等待查重/写入实际结束后再向调用者返回取消，也不继续发布 Node 配置。重试随后复用相同暂存值或返回意图冲突，不与尚未完成的写入竞争；正常存储失败仍向调用者返回原错误。取消期间的暂存值按下述保守策略保留。
+
 媒体创建使用 reserve → 业务 create → bind，调用编号关联稳定 submission，自动 seed 只首次生成并冻结。若 create 成功但 bind 前失败，恢复按原编号补关联，不重复生成媒体。
 
 取消、立即撤销、到期与 Host 代际变化关闭新接纳，等待正在提交的关联完成并取消关联子 Job。重启使旧运行凭据和审批失效，只补账本关联，不重放工具。已完成作品保留；无引用版本和暂存秘密采用保守保留策略，自动 GC 不启用。
@@ -99,6 +101,6 @@ pnpm test runtime
 pnpm build coding-bundle
 ```
 
-执行目录为仓库根目录。重点测试：[extensions](../../services/coding-agent/tests/extensions.test.mjs)、[pi-extensions](../../services/coding-agent/tests/pi-extensions.test.mjs)、[管理 API](../../tests/test_extension_api.py)、[运行授权](../../tests/test_extension_capabilities.py)、[跨模态工作流](../../tests/test_extension_workflows.py)。这些测试使用受控服务、FakeEngine 或秘密替身，不读取用户 Keychain。
+执行目录为仓库根目录。重点测试：[extensions](../../services/coding-agent/tests/extensions.test.mjs)、[pi-extensions](../../services/coding-agent/tests/pi-extensions.test.mjs)、[管理 API](../../tests/test_extension_api.py)、[凭据异步与取消边界](../../tests/test_extension_secret_boundary.py)、[运行授权](../../tests/test_extension_capabilities.py)、[跨模态工作流](../../tests/test_extension_workflows.py)。这些测试使用受控服务、FakeEngine 或秘密替身，不读取用户 Keychain。
 
 真实 MCP、签名身份下的 Keychain、真实媒体模型与最终包内资源需单独验证。维护变更时更新本页对应路径与限制，将实际结果集中记录到[验证范围](../verification.md)；函数长度例外统一维护在[代码规范](../code-standards.md)，不藏在功能验收记录中。
