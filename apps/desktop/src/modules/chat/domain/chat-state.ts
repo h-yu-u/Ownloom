@@ -1,4 +1,5 @@
 import type { MessageSource } from './message-source'
+import type { GenerationStatsView } from '../../../shared/lib/generation-stats'
 
 export interface ChatMessage {
   id: string
@@ -13,6 +14,7 @@ export interface ChatMessage {
     preparationId?: string
   }>
   sources?: MessageSource[]
+  generationStats?: GenerationStatsView | null
   parameters?: Record<string, unknown>
   turnId?: string
 }
@@ -27,7 +29,12 @@ export interface ChatState {
 
 export type ChatEvent =
   | { type: 'send.started'; userMessage: ChatMessage; assistantMessage: ChatMessage }
-  | { type: 'generation.delta'; jobId: string; text: string }
+  | {
+      type: 'generation.delta'
+      jobId: string
+      text: string
+      generationStats?: GenerationStatsView | null
+    }
   | { type: 'generation.completed'; jobId: string; finishReason?: 'length' }
   | { type: 'generation.cancelled'; jobId: string }
   | { type: 'generation.failed'; jobId: string; message: string; code?: string }
@@ -41,6 +48,27 @@ export const initialChatState: ChatState = {
   error: null,
 }
 
+function appendGeneration(
+  state: ChatState,
+  event: Extract<ChatEvent, { type: 'generation.delta' }>,
+): ChatState {
+  if (state.activeJobId !== event.jobId) return state
+  return {
+    ...state,
+    messages: state.messages.map((message) =>
+      message.id === event.jobId
+        ? {
+            ...message,
+            content: message.content + event.text,
+            ...(event.generationStats !== undefined
+              ? { generationStats: event.generationStats }
+              : {}),
+          }
+        : message,
+    ),
+  }
+}
+
 export function reduceChatState(state: ChatState, event: ChatEvent): ChatState {
   switch (event.type) {
     case 'send.started':
@@ -52,15 +80,7 @@ export function reduceChatState(state: ChatState, event: ChatEvent): ChatState {
         error: null,
       }
     case 'generation.delta':
-      if (state.activeJobId !== event.jobId) return state
-      return {
-        ...state,
-        messages: state.messages.map((message) =>
-          message.id === event.jobId
-            ? { ...message, content: message.content + event.text }
-            : message,
-        ),
-      }
+      return appendGeneration(state, event)
     case 'generation.completed':
     case 'generation.cancelled':
       if (state.activeJobId !== event.jobId) return state
@@ -75,6 +95,8 @@ export function reduceChatState(state: ChatState, event: ChatEvent): ChatState {
                 state: event.type === 'generation.completed' ? 'complete' : 'cancelled',
                 finishReason:
                   event.type === 'generation.completed' ? event.finishReason : undefined,
+                generationStats:
+                  event.type === 'generation.completed' ? message.generationStats : null,
               }
             : message,
         ),
@@ -88,7 +110,9 @@ export function reduceChatState(state: ChatState, event: ChatEvent): ChatState {
         error: event.message,
         errorCode: event.code,
         messages: state.messages.map((message) =>
-          message.id === event.jobId ? { ...message, state: 'error' } : message,
+          message.id === event.jobId
+            ? { ...message, state: 'error', generationStats: null }
+            : message,
         ),
       }
     case 'conversation.loaded':

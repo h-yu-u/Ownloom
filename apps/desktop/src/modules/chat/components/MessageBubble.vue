@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { NButton } from 'naive-ui'
 import MarkdownContent from '../../../shared/ui/MarkdownContent.vue'
+import GenerationStats from '../../../shared/ui/GenerationStats.vue'
 import { useMarkdownCopy } from '../../../shared/ui/markdown-copy'
 import { copyText } from '../../../platform/clipboard'
 import type { ChatMessage } from '../domain/chat-state'
@@ -59,6 +60,13 @@ const { copyState, copyCode } = useMarkdownCopy(copyText)
       :sources="message.sources ?? []"
       :prefix="prefix"
       @preview="$emit('preview', $event)"
+    />
+    <GenerationStats
+      v-if="
+        message.role === 'assistant' && message.state !== 'error' && message.state !== 'cancelled'
+      "
+      :stats="message.generationStats"
+      :streaming="message.state === 'streaming'"
     />
     <MessageActions
       v-if="message.role === 'assistant' && message.state !== 'streaming' && message.content"
