@@ -1,4 +1,4 @@
-"""Validate release identity and prepare a small, public preview payload."""
+"""Validate release identity and prepare a small, public release payload."""
 
 from __future__ import annotations
 
@@ -19,10 +19,14 @@ SHA = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass(frozen=True)
-class Preview:
+class Release:
     tag: str
     version: str
     commit: str
+
+    @property
+    def title(self) -> str:
+        return f"Ownloom {self.tag}"
 
     @property
     def dmg(self) -> str:
@@ -33,14 +37,14 @@ class Preview:
         return self.dmg, "release-metadata.json", "SHA256SUMS"
 
 
-def preview(tag: str, commit: str) -> Preview:
+def release_plan(tag: str, commit: str) -> Release:
     if not TAG.fullmatch(tag):
         raise ValueError(
-            "Preview tag must be vMAJOR.MINOR.PATCH without leading zeroes"
+            "Release tag must be vMAJOR.MINOR.PATCH without leading zeroes"
         )
     if not SHA.fullmatch(commit):
         raise ValueError("Release commit must be a full Git SHA")
-    return Preview(tag, tag[1:], commit)
+    return Release(tag, tag[1:], commit)
 
 
 def digest(path: Path) -> str:
@@ -50,13 +54,13 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def validate_checkout(root: Path, tag: str) -> Preview:
+def validate_checkout(root: Path, tag: str) -> Release:
     def git(*args: str) -> str:
         return subprocess.check_output(
             ["git", "-C", str(root), *args], text=True
         ).strip()
 
-    plan = preview(tag, git("rev-parse", "HEAD"))
+    plan = release_plan(tag, git("rev-parse", "HEAD"))
     if git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}") != plan.commit:
         raise ValueError("Tag does not point to the checked-out commit")
     subprocess.run(
@@ -117,7 +121,7 @@ def smoke_summary(report: dict[str, object]) -> dict[str, object]:
 
 
 def collect_assets(
-    root: Path, plan: Preview, app: Path, report_path: Path, output: Path
+    root: Path, plan: Release, app: Path, report_path: Path, output: Path
 ) -> None:
     report = json.loads(report_path.read_text())
     summary = smoke_summary(report)
@@ -153,7 +157,7 @@ def collect_assets(
     hashes = [f"{digest(output / name)}  {name}\n" for name in plan.files[:-1]]
     (output / "SHA256SUMS").write_text("".join(hashes))
     (output / "RELEASE_NOTES.md").write_text(
-        f"# Ownloom {plan.tag} — Preview / 预览版\n\n"
+        f"# {plan.title}\n\n"
         "Apple Silicon macOS only. Model weights are downloaded separately.\n"
         "This build is ad-hoc signed and is not Apple notarized. macOS may require manual "
         "approval in Privacy & Security. Do not disable Gatekeeper globally.\n\n"
@@ -187,7 +191,7 @@ def main() -> None:
                 stream.write(values)
         print(values, end="")
     else:
-        plan = preview(args.tag, args.commit or "")
+        plan = release_plan(args.tag, args.commit or "")
         if args.app is None:
             parser.error(
                 "collect requires --app pointing to the mounted DMG application"
@@ -196,8 +200,8 @@ def main() -> None:
             root,
             plan,
             args.app,
-            root / ".build/preview-acceptance/report.json",
-            root / ".build/preview-release",
+            root / ".build/release-acceptance/report.json",
+            root / ".build/release",
         )
 
 

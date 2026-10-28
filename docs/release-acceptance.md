@@ -14,9 +14,9 @@
 4. 核对 `Ownloom.app`、DMG、版本、内置 Node/Host 与 Runtime 资源，对最终包计算摘要。
 5. 使用最终制品执行本手册。重建、更换签名或修改包内资源后重新绑定清单并复验。
 
-仓库默认应用路径为 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。源码检查与 Apple Silicon 自托管的手动验收工作流不自动完成发布。标签触发的 Preview release 工作流会在完整打包与 DMG 内应用的 smoke 检查通过后自动公开预览版，维护步骤见仓库 `docs/preview-release.md`；该流程不替代本文的真实模型和正式分发验收。
+仓库默认应用路径为 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。源码检查与 Apple Silicon 自托管的手动验收工作流不自动完成发布。标签触发的 Release 工作流会在完整打包、DMG 内应用的 smoke 检查及附件摘要核对通过后公开正式 GitHub Release 并设为 Latest，维护步骤见仓库 `docs/release.md`；真实模型、签名公证和独立机器验收仍按本文分别记录。
 
-正式 Developer ID、公证和下载分发需要独立准备。分发 ad-hoc 测试包应标注其性质和未验证项，不以 `codesign --verify` 成功宣称已公证。第三方模型和依赖许可证分别核对，不随应用许可证自动改变。
+Developer ID 签名、公证和下载分发验证需要独立准备。分发 ad-hoc 安装包应标注其签名性质和未验证项，不以 `codesign --verify` 成功宣称已公证。第三方模型和依赖许可证分别核对，不随应用许可证自动改变。
 
 ## 2. 可携带工具与隔离边界
 

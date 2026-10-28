@@ -1,4 +1,4 @@
-"""Publish only verified preview assets; published versions are never replaced."""
+"""Publish only verified release assets; published versions are never replaced."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from scripts.release.preview_release import Preview, digest, preview
+from scripts.release.release import Release, digest, release_plan
 
 Command = Callable[[list[str]], str]
 
@@ -37,7 +37,7 @@ def release_for(
     )
 
 
-def verify_local_assets(directory: Path, plan: Preview) -> dict[str, str]:
+def verify_local_assets(directory: Path, plan: Release) -> dict[str, str]:
     metadata = json.loads((directory / "release-metadata.json").read_text())
     if (
         metadata.get("tag") != plan.tag
@@ -56,14 +56,14 @@ def verify_local_assets(directory: Path, plan: Preview) -> dict[str, str]:
     return hashes
 
 
-def require_draft(release: dict[str, object], plan: Preview) -> None:
+def require_draft(release: dict[str, object], plan: Release) -> None:
     if release.get("draft") is not True:
         raise ValueError("Version is already published; create a new version instead")
     if (
-        release.get("prerelease") is not True
+        release.get("prerelease") is not False
         or release.get("target_commitish") != plan.commit
     ):
-        raise ValueError("Existing draft is not a preview for the same commit")
+        raise ValueError("Existing draft is not a formal release for the same commit")
     assets = release.get("assets")
     if not isinstance(assets, list) or any(
         item["name"] not in plan.files for item in assets
@@ -90,7 +90,7 @@ def verify_uploaded_assets(
 
 
 def create_draft(
-    repository: str, plan: Preview, notes: Path, command: Command
+    repository: str, plan: Release, notes: Path, command: Command
 ) -> dict[str, object]:
     remote = command(
         ["api", f"repos/{repository}/commits/{plan.tag}", "--jq", ".sha"]
@@ -101,12 +101,12 @@ def create_draft(
     values = {
         "tag_name": plan.tag,
         "target_commitish": plan.commit,
-        "name": f"Ownloom {plan.tag} — Preview",
+        "name": plan.title,
         "make_latest": "false",
     }
     for name, value in values.items():
         args.extend(["--raw-field", f"{name}={value}"])
-    args.extend(["--field", "draft=true", "--field", "prerelease=true"])
+    args.extend(["--field", "draft=true", "--field", "prerelease=false"])
     args.extend(["--field", f"body=@{notes}"])
     release = json.loads(command(args))
     if not isinstance(release, dict) or release.get("tag_name") != plan.tag:
@@ -115,7 +115,7 @@ def create_draft(
 
 
 def publish(
-    repository: str, plan: Preview, directory: Path, command: Command = gh
+    repository: str, plan: Release, directory: Path, command: Command = gh
 ) -> str:
     hashes = verify_local_assets(directory, plan)
     notes = directory / "RELEASE_NOTES.md"
@@ -146,8 +146,10 @@ def publish(
             plan.tag,
             *common,
             "--draft=false",
-            "--prerelease",
-            "--latest=false",
+            "--prerelease=false",
+            "--latest",
+            "--title",
+            plan.title,
             "--notes-file",
             str(notes),
         ]
@@ -163,8 +165,8 @@ def main() -> None:
     print(
         publish(
             args.repository,
-            preview(args.tag, args.commit),
-            Path(".build/preview-release"),
+            release_plan(args.tag, args.commit),
+            Path(".build/release"),
         )
     )
 
