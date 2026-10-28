@@ -73,6 +73,8 @@ Node 仍是 Node 数据库的唯一导出者，Python 只打包其导出文件�
 
 备份打包已提交到线程后，取消必须等待实际写入结束再删除输出，屏障在这段时间继续持有。直接调用 `DataManagement.backup` 的内部调用方取得文件所有权，使用后必须调用 `release_backup`；HTTP 适配器通过 `TemporaryFileResponse` 的 `finally` 承担这一责任。
 
+音频上传同样持有已提交写线程直至结束，随后清理暂存并释放请求的写入租约；取消不能让迟到文件写入穿过备份屏障。`audio/staging` 是音频输出的临时目录，不进入备份清单。
+
 `data.export` 与 `data.restore.profile` 等待 Node 的完成回执或 Host 退出，不使用普通控制 RPC 的 30 秒期限，避免大文件处理仍在继续时先释放文件所有权。调用用例在取消时也保留屏障并等待该回执，再清理本次临时文件；普通 RPC 保留原期限。
 
 ## 恢复运行路径

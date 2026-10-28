@@ -59,6 +59,7 @@ def _write_backup(storage: StorageManagement, node: Path, directory: Path) -> Pa
                     and ".pending" not in path.parts
                     and ".staging" not in path.parts
                     and ".thumbnails" not in path.parts
+                    and not (prefix == "media" and path.is_relative_to(root / "audio" / "staging"))
                 )
         if sum(source.stat().st_size for source, _ in sources) > MAX_EXPANDED:
             raise RuntimeFault(RuntimeErrorInfo("BACKUP_TOO_LARGE", "备份超过当前恢复上限 20 GiB"))

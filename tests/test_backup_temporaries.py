@@ -50,6 +50,16 @@ class BackupTemporaryTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("runtime.db", archive.namelist())
         self.assert_no_exports()
 
+    async def test_backup_excludes_audio_output_staging(self):
+        pending = self.service.store.media_path / "audio" / "staging" / "unfinished.wav"
+        pending.parent.mkdir(parents=True, exist_ok=True)
+        pending.write_bytes(b"unfinished output")
+        response = await self.client.post("/internal/v1/storage/backup")
+        self.assertEqual(response.status_code, 200)
+        with ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertNotIn("media/audio/staging/unfinished.wav", archive.namelist())
+        self.assertTrue(pending.exists())
+
     async def test_failed_integrity_preview_removes_extracted_files(self):
         response = await self.client.post("/internal/v1/storage/backup")
         corrupt = io.BytesIO()

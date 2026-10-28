@@ -33,6 +33,8 @@
 
 参考上传检查 RIFF/WAVE、16 位 PCM、实际帧数、采样率、声道、时长、大小、截断和全静音。单次朗读最多 2000 字；参考为 0.1–30 秒、8–96 kHz、单/双声道、最多 12 MiB。提交时冻结音色版本、参考原文、素材来源及授权记录，后续编辑不改变已排队任务。
 
+参考上传取消时，`AudioFiles` 等已经提交的写线程实际结束后才清理暂存文件，并保持请求写入租约到收尾完成，防止迟到写入穿过[备份屏障](./storage.md#备份运行路径)。音频暂存目录不进入备份；对应取消回归见 [test_audio_write_ownership.py](../../tests/test_audio_write_ownership.py)。
+
 [Qwen3-TTS 适配器](../../services/runtime/src/mlx_studio_runtime/adapters/audio_engines/qwen3_tts.py)延迟加载当前固定版本 `mlx-audio`，只使用本地资源。WAV 写入受管目录，Supervisor 再校验后登记。NDJSON 传状态和元数据，不内嵌音频。当前没有录音、自动转写、声音设计、实时音频流或长文分段编辑。
 
 音色、参考录音和历史作品分别删除，需尊重引用关系。未完成任务使用的录音受保护；删除音色不能连带删除已生成作品。文件验证见 [audio_files.py](../../services/runtime/src/mlx_studio_runtime/adapters/audio_files.py)。
