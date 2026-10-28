@@ -30,7 +30,7 @@ class Release:
 
     @property
     def dmg(self) -> str:
-        return f"Ownloom_{self.version}_aarch64.dmg"
+        return "ownloom-darwin-arm64.dmg"
 
     @property
     def files(self) -> tuple[str, ...]:
@@ -133,7 +133,11 @@ def collect_assets(
         or info.get("CFBundleExecutable") != "ownloom"
     ):
         raise ValueError("Packaged app identity does not match the release")
-    dmg = root / "apps/desktop/src-tauri/target/release/bundle/dmg" / plan.dmg
+    dmg = (
+        root
+        / "apps/desktop/src-tauri/target/release/bundle/dmg"
+        / f"Ownloom_{plan.version}_aarch64.dmg"
+    )
     dmg_digest = digest(dmg)
     metadata = {
         "tag": plan.tag,
