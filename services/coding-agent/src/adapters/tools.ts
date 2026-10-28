@@ -1,6 +1,7 @@
 import Type from 'typebox'
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent'
-import { files, read, hash, git } from './workspace.js'
+import { relative } from 'node:path'
+import { files, read, hash, git, safePath } from './workspace.js'
 import { object } from '../domain/types.js'
 import type { ToolContext } from '../application/ports.js'
 const pathSchema = Type.Object(
@@ -99,18 +100,22 @@ export function tools(context: ToolContext): ToolDefinition[] {
           { additionalProperties: false },
         ),
         async (_id, params) => {
+          const path = relative(
+            context.root,
+            await safePath(context.root, String(params.path), true),
+          )
           await context.authorizeWrite(
             _id,
-            String(params.path),
+            path,
             String(params.content),
             params.expectedHash === null ? null : String(params.expectedHash),
           )
           const result = await context.workspace.write(
-            String(params.path),
+            path,
             String(params.content),
             params.expectedHash === null ? null : String(params.expectedHash),
           )
-          context.changed(String(params.path))
+          context.changed(path)
           return { sha256: result }
         },
       ),
@@ -129,7 +134,7 @@ export function tools(context: ToolContext): ToolDefinition[] {
           { additionalProperties: false },
         ),
         async (_id, params) => {
-          const path = String(params.path),
+          const path = relative(context.root, await safePath(context.root, String(params.path))),
             oldText = String(params.oldText),
             content = await read(context.root, path)
           if (content.split(oldText).length !== 2) throw new Error('EDIT_NOT_UNIQUE')

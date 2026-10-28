@@ -101,7 +101,7 @@ export class RunPolicy {
     this.check()
     if (this.input.run.mode !== 'develop') throw new Error('READ_ONLY_MODE')
     if (
-      !/(?:^|\/)(?:tests?|__tests__)(?:\/|$)|(?:^|\/)test_[^/]+|\.(?:test|spec)\.[^/]+$|(?:^|\/)(?:package\.json|pyproject\.toml|.*lock|[^/]*config[^/]*)$/.test(
+      !/(?:^|\/)(?:tests?|__tests__)(?:\/|$)|(?:^|\/)test_[^/]+|\.(?:test|spec)\.[^/]+$|(?:^|\/)(?:package\.json|pyproject\.toml|.*lock|[^/]*config[^/]*)$/i.test(
         path,
       )
     )
