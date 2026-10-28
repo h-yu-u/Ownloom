@@ -1,11 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Repository } from '../dist/adapters/repository.js'
 import { CodingService } from '../dist/application/service.js'
 import { ProjectSessions } from '../dist/application/project-sessions.js'
+import { ExtensionsRepository } from '../dist/adapters/extensions/repository.js'
+import { ManagedSkillFiles, digest } from '../dist/adapters/extensions/skill-files.js'
+import { Extensions } from '../dist/extensions/application/service.js'
 
 function deferred() {
   let resolve
@@ -15,10 +18,12 @@ function deferred() {
   return { promise, resolve }
 }
 
-async function fixture(t, backup, projects = {}) {
+async function fixture(t, backup, projects = {}, createExtensions) {
   const directory = await mkdtemp(join(tmpdir(), 'ownloom-backup-admission-'))
   const repo = new Repository(directory)
+  const extensions = createExtensions?.(directory)
   t.after(async () => {
+    await extensions?.close()
     repo.close()
     await rm(directory, { recursive: true, force: true })
   })
@@ -29,7 +34,7 @@ async function fixture(t, backup, projects = {}) {
     new ProjectSessions(repo, projects),
     { handlers: {} },
     {},
-    undefined,
+    extensions,
     undefined,
     undefined,
     backup,
@@ -54,6 +59,67 @@ test('backup rejects writes that arrive in the same dispatch turn', async (t) =>
     finish.resolve()
     await exporting
   }
+})
+
+test('Skill preview staging drains before export and is rejected during a snapshot', async (t) => {
+  const entered = deferred(),
+    finish = deferred()
+  let snapshotStarted = false
+  const { repo, service } = await fixture(
+    t,
+    async () => {
+      snapshotStarted = true
+      assert.deepEqual(await readdir(join(repo.directory, 'skills')), [])
+      return { directory: '/isolated/export' }
+    },
+    {},
+    (directory) => {
+      const files = new ManagedSkillFiles(join(directory, 'skills'))
+      const stage = files.stage.bind(files)
+      files.stage = async (...args) => {
+        const publication = await stage(...args)
+        entered.resolve()
+        await finish.promise
+        return publication
+      }
+      return new Extensions({
+        repo: new ExtensionsRepository(directory),
+        files,
+        digest,
+        mcp: {},
+        revokeRuns: async () => {},
+      })
+    },
+  )
+  const source = join(repo.directory, 'source')
+  await mkdir(source)
+  await writeFile(
+    join(source, 'SKILL.md'),
+    '---\nname: backup-fixture\ndescription: Isolated preview fixture\n---\nPreview safely.\n',
+  )
+  const params = {
+    mutationId: 'preview-fixture',
+    path: source,
+    workspaces: ['coding'],
+    requiredCapabilities: [],
+  }
+  const preview = service.dispatch('extensions.skills.preview', params)
+  await entered.promise
+  const exporting = service.dispatch('data.export', {})
+  const observed = exporting.catch(() => {})
+  try {
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(snapshotStarted, false)
+    await assert.rejects(
+      service.dispatch('extensions.skills.preview', params),
+      /BACKUP_IN_PROGRESS/,
+    )
+  } finally {
+    finish.resolve()
+    await preview
+    await observed
+  }
+  await exporting
 })
 
 test('backup drains an admitted asynchronous mutation before taking its snapshot', async (t) => {

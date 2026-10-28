@@ -57,7 +57,6 @@ export const readMethods = new Set([
   'agent.tasks.list',
   'agent.events.list',
   'agent.events.wait',
-  'extensions.skills.preview',
   'extensions.skills.inspect',
   'extensions.check',
   'extensions.catalog.list',
