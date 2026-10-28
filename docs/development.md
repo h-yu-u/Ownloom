@@ -137,9 +137,31 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 | `pnpm build runtime`       | Apple Silicon 上构建 PyInstaller Runtime            |
 | `pnpm build app`           | Coding bundle → Web → Sidecar → Tauri `.app`/`.dmg` |
 
-默认 Sidecar `release` profile 使用独立 `.build/runtime/venv-release`，收集真实引擎。仅验证替身时可运行 `MLX_STUDIO_BUILD_PROFILE=fake pnpm build runtime`；fake profile 不含真实推理依赖，不能作为正式发布产物。
-
 应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[版本发布](./release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
+
+### Runtime Sidecar 依赖边界
+
+`pnpm build runtime` 由 [Runtime 打包脚本](../scripts/build/build-runtime.sh)执行，必须在 Apple Silicon macOS 上运行。`MLX_STUDIO_BUILD_PROFILE` 选择独立构建环境：
+
+| Profile           | 构建环境                      | 用途                                                 |
+| ----------------- | ----------------------------- | ---------------------------------------------------- |
+| `release`（默认） | `.build/runtime/venv-release` | 包含文本、视觉、图片与语音引擎依赖，用于正式 Sidecar |
+| `fake`            | `.build/runtime/venv-fake`    | 仅包含基础 Runtime 与构建依赖，用于替身验收          |
+
+例如，`MLX_STUDIO_BUILD_PROFILE=fake pnpm build runtime` 构建不含真实推理依赖的 Sidecar，不能用于正式发布。构建先以 `uv sync --frozen --no-dev --group build` 加所选 profile 的 extras 精确同步独立环境，再用 `uv run --no-sync` 执行 PyInstaller。这样既排除 `dev` 组，也移除该 profile 不需要的已安装包，避免开发环境污染发行依赖分析。
+
+收集规则集中在 [Runtime 打包策略](../scripts/build/runtime_bundle.py)，由[固定 spec](../scripts/build/runtime.spec)应用。普通依赖沿实际导入关系与 PyInstaller 官方 hooks 收集；动态模型注册目录显式声明，并保留 Ownloom 现有模型注册范围。NumPy、SciPy 使用官方 hooks，仅过滤其明确命名的 `tests` 树，保留 `testing` 公共辅助代码。Torch、OpenCV、官方 hooks 要求的 Python 源码、包元数据、许可证和运行资源仍需保留，不能按文件后缀或名称中的 `test` 全局裁剪。
+
+构建同时生成 `.build/runtime/archive-size.json`，记录 profile、Sidecar 大小与 SHA-256，并按包归类内部存储字节；PYZ 中的模块与外层文件合并统计，不重复计入整个 PYZ。归档索引、启动器和签名等开销参与总量对账。这份报告衡量 Sidecar 内部存储，不能解释为各库对 DMG 压缩大小的贡献；发现应排除的 NumPy/SciPy 测试条目时，构建失败。报告实现见[归档统计器](../scripts/build/report_runtime_bundle.py)。
+
+修改依赖边界时，同步策略回归与包内检查，并在 Apple Silicon 上构建 `release` profile：
+
+```bash
+pnpm build runtime
+apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin --check-bundle
+```
+
+`--check-bundle` 在专用诊断进程中将 MLX 默认设备设为 CPU，离线检查依赖导入、运行资源和小型内存运算，不加载或下载模型；CPU 设置仅用于这个诊断入口。[CI 的 `runtime-bundle` job](../.github/workflows/ci.yml)构建真实依赖 Sidecar，执行这项检查及现有包内 FakeEngine 协议、退出清理验收，并上传 `runtime-bundle-evidence` 中的 `archive-size.json` 与 `bundle-check.json`。报告明确列出未验证的 Metal GPU 执行和模型加载、推理。这些检查也不能代替最终 `.app`、签名或干净机器验收，实际证据统一维护在[验证范围](./verification.md)。
 
 ## 按模块实际验证
 

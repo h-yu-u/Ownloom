@@ -35,6 +35,52 @@ jobs:
       - run: pnpm test
       - run: pnpm build web
 
+  runtime-bundle:
+    runs-on: macos-15
+    timeout-minutes: 35
+    env:
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - name: Build the release Runtime with its dependency policy
+        run: bash scripts/build/build-runtime.sh
+      - name: Check imports and resources inside the frozen Runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin \
+            --check-bundle > .build/runtime/bundle-check.json || status=$?
+          cat .build/runtime/bundle-check.json
+          exit "$status"
+      - name: Exercise the frozen Runtime protocol and process cleanup
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.build/runtime/venv-release
+          PYTHONPATH: services/runtime/src
+        run: |
+          uv run --frozen --no-sync --project services/runtime --python 3.12 \
+            python -m scripts.acceptance.verify_packaged_runtime \
+            --sidecar apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin
+          uv run --frozen --no-sync --project services/runtime --python 3.12 \
+            python -m scripts.acceptance.verify_desktop_shutdown \
+            --sidecar apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-bundle-evidence
+          path: |
+            .build/runtime/archive-size.json
+            .build/runtime/bundle-check.json
+          if-no-files-found: warn
+          retention-days: 7
+
   rust:
     runs-on: macos-14
     env:

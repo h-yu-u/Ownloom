@@ -90,6 +90,8 @@ stdout 专用于握手/NDJSON。默认诊断避免完整输入、输出和秘密
 
 真实引擎依赖只在适配器/Worker 边界加载。FakeEngine 的成功证明协议与用例路径可运行，不证明上游 MLX API、模型权重、GPU 资源或发行环境通过验收。
 
+发行 Sidecar 的 profile、依赖收集策略与离线 CPU 包内检查统一见[开发指南的 Runtime Sidecar 依赖边界](../development.md#runtime-sidecar-依赖边界)。依赖边界调整需覆盖动态引擎导入与运行资源，不能以源码测试代替冻结应用验证。
+
 ## 验证与维护
 
 从仓库根目录执行，环境准备见开发指南：
