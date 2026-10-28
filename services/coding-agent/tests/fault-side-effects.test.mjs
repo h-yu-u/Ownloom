@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat, symlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Repository } from '../dist/adapters/repository.js'
 import { projectWorkspace } from '../dist/adapters/project-workspace.js'
@@ -34,14 +35,21 @@ function gate() {
   })
   return { promise, release }
 }
-async function fixture(t) {
-  const directory = await mkdtemp('/tmp/ownloom-fault-effects-'),
-    root = join(directory, 'project')
-  await mkdir(root)
-  await writeFile(join(root, 'note.txt'), 'before')
+async function fixture(t, aliasedParent = false) {
+  const directory = await mkdtemp(join(tmpdir(), 'ownloom-fault-effects-'))
+  let parent = directory
+  if (aliasedParent) {
+    parent = join(directory, 'alias')
+    await symlink(directory, parent, 'dir')
+  }
+  const path = join(parent, 'project')
+  await mkdir(path)
+  await writeFile(join(path, 'note.txt'), 'before')
   const repo = new Repository(join(directory, 'data')),
     projects = projectWorkspace(repo)
-  repo.save('project', { id: 'p', path: root, commands: [], git: false })
+  const project = await projects.register(path),
+    root = project.path
+  repo.save('project', { ...project, id: 'p' })
   repo.save('session', { id: 's', projectId: 'p', archived: false, piPath: null })
   const events = { opens: 0, creates: 0, writes: 0, removes: 0, probes: [] },
     cleanup = []
@@ -135,6 +143,7 @@ async function fault(f) {
 test('cleanup fault rejects restore before writing a project file', async (t) => {
   const f = await fixture(t),
     run = await fault(f)
+  assert.equal(f.repo.changesForRun(run.id).length, 1, 'the managed write must finish first')
   const change = f.repo.changesForRun(run.id)[0]
   await assert.rejects(
     f.changes.handlers['changes.restore']({ id: change.id }),
@@ -142,6 +151,20 @@ test('cleanup fault rejects restore before writing a project file', async (t) =>
   )
   assert.equal(await readFile(join(f.root, 'note.txt'), 'utf8'), 'after')
   assert.equal(f.repo.get('change', change.id).restored, false)
+})
+
+test('cleanup fault retains a completed write when the temporary parent is a path alias', async (t) => {
+  const f = await fixture(t, true),
+    run = await fault(f)
+  const changes = f.repo.changesForRun(run.id)
+  assert.equal(changes.length, 1, 'the managed write must finish before the cleanup fault')
+  assert.equal(changes[0].state, 'written')
+  assert.equal(await readFile(join(f.root, 'note.txt'), 'utf8'), 'after')
+  await assert.rejects(
+    f.changes.handlers['changes.restore']({ id: changes[0].id }),
+    /CODING_CLEANUP_FAILED/,
+  )
+  assert.equal(await readFile(join(f.root, 'note.txt'), 'utf8'), 'after')
 })
 
 test('cleanup fault rejects verification before creating its probe resources', async (t) => {
@@ -255,8 +278,10 @@ test('shared fault guards also apply when Coding itself no longer owns a run', a
   f.hooks.close = async () => {}
   const run = await f.runs.submit(submission)
   await f.runs.wait(run.id)
+  assert.equal(f.repo.get('run', run.id).status, 'completed')
   assert.equal(f.runs.busy, false)
   f.admission.block()
+  assert.equal(f.repo.changesForRun(run.id).length, 1, 'the managed write must finish first')
   const change = f.repo.changesForRun(run.id)[0]
   await assert.rejects(
     f.changes.handlers['changes.restore']({ id: change.id }),
