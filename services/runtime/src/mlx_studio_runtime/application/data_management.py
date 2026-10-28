@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from mlx_studio_runtime.application.coding_gateway import CodingGateway
+from mlx_studio_runtime.application.data_admission import DataAdmission
 from mlx_studio_runtime.application.downloads import Downloads
 from mlx_studio_runtime.application.job_scheduler import JobScheduler
 from mlx_studio_runtime.application.queries import Queries
@@ -31,7 +32,11 @@ class DataManagement:
         )
         self.preparation_busy, self.export = preparation_busy, export
         self.prepare_profile = prepare_profile
-        self.busy = False
+        self.admission = DataAdmission()
+
+    @property
+    def busy(self) -> bool:
+        return self.admission.closed
 
     async def tasks(self) -> list[dict[str, Any]]:
         result = [
@@ -69,21 +74,19 @@ class DataManagement:
             )
         return link_task_parents(result)
 
-    async def backup(self) -> Path:
-        if self.scheduler.tasks or self.downloads.tasks or self.busy or self.preparation_busy():
+    def _require_idle(self) -> None:
+        if self.scheduler.tasks or self.downloads.tasks or self.preparation_busy():
             raise RuntimeFault(RuntimeErrorInfo("BACKUP_BUSY", "请等待任务、下载和附件准备完成"))
-        self.busy = True
-        try:
+
+    async def backup(self) -> Path:
+        self._require_idle()
+        async with self.admission.exclusive():
+            self._require_idle()
             node = await self.coding.call("data.export", {})
             return await self.export(Path(node["directory"]))
-        finally:
-            self.busy = False
 
     async def restore_profile(self, identifier: str) -> None:
-        if self.scheduler.tasks or self.downloads.tasks or self.busy or self.preparation_busy():
-            raise RuntimeFault(RuntimeErrorInfo("BACKUP_BUSY", "请等待任务、下载和附件准备完成"))
-        self.busy = True
-        try:
+        self._require_idle()
+        async with self.admission.exclusive():
+            self._require_idle()
             await self.prepare_profile(identifier)
-        finally:
-            self.busy = False

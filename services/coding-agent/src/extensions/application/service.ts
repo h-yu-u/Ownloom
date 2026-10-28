@@ -11,6 +11,9 @@ export class Extensions {
     this.resolver = new ResourceResolver(ports)
     this.ready = this.seed()
   }
+  get busy(): boolean {
+    return this.operations.size > 0
+  }
   private async seed(): Promise<void> {
     for (const builtin of this.ports.builtinSkills ?? []) {
       if (this.ports.repo.catalog().skills.some((skill) => skill.id === builtin.id)) continue
