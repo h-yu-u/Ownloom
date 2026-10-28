@@ -1,8 +1,8 @@
-import type { RepositoryPort } from './ports.js'
+import type { TaskRepository } from './repository-ports.js'
 import type { RpcResultMap } from '../protocol/generated/types.js'
 
 export function taskSummaries(
-  repo: RepositoryPort,
+  repo: TaskRepository,
   owner: 'coding' | 'agent',
 ): RpcResultMap['tasks.list'] {
   return repo.recentRuns().map((run) => {

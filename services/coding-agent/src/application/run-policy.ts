@@ -3,10 +3,11 @@ import { approvalBinding } from './approval-binding.js'
 import { ToolGateway } from './tool-gateway.js'
 import type { Tool } from '../extensions/domain/types.js'
 import type { Project, Run } from '../domain/types.js'
-import type { RepositoryPort, RunPorts, ToolContext } from './ports.js'
+import type { RunPorts, ToolContext } from './ports.js'
+import type { RunEventRepository } from './repository-ports.js'
 import type { Approvals } from './approvals.js'
 interface PolicyInput {
-  repo: RepositoryPort
+  repo: RunEventRepository
   ports: RunPorts
   run: Run
   project: Project

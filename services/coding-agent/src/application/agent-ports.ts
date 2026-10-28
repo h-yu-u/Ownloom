@@ -1,16 +1,10 @@
-import type {
-  RepositoryPort,
-  Provider,
-  PiSession,
-  ToolContext,
-  ActiveCapability,
-  RunRuntime,
-} from './ports.js'
+import type { Provider, PiSession, ToolContext, ActiveCapability, RunRuntime } from './ports.js'
+import type { AgentRepository } from './repository-ports.js'
 import type { Snapshot } from '../extensions/domain/types.js'
 import type { Extensions } from '../extensions/application/service.js'
 
 export interface AgentPorts {
-  repo: RepositoryPort
+  repo: AgentRepository
   extensions: Extensions
   codingBusy(): boolean
   modelAllowed(provider: Provider): boolean

@@ -1,22 +1,13 @@
-import { randomUUID } from 'node:crypto'
-import type { RepositoryPort } from './ports.js'
+import type { AgentQueryRepository } from './repository-ports.js'
 import { string } from '../domain/types.js'
 import { taskSummaries } from './task-summaries.js'
 
 export function agentQuery(
-  repo: RepositoryPort,
+  repo: AgentQueryRepository,
   method: string,
   p: Record<string, unknown>,
 ): { value: unknown } | undefined {
   switch (method) {
-    case 'agent.sessions.create':
-      return {
-        value: repo.save('agentSession', {
-          id: randomUUID(),
-          title: string(p.title, 160),
-          piPath: null,
-        }),
-      }
     case 'agent.sessions.list':
       return {
         value: repo.list('agentSession').map(({ id, title, piPath }) => ({ id, title, piPath })),

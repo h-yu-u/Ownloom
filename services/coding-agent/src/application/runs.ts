@@ -8,7 +8,8 @@ import { subscribeRun } from './run-events.js'
 import { RunReservations } from './run-reservations.js'
 import type { ActiveCapability } from './ports.js'
 import { canonical } from '../extensions/domain/types.js'
-import type { PiSession, Provider, RepositoryPort, RunPorts } from './ports.js'
+import type { PiSession, Provider, RunPorts } from './ports.js'
+import type { RunRepository } from './repository-ports.js'
 import { promptAndVerify, finalizeRun } from './run-verification.js'
 import { randomUUID } from 'node:crypto'
 import { terminal, nextStatus, type Run } from '../domain/types.js'
@@ -23,7 +24,7 @@ export class Runs {
   private approvals: Approvals
   private commands: RunCommands
   constructor(
-    private repo: RepositoryPort,
+    private repo: RunRepository,
     private ports: RunPorts,
     private admission = new RunAdmission(),
   ) {

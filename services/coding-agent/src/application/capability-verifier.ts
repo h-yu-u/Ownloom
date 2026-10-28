@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { Provider, RepositoryPort, ProjectPort } from './ports.js'
+import type { Provider, ProjectPort } from './ports.js'
+import type { CapabilityRepository } from './repository-ports.js'
 import { terminal, type Capability } from '../domain/types.js'
 import type { Runs } from './runs.js'
 export class CapabilityVerifier {
   constructor(
-    private repo: RepositoryPort,
+    private repo: CapabilityRepository,
     private runs: Runs,
     private projects: ProjectPort,
   ) {}

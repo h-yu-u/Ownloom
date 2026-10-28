@@ -1,5 +1,5 @@
 import { nextStatus, type Run } from '../domain/types.js'
-import type { RepositoryPort } from './ports.js'
+import type { RunStateRepository } from './repository-ports.js'
 
 /** Shared by Coding and Agent Chat; only a Host restart creates a healthy owner. */
 export class RunAdmission {
@@ -17,7 +17,7 @@ export class RunAdmission {
 
 /** Attempt every cleanup before publishing a terminal result or releasing ownership. */
 export async function settleRun(input: {
-  repo: RepositoryPort
+  repo: RunStateRepository
   id: string
   outcome: Partial<Run>
   signal: AbortSignal
@@ -49,7 +49,7 @@ export async function settleRun(input: {
 }
 
 /** Final background-task boundary: persistence failure must also leave admission closed. */
-export function failRun(repo: RepositoryPort, id: string, admission: RunAdmission): void {
+export function failRun(repo: RunStateRepository, id: string, admission: RunAdmission): void {
   admission.block()
   try {
     const run = repo.get('run', id)

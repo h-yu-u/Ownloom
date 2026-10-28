@@ -6,7 +6,7 @@ import { rpcMethod, validateRpc } from '../protocol/validation.js'
 import type { RpcMethod, RpcParamsMap, RpcResultMap } from '../protocol/generated/types.js'
 import { localProvider } from './local-provider.js'
 import { defaultSettings, validateSettings } from '../domain/settings.js'
-import type { RepositoryPort } from './ports.js'
+import type { ServiceRepository } from './repository-ports.js'
 import type { ProjectSessions } from './project-sessions.js'
 import type { ChangeService } from './changes.js'
 import type { CapabilityVerifier } from './capability-verifier.js'
@@ -16,7 +16,7 @@ import { taskSummaries } from './task-summaries.js'
 import { DataAdmission, readMethods } from './data-admission.js'
 export class CodingService {
   constructor(
-    readonly repo: RepositoryPort,
+    readonly repo: ServiceRepository,
     private runs: Runs,
     sessions: ProjectSessions,
     changes: ChangeService,

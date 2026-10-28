@@ -8,6 +8,8 @@ Coding 面向本地项目的分析、开发和审查。Vue 负责交互，Python
 
 Pi transcript 是模型上下文的权威来源，Coding SQLite 是产品状态的权威来源。普通聊天不代存 Coding 历史。Coding 文件工具受项目路径约束，获授权的 shell 命令以本机用户身份执行；应用审批不等于操作系统沙箱。
 
+Application 依照实际用例接收 [repository-ports.ts](../../services/coding-agent/src/application/repository-ports.ts) 中的窄仓库接口。任务投影、Coding 快照、Agent 查询只声明读取能力；会话管理、审批、命令验证、transcript 和运行收尾分别声明所需写入能力。Agent 会话创建位于命令分发，查询模块没有保存接口。具体 Repository 仍统一管理 SQLite 和事务，不按表拆出多套数据库所有者。
+
 ## 事实来源
 
 | 主题                    | 代码入口与关键符号                                                                                                                                                                                                                                  |

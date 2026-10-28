@@ -1,11 +1,12 @@
 import { freezeInstructions } from './run-instructions.js'
 import { RunPolicy } from './run-policy.js'
-import type { ActiveCapability, Provider, RepositoryPort, RunPorts, ToolContext } from './ports.js'
+import type { ActiveCapability, Provider, RunPorts, ToolContext } from './ports.js'
+import type { PreparationRepository } from './repository-ports.js'
 import type { Run, Project, Session } from '../domain/types.js'
 import type { Approvals } from './approvals.js'
 
 interface Preparation {
-  repo: RepositoryPort
+  repo: PreparationRepository
   ports: RunPorts
   approvals: Approvals
   run: Run

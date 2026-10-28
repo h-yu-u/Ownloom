@@ -1,8 +1,9 @@
-import type { RepositoryPort, ProjectPort } from './ports.js'
+import type { ProjectPort } from './ports.js'
+import type { ChangeRepository } from './repository-ports.js'
 import { string } from '../domain/types.js'
 export class ChangeService {
   constructor(
-    private repo: RepositoryPort,
+    private repo: ChangeRepository,
     private projects: ProjectPort,
   ) {}
   handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {

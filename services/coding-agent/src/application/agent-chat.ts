@@ -306,6 +306,12 @@ export class AgentChat {
     const query = agentQuery(repo, method, p)
     if (query) return query.value
     switch (method) {
+      case 'agent.sessions.create':
+        return repo.save('agentSession', {
+          id: randomUUID(),
+          title: string(p.title, 160),
+          piPath: null,
+        })
       case 'agent.runs.prepare':
         return this.prepare(raw as RpcParamsMap['agent.runs.prepare'])
       case 'agent.runs.commit':

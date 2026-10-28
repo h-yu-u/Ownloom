@@ -1,8 +1,9 @@
-import type { PiSession, RepositoryPort } from './ports.js'
+import type { PiSession } from './ports.js'
+import type { TranscriptRepository } from './repository-ports.js'
 
 type Opened = { session: PiSession; path(): string | undefined }
 interface Input {
-  repo: RepositoryPort
+  repo: TranscriptRepository
   kind: 'session' | 'agentSession'
   sessionId: string
   runId: string

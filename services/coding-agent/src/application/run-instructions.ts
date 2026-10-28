@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import type { Project, Run } from '../domain/types.js'
-import type { RepositoryPort, RunPorts } from './ports.js'
+import type { RunPorts } from './ports.js'
+import type { InstructionRepository } from './repository-ports.js'
 
 export async function freezeInstructions(input: {
-  repo: RepositoryPort
+  repo: InstructionRepository
   ports: RunPorts
   run: Run
   project: Project

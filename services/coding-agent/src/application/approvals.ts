@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { Approval, PermissionMode, Run } from '../domain/types.js'
 import { terminal } from '../domain/types.js'
-import type { RepositoryPort } from './ports.js'
+import type { ApprovalRepository } from './repository-ports.js'
 export class Approvals {
   private pending = new Map<string, (allowed: boolean) => void>()
-  constructor(private repo: Pick<RepositoryPort, 'get' | 'save' | 'pendingApprovals'>) {}
+  constructor(private repo: ApprovalRepository) {}
   async request(
     input: Omit<Approval, 'id' | 'expiresAt' | 'status' | 'policyVersion'>,
     signal: AbortSignal,

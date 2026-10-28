@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { buildSnapshot } from './snapshot.js'
-import type { RepositoryPort, ProjectPort } from './ports.js'
+import type { ProjectPort } from './ports.js'
+import type { ProjectSessionsRepository } from './repository-ports.js'
 import { string } from '../domain/types.js'
 export class ProjectSessions {
   constructor(
-    private repo: RepositoryPort,
+    private repo: ProjectSessionsRepository,
     private projects: ProjectPort,
   ) {}
   handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
