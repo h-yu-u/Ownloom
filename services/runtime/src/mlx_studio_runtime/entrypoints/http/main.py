@@ -64,6 +64,10 @@ async def serve() -> None:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--check-bundle"]:
+        from mlx_studio_runtime.adapters.worker_runtime.bundle_check import main as check_bundle
+
+        return check_bundle()
     if sys.argv[1:] == ["--download"]:
         from mlx_studio_runtime.entrypoints.download import main as download_main
 
