@@ -36,23 +36,31 @@ export function createChatStream(deps: ChatStreamDependencies) {
       jobId = deps.state.value.activeJobId
     if (!id) return
     if (jobId) {
+      const requestedTextRevision = textRevision,
+        requestedProjectionVersion = projectionVersion
       const snapshot = await deps.gateway.job(jobId)
       if (
         owner !== epoch ||
         !active ||
         id !== deps.conversationId.value ||
-        jobId !== deps.state.value.activeJobId
+        jobId !== deps.state.value.activeJobId ||
+        snapshot.id !== jobId
       )
         return
+      const terminal = ['succeeded', 'failed', 'cancelled'].includes(snapshot.state)
+      const sameInstance = !instanceId || instanceId === snapshot.instance_id
       if (
-        instanceId === snapshot.instance_id &&
-        ((snapshot.textRevision ?? textRevision) < textRevision ||
-          (snapshot.projectionVersion ?? projectionVersion) < projectionVersion)
+        !terminal &&
+        sameInstance &&
+        ((snapshot.textRevision ?? requestedTextRevision) < textRevision ||
+          (snapshot.projectionVersion ?? requestedProjectionVersion) < projectionVersion)
       )
         return
+      deltas.flush()
       instanceId = snapshot.instance_id
-      textRevision = snapshot.textRevision ?? 0
-      projectionVersion = snapshot.projectionVersion ?? 0
+      textRevision = snapshot.textRevision ?? (sameInstance ? requestedTextRevision : 0)
+      projectionVersion =
+        snapshot.projectionVersion ?? (sameInstance ? requestedProjectionVersion : 0)
       phase.value = snapshot.phase ?? ''
       deps.state.value = {
         ...deps.state.value,
@@ -62,7 +70,7 @@ export function createChatStream(deps: ChatStreamDependencies) {
             : item,
         ),
       }
-      if (['succeeded', 'failed', 'cancelled'].includes(snapshot.state))
+      if (terminal)
         applyEvent(
           {
             type: `job.${snapshot.state}`,
