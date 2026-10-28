@@ -77,7 +77,7 @@ class ReleaseFixture(unittest.TestCase):
         dmg = (
             self.root
             / "apps/desktop/src-tauri/target/release/bundle/dmg"
-            / self.plan.dmg
+            / "Ownloom_0.1.0_aarch64.dmg"
         )
         dmg.parent.mkdir(parents=True)
         dmg.write_bytes(b"synthetic DMG fixture; never an installable application")
@@ -133,13 +133,26 @@ class ReleaseAssetsTests(ReleaseFixture):
         output = self.assets()
         self.assertEqual(
             {path.name for path in output.iterdir()},
-            {*self.plan.files, "RELEASE_NOTES.md"},
+            {
+                "ownloom-darwin-arm64.dmg",
+                "release-metadata.json",
+                "SHA256SUMS",
+                "RELEASE_NOTES.md",
+            },
         )
+        bundled_dmg = (
+            self.root
+            / "apps/desktop/src-tauri/target/release/bundle/dmg"
+            / "Ownloom_0.1.0_aarch64.dmg"
+        )
+        public_dmg = output / "ownloom-darwin-arm64.dmg"
+        self.assertEqual(public_dmg.read_bytes(), bundled_dmg.read_bytes())
         metadata = (output / "release-metadata.json").read_text()
         self.assertNotIn("/Users/private", metadata)
         self.assertEqual(json.loads(metadata)["commit"], self.commit)
+        self.assertEqual(json.loads(metadata)["dmgSha256"], digest(public_dmg))
         self.assertIn(
-            f"{digest(output / self.plan.dmg)}  {self.plan.dmg}",
+            f"{digest(public_dmg)}  ownloom-darwin-arm64.dmg",
             (output / "SHA256SUMS").read_text(),
         )
         notes = (output / "RELEASE_NOTES.md").read_text()

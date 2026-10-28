@@ -44,7 +44,7 @@ git push origin v0.1.1
 
 候选发布目录为 `.build/release`，DMG 内应用的 smoke 报告位于 `.build/release-acceptance`。版本校验和制品收集由 [scripts.release.release](../scripts/release/release.py)负责，上传、摘要核对及公开由 [scripts.release.publish_release](../scripts/release/publish_release.py)负责。
 
-发布附件为 `Ownloom_<版本>_aarch64.dmg`、`release-metadata.json` 和 `SHA256SUMS`。下载三个文件到同一目录后运行：
+发布附件为 `ownloom-darwin-arm64.dmg`、`release-metadata.json` 和 `SHA256SUMS`。制品收集时将 Tauri 生成的 `Ownloom_<版本>_aarch64.dmg` 原样复制为该公开文件名；版本由 Release 标签、应用版本和元数据标识。下载三个文件到同一目录后运行：
 
 ```bash
 shasum -a 256 -c SHA256SUMS
