@@ -2,21 +2,20 @@ from __future__ import annotations
 
 import json
 import plistlib
-import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.release.preview_release import (
-    Preview,
+from scripts.release.publish_release import publish
+from scripts.release.release import (
+    Release,
     collect_assets,
     digest,
-    preview,
+    release_plan,
     smoke_summary,
     validate_checkout,
 )
-from scripts.release.publish_preview_release import publish
 
 
 def completed_smoke() -> dict[str, object]:
@@ -32,7 +31,7 @@ def completed_smoke() -> dict[str, object]:
     }
 
 
-class PreviewFixture(unittest.TestCase):
+class ReleaseFixture(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -56,7 +55,7 @@ class PreviewFixture(unittest.TestCase):
         self.commit = self.git("rev-parse", "HEAD")
         self.git("update-ref", "refs/remotes/origin/main", self.commit)
         self.git("tag", "v0.1.0")
-        self.plan = preview("v0.1.0", self.commit)
+        self.plan = release_plan("v0.1.0", self.commit)
 
     def git(self, *args: str) -> str:
         return subprocess.check_output(
@@ -89,7 +88,7 @@ class PreviewFixture(unittest.TestCase):
         return output
 
 
-class ReleaseIdentityTests(PreviewFixture):
+class ReleaseIdentityTests(ReleaseFixture):
     def test_exact_tag_and_four_manifest_versions_are_accepted(self) -> None:
         self.assertEqual(validate_checkout(self.root, "v0.1.0"), self.plan)
 
@@ -103,7 +102,7 @@ class ReleaseIdentityTests(PreviewFixture):
             "v1.0.0;echo",
         ):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
-                preview(tag, self.commit)
+                release_plan(tag, self.commit)
 
     def test_tag_on_an_unmerged_branch_is_rejected(self) -> None:
         self.git("checkout", "-qb", "unmerged")
@@ -129,7 +128,7 @@ class ReleaseIdentityTests(PreviewFixture):
             validate_checkout(self.root, "v0.1.0")
 
 
-class PreviewAssetsTests(PreviewFixture):
+class ReleaseAssetsTests(ReleaseFixture):
     def test_payload_is_whitelisted_and_omits_private_diagnostics(self) -> None:
         output = self.assets()
         self.assertEqual(
@@ -143,7 +142,12 @@ class PreviewAssetsTests(PreviewFixture):
             f"{digest(output / self.plan.dmg)}  {self.plan.dmg}",
             (output / "SHA256SUMS").read_text(),
         )
-        self.assertIn("not Apple notarized", (output / "RELEASE_NOTES.md").read_text())
+        notes = (output / "RELEASE_NOTES.md").read_text()
+        self.assertTrue(notes.startswith("# Ownloom v0.1.0\n\n"))
+        self.assertNotIn("Preview", notes)
+        self.assertNotIn("预览版", notes)
+        self.assertIn("not Apple notarized", notes)
+        self.assertIn("unverified for this build", notes)
 
     def test_failed_warned_or_incomplete_smoke_cannot_publish(self) -> None:
         for changed in (
@@ -173,7 +177,7 @@ class PreviewAssetsTests(PreviewFixture):
 
 
 class GitHubFixture:
-    def __init__(self, plan: Preview, output: Path) -> None:
+    def __init__(self, plan: Release, output: Path) -> None:
         self.plan = plan
         self.output = output
         self.release: dict[str, object] | None = None
@@ -181,13 +185,15 @@ class GitHubFixture:
         self.corrupt_upload = False
         self.upload_failure = False
         self.hide_drafts = False
+        self.latest = False
 
     def draft(self) -> dict[str, object]:
         return {
             "id": 12,
             "tag_name": self.plan.tag,
+            "name": f"Ownloom {self.plan.tag}",
             "draft": True,
-            "prerelease": True,
+            "prerelease": False,
             "target_commitish": self.plan.commit,
             "assets": [],
         }
@@ -200,6 +206,17 @@ class GitHubFixture:
             )
         if args[:3] == ["api", "--method", "POST"]:
             self.release = self.draft()
+            fields = {
+                args[index + 1].split("=", 1)[0]: args[index + 1].split("=", 1)[1]
+                for index, argument in enumerate(args[:-1])
+                if argument in {"--raw-field", "--field"}
+            }
+            self.release.update(
+                name=fields["name"],
+                draft=fields["draft"] == "true",
+                prerelease=fields["prerelease"] == "true",
+            )
+            self.latest = fields["make_latest"] == "true"
             return json.dumps(self.release)
         if args[0] == "api" and "/commits/" in args[1]:
             return self.plan.commit
@@ -223,13 +240,19 @@ class GitHubFixture:
                 ]
             )
         elif args[:2] == ["release", "edit"]:
+            assert self.release is not None
+            self.release["draft"] = "--draft=false" not in args
+            self.release["prerelease"] = "--prerelease=false" not in args
+            self.latest = "--latest" in args
+            if "--title" in args:
+                self.release["name"] = args[args.index("--title") + 1]
             return "https://github.com/example/repo/releases/tag/v0.1.0"
         else:
             raise AssertionError(args)
         return ""
 
 
-class PreviewPublicationTests(PreviewFixture):
+class ReleasePublicationTests(ReleaseFixture):
     def test_new_draft_does_not_require_immediate_list_visibility(self) -> None:
         output = self.assets()
         github = GitHubFixture(self.plan, output)
@@ -248,14 +271,22 @@ class PreviewPublicationTests(PreviewFixture):
             args for args in github.calls if args[:3] == ["api", "--method", "POST"]
         )
         self.assertIn("draft=true", create)
+        self.assertIn("prerelease=false", create)
         self.assertIn("make_latest=false", create)
-        self.assertIn("--prerelease", writes[-1])
-        self.assertIn("--latest=false", writes[-1])
+        self.assertIn("name=Ownloom v0.1.0", create)
+        self.assertIn("--draft=false", writes[-1])
+        self.assertIn("--prerelease=false", writes[-1])
+        self.assertIn("--latest", writes[-1])
+        self.assertIsNotNone(github.release)
+        self.assertFalse(github.release["draft"])
+        self.assertFalse(github.release["prerelease"])
+        self.assertEqual(github.release["name"], "Ownloom v0.1.0")
+        self.assertTrue(github.latest)
 
     def test_partial_uploads_and_server_corruption_leave_a_draft(self) -> None:
+        output = self.assets()
         for failure in ("upload_failure", "corrupt_upload"):
             with self.subTest(failure=failure):
-                output = self.assets()
                 github = GitHubFixture(self.plan, output)
                 setattr(github, failure, True)
                 with self.assertRaises((ValueError, subprocess.CalledProcessError)):
@@ -263,27 +294,22 @@ class PreviewPublicationTests(PreviewFixture):
                 self.assertFalse(
                     any(args[:2] == ["release", "edit"] for args in github.calls)
                 )
-                shutil.rmtree(output)
-                shutil.rmtree(self.root / "mounted")
-                shutil.rmtree(self.root / "apps/desktop/src-tauri/target")
+                self.assertIsNotNone(github.release)
+                self.assertTrue(github.release["draft"])
+                self.assertFalse(github.release["prerelease"])
+                self.assertFalse(github.latest)
 
     def test_published_versions_and_unrelated_drafts_are_never_modified(self) -> None:
         output = self.assets()
         for changed in (
             {"draft": False},
             {"target_commitish": "0" * 40},
-            {"prerelease": False},
+            {"prerelease": True},
+            {"prerelease": None},
         ):
             with self.subTest(changed=changed):
                 github = GitHubFixture(self.plan, output)
-                github.release = {
-                    "id": 12,
-                    "tag_name": self.plan.tag,
-                    "draft": True,
-                    "prerelease": True,
-                    "target_commitish": self.commit,
-                    "assets": [],
-                } | changed
+                github.release = github.draft() | changed
                 with self.assertRaises(ValueError):
                     publish("example/repo", self.plan, output, github.command)
                 self.assertFalse(any(args[0] == "release" for args in github.calls))
@@ -296,11 +322,16 @@ class PreviewPublicationTests(PreviewFixture):
             publish("example/repo", self.plan, output, github.command)
         self.assertEqual(github.calls, [])
 
-    def test_retry_of_same_commit_preview_draft_is_supported(self) -> None:
+    def test_retry_of_same_commit_release_draft_is_supported(self) -> None:
         output = self.assets()
         github = GitHubFixture(self.plan, output)
         github.release = github.draft()
+        github.release["name"] = "Unfinished release"
         publish("example/repo", self.plan, output, github.command)
         self.assertFalse(
             any(args[:3] == ["api", "--method", "POST"] for args in github.calls)
         )
+        self.assertEqual(github.release["name"], "Ownloom v0.1.0")
+        self.assertFalse(github.release["draft"])
+        self.assertFalse(github.release["prerelease"])
+        self.assertTrue(github.latest)

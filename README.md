@@ -12,9 +12,9 @@ Chat with local models, create images and speech, and work on code in one deskto
 
 ## Project status
 
-Ownloom is a development preview for **Apple Silicon macOS**. Download a published preview from [Releases](https://github.com/h-yu-u/Ownloom/releases), when available, or start from source below. Preview installers are ad-hoc signed and not Apple notarized; macOS may require manual approval in Privacy & Security. Compatibility depends on the model, adapter and available memory; an MLX label or a successful download does not guarantee support.
+Ownloom is a local AI workspace for **Apple Silicon macOS**. Download an installer from [Releases](https://github.com/h-yu-u/Ownloom/releases), or start from source below. Installers are ad-hoc signed and not Apple notarized; macOS may require manual approval in Privacy & Security. Compatibility depends on the model, adapter and available memory; an MLX label or a successful download does not guarantee support.
 
-The repository contains automated checks and packaged-app acceptance tools. Formal signing, notarization, independent clean-machine testing and extended stability acceptance remain separate release requirements. See the [verification matrix](docs/verification.md) for the evidence and remaining limitations.
+The repository contains automated checks and packaged-app acceptance tools. Developer ID signing, notarization, independent clean-machine testing and extended stability acceptance remain separately tracked verification work. See the [verification matrix](docs/verification.md) for the evidence and remaining limitations.
 
 ## What you can do
 
@@ -86,7 +86,7 @@ Bug reports and focused contributions are welcome through [GitHub Issues](https:
 - [Architecture](docs/architecture.md) and [code standards](docs/code-standards.md): enduring design and review rules.
 - [Subsystems](docs/subsystems/README.md): maintained implementation references.
 - [Verification](docs/verification.md) and [release acceptance](docs/release-acceptance.md): evidence, limitations and repeatable release checks.
-- [Preview releases](docs/preview-release.md): tag-triggered builds, package smoke checks and publishing.
+- [Releases](docs/release.md): tag-triggered builds, package smoke checks and formal publishing with Latest status.
 - [Lessons](LESSONS.md): evidence-backed findings and how they become standards.
 
 ## License and acknowledgements

@@ -12,9 +12,9 @@
 
 ## 项目状态
 
-Ownloom 目前是面向 **Apple Silicon macOS** 的开发预览项目。已有发布版本时，可从 [Releases](https://github.com/h-yu-u/Ownloom/releases)下载安装包，也可按下文从源码启动。预览安装包使用临时签名，未经过 Apple 公证；macOS 可能需要在「隐私与安全性」中手动允许。兼容性取决于模型、适配器和可用内存；带有 MLX 标签或下载成功并不代表模型一定可用。
+Ownloom 是面向 **Apple Silicon macOS** 的本地 AI 工作台。可从 [Releases](https://github.com/h-yu-u/Ownloom/releases)下载安装包，也可按下文从源码启动。安装包使用 ad-hoc 签名，未经过 Apple 公证；macOS 可能需要在「隐私与安全性」中手动允许。兼容性取决于模型、适配器和可用内存；带有 MLX 标签或下载成功并不代表模型一定可用。
 
-仓库提供自动化检查和打包应用验收工具。正式签名、公证、独立干净机器测试和长期稳定性验收仍是单独的发布要求。已记录的证据与剩余限制见[验证矩阵](docs/verification.md)。
+仓库提供自动化检查和打包应用验收工具。Developer ID 签名、公证、独立干净机器测试和长期稳定性验收仍分别跟踪验证进展。已记录的证据与剩余限制见[验证矩阵](docs/verification.md)。
 
 ## 可以做什么
 
@@ -86,7 +86,7 @@ pnpm test
 - [架构规范](docs/architecture.md)与[编码规范](docs/code-standards.md)：长期设计与评审规则。
 - [子系统参考](docs/subsystems/README.md)：持续维护的实现说明。
 - [验证矩阵](docs/verification.md)与[发布验收](docs/release-acceptance.md)：证据、限制和可重复执行的发布检查。
-- [预览版发布](docs/preview-release.md)：标签触发的构建、包内启动检查与自动发布。
+- [版本发布](docs/release.md)：标签触发的构建、包内启动检查、正式发布及 Latest 设置。
 - [经验记录](LESSONS.md)：有证据的发现及其晋升规范的规则。
 
 ## 许可证与致谢

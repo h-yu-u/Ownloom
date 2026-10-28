@@ -1,4 +1,4 @@
-name: Preview release
+name: Release
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: preview-release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
         id: release
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: python -m scripts.release.preview_release validate "$RELEASE_TAG"
+        run: python -m scripts.release.release validate "$RELEASE_TAG"
 
   build:
     needs: validate
@@ -99,19 +99,19 @@ jobs:
           set -euo pipefail
           dmg="apps/desktop/src-tauri/target/release/bundle/dmg/Ownloom_"$RELEASE_VERSION"_aarch64.dmg"
           hdiutil verify "$dmg"
-          mount="$RUNNER_TEMP/ownloom-preview"
+          mount="$RUNNER_TEMP/ownloom-release"
           mkdir "$mount"
           hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount"
           trap 'hdiutil detach "$mount"' EXIT
           sh scripts/acceptance/run-bundle-acceptance.sh "$mount/Ownloom.app" \
             --profile smoke --duration-seconds 0 --cycles 2 \
-            --output .build/preview-acceptance
-          python -m scripts.release.preview_release collect "$RELEASE_TAG" \
+            --output .build/release-acceptance
+          python -m scripts.release.release collect "$RELEASE_TAG" \
             --commit "$RELEASE_SHA" --app "$mount/Ownloom.app"
       - uses: actions/upload-artifact@v4
         with:
-          name: preview-${{ needs.validate.outputs.tag }}
-          path: .build/preview-release/
+          name: release-${{ needs.validate.outputs.tag }}
+          path: .build/release/
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
@@ -135,13 +135,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify the release tag still identifies the tested commit
-        run: python -m scripts.release.preview_release validate "$RELEASE_TAG"
+        run: python -m scripts.release.release validate "$RELEASE_TAG"
       - uses: actions/download-artifact@v4
         with:
-          name: preview-${{ needs.validate.outputs.tag }}
-          path: .build/preview-release
-      - name: Upload verified assets, then publish the prerelease
+          name: release-${{ needs.validate.outputs.tag }}
+          path: .build/release
+      - name: Upload verified assets, then publish the latest release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
-        run: python -m scripts.release.publish_preview_release "$RELEASE_REPOSITORY" "$RELEASE_TAG" "$RELEASE_SHA"
+        run: python -m scripts.release.publish_release "$RELEASE_REPOSITORY" "$RELEASE_TAG" "$RELEASE_SHA"

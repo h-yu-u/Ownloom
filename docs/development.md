@@ -139,7 +139,7 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 
 默认 Sidecar `release` profile 使用独立 `.build/runtime/venv-release`，收集真实引擎。仅验证替身时可运行 `MLX_STUDIO_BUILD_PROFILE=fake pnpm build runtime`；fake profile 不含真实推理依赖，不能作为正式发布产物。
 
-应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[预览版发布](./preview-release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
+应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[版本发布](./release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
 
 ## 按模块实际验证
 
@@ -177,7 +177,7 @@ pnpm verify stability '/path/to/Ownloom.app' \
 | `scripts/build/`      | Runtime Sidecar、Coding Host 打包与资源校验                                                                 |
 | `scripts/verify/`     | 按聊天、图片、语音、Coding、系统模块组织的本地探针；模型选择等共用代码也归属本目录                          |
 | `scripts/acceptance/` | 指定安装包的验收、隔离数据 fixture、长测与可携带工具打包                                                    |
-| `scripts/release/`    | 版本校验、候选制品收集与 GitHub 预览发布                                                                    |
+| `scripts/release/`    | 版本校验、候选制品收集与 GitHub 正式发布                                                                    |
 
 新增验证时先确定所有者：可重复的纯逻辑回归放对应源码测试；需要真实模型的探针放 `verify/`；依赖最终 `.app` 的检查放 `acceptance/`。仅对需要直接调用的操作在所属 `scripts/tasks/*.mjs` 中声明任务，并在 `scripts/tasks/index.mjs` 注册目标；共享实现留在所属模块，不增加一个根级 `package.json` 命令。调用者、工作流、文档和可携带工具的复制清单必须一起更新，生成器移动后重新生成并核对差异。
 
