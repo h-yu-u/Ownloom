@@ -8,6 +8,7 @@ export type { AttachmentMetadata, Processing, TextPreview, DraftSelection } from
 export { decodeAttachment, decodeTextPreview } from './attachments'
 export type { MessageSource } from './chat-sources'
 export { decodeSource } from './chat-sources'
+export { decodeGenerationStats, type GenerationStats } from './generation-stats'
 export type { WebSettings, WebSettingsUpdate, ChatAttempt } from './web-search'
 export type {
   ModelSummary,
