@@ -47,6 +47,9 @@ class ReleaseFixture(unittest.TestCase):
         (self.root / "apps/desktop/src-tauri/Cargo.toml").write_text(
             '[package]\nname = "fixture"\nversion = "0.1.0"\n'
         )
+        installer = self.root / "scripts/release/install.sh"
+        installer.parent.mkdir(parents=True)
+        installer.write_text("#!/bin/sh\n# Isolated release payload fixture.\nexit 0\n")
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.name", "Release fixture")
         self.git("config", "user.email", "fixture@example.org")
@@ -95,6 +98,7 @@ class ReleaseIdentityTests(ReleaseFixture):
     def test_unsafe_and_ambiguous_tags_are_rejected(self) -> None:
         for tag in (
             "v01.1.0",
+            "v1２.3.4",
             "v1.0",
             "v1.2.3\nsha=oops",
             "main",
@@ -135,6 +139,7 @@ class ReleaseAssetsTests(ReleaseFixture):
             {path.name for path in output.iterdir()},
             {
                 "ownloom-darwin-arm64.dmg",
+                "install.sh",
                 "release-metadata.json",
                 "SHA256SUMS",
                 "RELEASE_NOTES.md",
@@ -147,6 +152,14 @@ class ReleaseAssetsTests(ReleaseFixture):
         )
         public_dmg = output / "ownloom-darwin-arm64.dmg"
         self.assertEqual(public_dmg.read_bytes(), bundled_dmg.read_bytes())
+        self.assertEqual(
+            (output / "install.sh").read_bytes(),
+            (self.root / "scripts/release/install.sh").read_bytes(),
+        )
+        self.assertIn(
+            f"{digest(output / 'install.sh')}  install.sh",
+            (output / "SHA256SUMS").read_text(),
+        )
         metadata = (output / "release-metadata.json").read_text()
         self.assertNotIn("/Users/private", metadata)
         self.assertEqual(json.loads(metadata)["commit"], self.commit)
@@ -161,6 +174,7 @@ class ReleaseAssetsTests(ReleaseFixture):
         self.assertNotIn("预览版", notes)
         self.assertIn("not Apple notarized", notes)
         self.assertIn("unverified for this build", notes)
+        self.assertIn("releases/latest/download/install.sh | sh", notes)
 
     def test_failed_warned_or_incomplete_smoke_cannot_publish(self) -> None:
         for changed in (
@@ -330,6 +344,14 @@ class ReleasePublicationTests(ReleaseFixture):
     def test_tampered_payload_fails_before_any_github_request(self) -> None:
         output = self.assets()
         (output / self.plan.dmg).write_bytes(b"corrupt")
+        github = GitHubFixture(self.plan, output)
+        with self.assertRaises(ValueError):
+            publish("example/repo", self.plan, output, github.command)
+        self.assertEqual(github.calls, [])
+
+    def test_tampered_installer_fails_before_any_github_request(self) -> None:
+        output = self.assets()
+        (output / "install.sh").write_text("#!/bin/sh\nexit 1\n")
         github = GitHubFixture(self.plan, output)
         with self.assertRaises(ValueError):
             publish("example/repo", self.plan, output, github.command)

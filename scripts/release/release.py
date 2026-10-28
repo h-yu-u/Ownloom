@@ -14,7 +14,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-TAG = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
+TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 SHA = re.compile(r"[0-9a-f]{40}")
 
 
@@ -34,7 +34,7 @@ class Release:
 
     @property
     def files(self) -> tuple[str, ...]:
-        return self.dmg, "release-metadata.json", "SHA256SUMS"
+        return self.dmg, "install.sh", "release-metadata.json", "SHA256SUMS"
 
 
 def release_plan(tag: str, commit: str) -> Release:
@@ -139,6 +139,8 @@ def collect_assets(
         / f"Ownloom_{plan.version}_aarch64.dmg"
     )
     dmg_digest = digest(dmg)
+    installer = root / "scripts/release/install.sh"
+    digest(installer)
     metadata = {
         "tag": plan.tag,
         "version": plan.version,
@@ -157,6 +159,7 @@ def collect_assets(
     }
     output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(dmg, output / plan.dmg)
+    shutil.copyfile(installer, output / "install.sh")
     (output / "release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     hashes = [f"{digest(output / name)}  {name}\n" for name in plan.files[:-1]]
     (output / "SHA256SUMS").write_text("".join(hashes))
@@ -174,7 +177,16 @@ def collect_assets(
         "unverified for this build.\n\n"
         "源码检查、自动化测试和包内启动检查通过；本制品的真实模型、原生界面与独立干净机器"
         "验收仍未验证。\n\n"
-        "Verify the download / 下载后校验:\n\n"
+        "## Install / 安装\n\n"
+        f"Download `{plan.dmg}`, open it and drag Ownloom to Applications. "
+        "Then open Ownloom and choose a compatible model in Models.\n\n"
+        f"下载 `{plan.dmg}`，打开后将 Ownloom 拖入「应用程序」。"
+        "打开 Ownloom，在「模型库」下载或导入兼容模型，即可开始使用。\n\n"
+        "Or install from Terminal / 也可通过终端安装：\n\n"
+        "```sh\n"
+        "curl -fsSL https://github.com/h-yu-u/Ownloom/releases/latest/download/install.sh | sh\n"
+        "```\n\n"
+        "Verify all downloaded release files / 下载全部附件后校验：\n\n"
         "    shasum -a 256 -c SHA256SUMS\n"
     )
 

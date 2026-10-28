@@ -6,15 +6,37 @@
 
 **运行在 Apple Silicon 上的本地 AI 工作台。**
 
-在同一个桌面应用中使用本地模型聊天、创作图片和语音、开发代码。Ownloom 使用 Vue 界面、Tauri 桌面壳和独立的 MLX 推理进程，并通过 Pi 提供 Coding 与工具工作区。
+在同一个桌面应用中使用本地模型聊天、创作图片和语音、开发代码。下载兼容模型，带上自己的文件与项目，把会话和作品保存在 Mac 上。
 
 [English](README.md) · **简体中文** · [文档](docs/README.md) · [参与贡献](docs/contributors.md) · [许可证](LICENSE)
 
-## 项目状态
+## 快速开始
 
-Ownloom 是面向 **Apple Silicon macOS** 的本地 AI 工作台。可从 [Releases](https://github.com/h-yu-u/Ownloom/releases)下载安装包，也可按下文从源码启动。安装包使用 ad-hoc 签名，未经过 Apple 公证；macOS 可能需要在「隐私与安全性」中手动允许。兼容性取决于模型、适配器和可用内存；带有 MLX 标签或下载成功并不代表模型一定可用。
+需要一台 **Apple Silicon Mac**。模型权重需另行下载，请选择适合可用内存的模型。
 
-仓库提供自动化检查和打包应用验收工具。Developer ID 签名、公证、独立干净机器测试和长期稳定性验收仍分别跟踪验证进展。已记录的证据与剩余限制见[验证矩阵](docs/verification.md)。
+### 1. 安装
+
+[下载 Apple Silicon 版 Ownloom](https://github.com/h-yu-u/Ownloom/releases/latest/download/ownloom-darwin-arm64.dmg)，打开 DMG，将 **Ownloom.app** 拖入**应用程序**。版本说明与校验文件见 [Releases](https://github.com/h-yu-u/Ownloom/releases/latest)。
+
+也可以在终端安装：
+
+```sh
+curl -fsSL https://github.com/h-yu-u/Ownloom/releases/latest/download/install.sh | sh
+```
+
+### 2. 打开 Ownloom
+
+通过 Finder 或 Spotlight 打开已安装的 **Ownloom**。
+
+当前安装包使用 ad-hoc 签名，未经过 Apple 公证。如果首次打开被 macOS 阻止，可能需要在**系统设置 → 隐私与安全性**中手动允许 Ownloom。
+
+### 3. 添加模型，开始聊天
+
+打开**模型库**，点击**发现模型**，从 Hugging Face 下载兼容的 MLX 模型。已有完整模型文件夹时，点击**导入本地模型**并选择该目录。
+
+模型就绪后，进入**聊天**，选择文本模型并发送第一条消息；首次请求会准备模型。使用图片创作、语音创作或 Coding 时，在相应工作区选择具备对应能力的模型。
+
+兼容性取决于模型导出格式、适配器和可用内存；带有 MLX 标签或下载成功并不代表模型一定可用。模型选择、各工作区和本地数据的操作说明见[用户手册](docs/reference.md)。
 
 ## 可以做什么
 
@@ -30,54 +52,21 @@ Ownloom 是面向 **Apple Silicon macOS** 的本地 AI 工作台。可从 [Relea
 
 可选联网搜索使用已配置的 Tavily 兼容服务，来源随回答保存。文档支持有文本层的 PDF、DOCX、TXT 和 Markdown；当前不提供扫描 PDF 所需的 OCR。操作与兼容范围见[用户手册](docs/reference.md)。
 
-## 快速开始
-
-准备 **Node.js 22（至少 22.19.0）**、**pnpm 11.11.0**、**uv**、**Python 3.12**、**Rust** 和 macOS 命令行开发工具。详细前置条件与其他开发方式见[开发指南](docs/development.md)。
-
-```bash
-git clone https://github.com/h-yu-u/Ownloom.git
-cd Ownloom
-nvm use
-UV_PYTHON=3.12 pnpm bootstrap
-UV_NO_SYNC=1 pnpm dev
-```
-
-`nvm use` 适用于 nvm 用户；使用其他版本管理器时请选择 Node.js 22。`UV_PYTHON=3.12` 选择所需的 Python 版本，`bootstrap` 安装锁定的依赖和可选推理包。`UV_NO_SYNC=1` 让桌面启动开发 Runtime 时保留已准备的环境，包括音频依赖。依赖变化后，先重新运行 `UV_PYTHON=3.12 pnpm bootstrap` 再启动。
-
-打开**模型库**，下载或导入兼容的本地模型，再到对应工作区选择模型。仓库不包含权重，首次安装依赖和下载模型需要网络。正常启动的模型库为空；FakeEngine 仅用于隔离开发和测试。
-
-`pnpm dev web` 只启动前端。浏览器开发还需要单独配置 Runtime，步骤见[开发指南](docs/development.md)。
-
-## 系统组成
-
-| 部分                               | 职责                                                   |
-| ---------------------------------- | ------------------------------------------------------ |
-| Vue 3、TypeScript、Pinia、Naive UI | 工作区、交互与展示；通过应用端口隔离平台访问。         |
-| Tauri 2 / Rust                     | 原生对话框、Runtime 认证启动和进程生命周期。           |
-| Python / FastAPI Supervisor        | 产品 API、任务调度、模型管理和应用数据。               |
-| 独立推理 Worker                    | MLX 文本/视觉、MFLUX 图片和 MLX Audio 语音适配器。     |
-| Node.js / Pi Host                  | Coding 与 Agent 执行、审批、扩展及其独立负责的持久化。 |
-
-[架构规范](docs/architecture.md)定义系统不变量；[子系统参考](docs/subsystems/README.md)描述当前运行路径、契约和失败行为。
-
 ## 隐私与外部服务
 
 本地推理使用本机文件。可选联网搜索会把搜索问题发送给配置的服务，模型下载访问 Hugging Face，启用的 MCP 工具可能连接对应服务器。处理敏感项目之前，请检查工具访问范围和审批配置。
 
 桌面 Runtime 监听回环地址并使用会话认证，API 边界和当前限制见 [Runtime 参考](docs/subsystems/runtime.md)。凭据与备份内容采用不同的存储规则，移动或分享数据前请阅读[用户手册](docs/reference.md)和[存储参考](docs/subsystems/storage.md)。本地运行并不意味着所有可选流程都能离线。
 
-## 开发与贡献
+## 社区与贡献
 
-先阅读[开发指南](docs/development.md)、[编码规范](docs/code-standards.md)和相关子系统参考。主要检查命令为：
+欢迎通过 [GitHub Issues](https://github.com/h-yu-u/Ownloom/issues) 报告问题、提出建议或分享可复现的模型兼容性结果。请提供应用版本、Mac 型号、模型来源和复现步骤，分享日志前先移除个人数据。
 
-```bash
-pnpm check
-pnpm test
-```
+从源码开发或提交 Pull Request，请从[贡献指南](docs/contributors.md)开始；工具链准备、桌面与浏览器开发、检查和测试命令统一见[开发指南](docs/development.md)。设计和评审约定见[架构规范](docs/architecture.md)、[编码规范](docs/code-standards.md)与[子系统参考](docs/subsystems/README.md)。AI 编程助手从 [AGENTS.md](AGENTS.md) 开始。
 
-`pnpm check` 包含文档检查。测试通过不能代替真实模型兼容性或发布验收；这些检查分别记录。
+## 兼容性与发布状态
 
-欢迎通过 [GitHub Issues](https://github.com/h-yu-u/MlxDesktop/issues) 和 Pull Request 提交可复现的问题与聚焦的改进。请附复现步骤、验证的提交版本、检查结果和未验证范围，并遵守[贡献指南](docs/contributors.md)。AI 编程助手从 [AGENTS.md](AGENTS.md) 开始。
+模型支持与发布检查的证据统一记录在[验证矩阵](docs/verification.md)。自动测试和包内启动检查覆盖特定路径，不能代替所有模型的兼容性、原生 GUI/Gatekeeper 或独立干净机器验收。Developer ID 签名与公证仍需单独完成。
 
 ## 文档
 
