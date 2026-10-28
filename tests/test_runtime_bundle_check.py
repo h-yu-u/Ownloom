@@ -103,13 +103,22 @@ class RuntimeBundleEntryPointTests(unittest.TestCase):
 
     def test_missing_dependency_fails_without_starting_the_server(self):
         result = self.invoke_check(
-            "return bundle_check.check_imports(('ownloom_missing_bundle_fixture',))"
+            """
+            try:
+                return bundle_check.check_imports(('ownloom_missing_bundle_fixture',))
+            except ModuleNotFoundError as error:
+                raise ModuleNotFoundError('Could not import module fixture') from error
+            """
         )
         self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(result.stdout.splitlines()), 1)
         report = json.loads(result.stdout)
         self.assertEqual(report["status"], "failed")
         self.assertEqual(report["checks"]["fixture"]["status"], "failed")
         self.assertIn("ModuleNotFoundError", report["checks"]["fixture"]["error"])
+        self.assertIn("Traceback (most recent call last):", result.stderr)
+        self.assertIn("ownloom_missing_bundle_fixture", result.stderr)
+        self.assertIn("Could not import module fixture", result.stderr)
 
     def test_source_python_cannot_pass_as_a_packaged_sidecar(self):
         result = self.invoke_check(

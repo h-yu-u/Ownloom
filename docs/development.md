@@ -148,9 +148,9 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 | `release`（默认） | `.build/runtime/venv-release` | 包含文本、视觉、图片与语音引擎依赖，用于正式 Sidecar |
 | `fake`            | `.build/runtime/venv-fake`    | 仅包含基础 Runtime 与构建依赖，用于替身验收          |
 
-例如，`MLX_STUDIO_BUILD_PROFILE=fake pnpm build runtime` 构建不含真实推理依赖的 Sidecar，不能用于正式发布。构建先以 `uv sync --frozen --no-dev --group build` 加所选 profile 的 extras 精确同步独立环境，再用 `uv run --no-sync` 执行 PyInstaller。这样既排除 `dev` 组，也移除该 profile 不需要的已安装包，避免开发环境污染发行依赖分析。
+例如，`MLX_STUDIO_BUILD_PROFILE=fake pnpm build runtime` 构建不含真实推理依赖的 Sidecar，不能用于正式发布。构建先以 `uv sync --frozen --no-dev --group build` 加所选 profile 的 extras 精确同步独立环境，再用 `uv run --no-sync` 执行 PyInstaller。这样既排除 `dev` 组，也移除该 profile 不需要的已安装包；构建的 `PYTHONPATH` 仅指向 Runtime 源码，不继承宿主的额外模块路径，避免开发环境污染发行依赖分析。
 
-收集规则集中在 [Runtime 打包策略](../scripts/build/runtime_bundle.py)，由[固定 spec](../scripts/build/runtime.spec)应用。普通依赖沿实际导入关系与 PyInstaller 官方 hooks 收集；动态模型注册目录显式声明，并保留 Ownloom 现有模型注册范围。NumPy、SciPy 使用官方 hooks，仅过滤其明确命名的 `tests` 树，保留 `testing` 公共辅助代码。Torch、OpenCV、官方 hooks 要求的 Python 源码、包元数据、许可证和运行资源仍需保留，不能按文件后缀或名称中的 `test` 全局裁剪。
+收集规则集中在 [Runtime 打包策略](../scripts/build/runtime_bundle.py)，由[固定 spec](../scripts/build/runtime.spec)应用。普通依赖沿实际导入关系与 PyInstaller 官方 hooks 收集；动态模型注册目录显式声明，并保留 Ownloom 现有模型注册范围。NumPy、SciPy 使用官方 hooks，并补收锁定 SciPy 的 Array API 后端动态模块；仅过滤其明确命名的 `tests` 树，保留 `testing` 公共辅助代码。Torch、OpenCV、官方 hooks 要求的 Python 源码、包元数据、许可证和运行资源仍需保留，不能按文件后缀或名称中的 `test` 全局裁剪。
 
 构建同时生成 `.build/runtime/archive-size.json`，记录 profile、Sidecar 大小与 SHA-256，并按包归类内部存储字节；PYZ 中的模块与外层文件合并统计，不重复计入整个 PYZ。归档索引、启动器和签名等开销参与总量对账。这份报告衡量 Sidecar 内部存储，不能解释为各库对 DMG 压缩大小的贡献；发现应排除的 NumPy/SciPy 测试条目时，构建失败。报告实现见[归档统计器](../scripts/build/report_runtime_bundle.py)。
 

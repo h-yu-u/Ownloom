@@ -1,12 +1,16 @@
 """Packaging boundaries exercised with installed-distribution and archive fixtures."""
 
 import csv
+import subprocess
+import sys
 import tempfile
 import unittest
 from importlib.metadata import Distribution
 from pathlib import Path
+from zipfile import ZipFile
 
 from scripts.build.runtime_bundle import (
+    ENGINE_REGISTRIES,
     distribution_modules,
     is_numerical_test,
     runtime_entries,
@@ -24,6 +28,25 @@ def installed_fixture(root: Path, files: dict[str, str]) -> Distribution:
     with (metadata / "RECORD").open("w", newline="") as stream:
         csv.writer(stream).writerows((name, "", "") for name in files)
     return Distribution.at(metadata)
+
+
+def array_api_files() -> dict[str, str]:
+    files = dict.fromkeys(
+        (
+            "scipy/__init__.py",
+            "scipy/_external/__init__.py",
+            "scipy/_external/array_api_compat/__init__.py",
+        ),
+        "",
+    )
+    for backend in ("numpy", "torch"):
+        prefix = f"scipy/_external/array_api_compat/{backend}"
+        files[f"{prefix}/__init__.py"] = (
+            "__import__(__package__ + '.linalg')\n__import__(__package__ + '.fft')\n"
+        )
+        for name in ("fft", "linalg"):
+            files[f"{prefix}/{name}.py"] = f"def run(): return '{name}'\n"
+    return files
 
 
 class RuntimeBundleTests(unittest.TestCase):
@@ -56,6 +79,49 @@ class RuntimeBundleTests(unittest.TestCase):
             )
             modules = distribution_modules(installed, ("tiktoken_ext",))
         self.assertEqual(modules, ["tiktoken_ext", "tiktoken_ext.openai_public"])
+
+    def test_scipy_backends_can_load_their_dynamic_fft_and_linalg_modules(self) -> None:
+        # SciPy 1.18's vendored namespaces use computed __import__ calls. Stage
+        # their statically reachable parents plus the policy's hidden imports.
+        files = array_api_files()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            installed = installed_fixture(root, files)
+            modules = distribution_modules(
+                installed, ENGINE_REGISTRIES.get("scipy", ())
+            )
+            selected = {name for name in files if name.endswith("/__init__.py")}
+            for module in modules:
+                path = module.replace(".", "/")
+                selected.add(
+                    f"{path}.py" if f"{path}.py" in files else f"{path}/__init__.py"
+                )
+            archive = root / "bundle.zip"
+            with ZipFile(archive, "w") as bundle:
+                for name in selected:
+                    bundle.write(root / name, name)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    "-c",
+                    (
+                        "import importlib, sys; sys.path.insert(0, sys.argv[1]); "
+                        "backends = [importlib.import_module("
+                        "'scipy._external.array_api_compat.' + name) "
+                        "for name in ('numpy', 'torch')]; "
+                        "assert all(x.fft.run() == 'fft' and x.linalg.run() == 'linalg' "
+                        "for x in backends)"
+                    ),
+                    str(archive),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_missing_registry_or_manifest_is_not_silently_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

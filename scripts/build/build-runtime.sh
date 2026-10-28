@@ -20,7 +20,8 @@ export MLX_STUDIO_BUILD_PROFILE="$profile"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export PYINSTALLER_CONFIG_DIR="$build_directory/pyinstaller-$profile"
-export PYTHONPATH="$runtime_project/src${PYTHONPATH:+:$PYTHONPATH}"
+# Keep host modules from overriding the precisely synced build dependencies.
+export PYTHONPATH="$runtime_project/src"
 
 if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
   echo "Runtime sidecar must be built on Apple Silicon macOS (arm64)." >&2

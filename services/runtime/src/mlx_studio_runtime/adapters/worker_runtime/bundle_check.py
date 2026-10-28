@@ -5,6 +5,7 @@ import json
 import os
 import ssl
 import sys
+import traceback
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, redirect_stdout
 from functools import partial
@@ -171,7 +172,10 @@ CHECKS: tuple[tuple[str, Callable[[], object]], ...] = (
     ),
     (
         "nativeSupport",
-        partial(check_imports, ("miniaudio", "sounddevice", "keyring.backends.macOS")),
+        partial(
+            check_imports,
+            ("torch", "cv2", "miniaudio", "sounddevice", "keyring.backends.macOS"),
+        ),
     ),
 )
 
@@ -204,6 +208,8 @@ def run_check(
     except Exception as error:
         # This one-shot diagnostic process reports every independent missing dependency.
         results[name] = {"status": "failed", "error": f"{type(error).__name__}: {error}"}
+        print(f"Bundle check failed: {name}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
 
 def main() -> int:

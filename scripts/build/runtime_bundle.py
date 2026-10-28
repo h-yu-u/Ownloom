@@ -22,6 +22,13 @@ ENGINE_REGISTRIES = {
     "transformers": ("transformers",),
     "tokenizers": ("tokenizers",),
     "mlx-audio": ("mlx_audio.tts.models.qwen3_tts",),
+    # SciPy 1.18's vendored backends compute their fft/linalg import names.
+    # Keep both installed array backends; ordinary SciPy and array_api_extra
+    # imports still follow the upstream hooks and static dependency graph.
+    "scipy": (
+        "scipy._external.array_api_compat.numpy",
+        "scipy._external.array_api_compat.torch",
+    ),
 }
 MFLUX_ENTRYPOINTS = (
     "mflux.models.flux.variants.txt2img.flux",
