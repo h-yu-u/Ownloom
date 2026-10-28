@@ -29,13 +29,17 @@ class JobScheduler:
         self.timeout_seconds = 3600
         self.poisoned = False
 
-    def check_admission(self, model_id: str) -> None:
+    def check_resources_available(self) -> None:
+        self.runtime.check_resources_available()
         if self.poisoned:
             raise RuntimeFault(
                 RuntimeErrorInfo(
                     "RUNTIME_RESOURCES_NOT_AVAILABLE", "Worker 资源释放失败，请重启", True
                 )
             )
+
+    def check_admission(self, model_id: str) -> None:
+        self.check_resources_available()
         self.check_model_available(model_id)
         if (
             sum(not terminal_state(job.state) for job in self.lifecycle.items.values())
@@ -58,10 +62,7 @@ class JobScheduler:
     async def _run(self, job: Job, execute: Callable[[], Awaitable[None]]) -> None:
         try:
             async with self.lock:
-                if self.poisoned:
-                    raise RuntimeFault(
-                        RuntimeErrorInfo("RUNTIME_RESOURCES_NOT_AVAILABLE", "Worker 需要重启", True)
-                    )
+                self.check_resources_available()
                 if self.lifecycle.items[job.id].state is JobState.CANCELLING:
                     await self.lifecycle.finish(job.id, JobEvent.CANCEL_COMPLETE)
                     return
@@ -178,10 +179,7 @@ class JobScheduler:
         await self.lifecycle.set_phase(job.id, "waiting_model")
         async with self.lock:
             self._check_cancelled(job.id)
-            if self.poisoned:
-                raise RuntimeFault(
-                    RuntimeErrorInfo("RUNTIME_RESOURCES_NOT_AVAILABLE", "Worker 需要重启", True)
-                )
+            self.check_resources_available()
             self.active_job_id = job.id
             worker = self.runtime.worker
             try:
