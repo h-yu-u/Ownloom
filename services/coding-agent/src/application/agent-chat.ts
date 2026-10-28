@@ -3,42 +3,16 @@ import { approvalBinding } from './approval-binding.js'
 import { saveTranscript, closeTranscript } from './transcript-lifecycle.js'
 import { agentQuery } from './agent-queries.js'
 import { randomUUID } from 'node:crypto'
-import type {
-  RepositoryPort,
-  Provider,
-  PiSession,
-  ToolContext,
-  ActiveCapability,
-  RunRuntime,
-} from './ports.js'
+import type { Provider, PiSession, ToolContext, ActiveCapability, RunRuntime } from './ports.js'
 import { Approvals } from './approvals.js'
 import { ToolGateway } from './tool-gateway.js'
 import { checkModel } from './model-result.js'
-import { canonical, type Snapshot } from '../extensions/domain/types.js'
+import { canonical } from '../extensions/domain/types.js'
 import { localProvider } from './local-provider.js'
 import { object, string, terminal, type Run } from '../domain/types.js'
-import type { Extensions } from '../extensions/application/service.js'
+import type { AgentPorts } from './agent-ports.js'
 import type { RpcParamsMap } from '../protocol/generated/types.js'
-interface AgentPorts {
-  repo: RepositoryPort
-  extensions: Extensions
-  codingBusy(): boolean
-  modelAllowed(provider: Provider): boolean
-  activate(runtime: RunRuntime, signal: AbortSignal): Promise<ActiveCapability>
-  closeCapability(runtime: RunRuntime, active?: ActiveCapability): Promise<void>
-  open(input: {
-    directory: string
-    root: string
-    instructions: string
-    transcript: { id: string; piPath: string | null }
-    provider: Provider
-    context: ToolContext
-    snapshot: Snapshot
-    capability: ActiveCapability
-    skillInstructions: string
-    connectionSecrets: Record<string, Record<string, string>>
-  }): Promise<{ session: PiSession; path(): string | undefined }>
-}
+import { RunAdmission, settleRun, failRun } from './run-lifecycle.js'
 export class AgentChat {
   private current?: {
     id: string
@@ -47,9 +21,13 @@ export class AgentChat {
     timer: ReturnType<typeof setTimeout>
     task?: Promise<void>
     runtime?: RunRuntime
+    pi?: PiSession
   }
   private approvals: Approvals
-  constructor(private ports: AgentPorts) {
+  constructor(
+    private ports: AgentPorts,
+    private admission = new RunAdmission(),
+  ) {
     this.approvals = new Approvals(ports.repo)
   }
   get busy(): boolean {
@@ -69,6 +47,7 @@ export class AgentChat {
         throw new Error('IDEMPOTENCY_CONFLICT')
       return previous
     }
+    this.admission.check()
     if (this.current || this.ports.codingBusy()) throw new Error('CODING_BUSY')
     if (!this.ports.modelAllowed(provider)) throw new Error('MODEL_TOOLS_UNVERIFIED')
     repo.get('agentSession', p.sessionId)
@@ -105,7 +84,7 @@ export class AgentChat {
       provider,
       abort: new AbortController(),
       timer: setTimeout(() => {
-        void this.cancel(run.id)
+        void this.cancel(run.id).catch(() => failRun(repo, run.id, this.admission))
       }, 60000),
     }
     return run
@@ -113,12 +92,15 @@ export class AgentChat {
   private commit(p: RpcParamsMap['agent.runs.commit']): Run {
     const run = this.ports.repo.get('run', p.id)
     if (terminal(run.status)) return run
+    this.admission.check()
     if (this.current?.id !== p.id) throw new Error('RUN_NOT_READY')
     if (this.current.task) return run
     clearTimeout(this.current.timer)
     this.current.runtime = { bootstrapToken: p.bootstrapToken, capabilityUrl: p.capabilityUrl }
     this.current.timer = setTimeout(() => this.current?.abort.abort(), 1200000)
-    this.current.task = Promise.resolve().then(() => this.execute(run, p))
+    this.current.task = Promise.resolve()
+      .then(() => this.execute(run, p))
+      .catch(() => failRun(this.ports.repo, run.id, this.admission))
     return run
   }
   private update(id: string, patch: Partial<Run>): void {
@@ -130,6 +112,9 @@ export class AgentChat {
       snapshot = run.capabilitySnapshot!
     let active: ActiveCapability | undefined,
       opened: Awaited<ReturnType<AgentPorts['open']>> | undefined
+    let outcome: Partial<Run> = { status: 'failed', error: 'AGENT_RUN_FAILED' }
+    let stop: (() => void) | undefined
+    let aborting: Promise<void> | undefined
     const check = (): void => {
       if (current.abort.signal.aborted) throw new Error('CANCELLED')
       extensions.resolver.check(snapshot)
@@ -215,6 +200,7 @@ export class AgentChat {
         skillInstructions,
         connectionSecrets: secrets,
       })
+      current.pi = opened.session
       await saveTranscript({
         repo,
         kind: 'agentSession',
@@ -222,10 +208,11 @@ export class AgentChat {
         runId: run.id,
         opened,
       })
-      const pi = opened.session,
-        stop = (): void => {
-          void pi.abort()
-        }
+      const pi = opened.session
+      stop = (): void => {
+        aborting = pi.abort()
+        void aborting.catch(() => failRun(repo, run.id, this.admission))
+      }
       current.abort.signal.addEventListener('abort', stop, { once: true })
       pi.subscribe((event) =>
         repo.append(run.sessionId, run.id, event.type, event.text, event.data),
@@ -250,36 +237,41 @@ export class AgentChat {
         opened,
       })
       check()
-      this.update(run.id, { status: 'completed', phase: 'completed' })
-      current.abort.signal.removeEventListener('abort', stop)
+      outcome = { status: 'completed', phase: 'completed' }
     } catch (error) {
-      this.update(run.id, {
+      outcome = {
         status: current.abort.signal.aborted ? 'cancelled' : 'failed',
         error: current.abort.signal.aborted
           ? 'CANCELLED'
           : error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
             ? error.message
             : 'AGENT_RUN_FAILED',
-      })
+      }
     } finally {
       clearTimeout(current.timer)
-      this.approvals.denyRun(run.id)
-      try {
-        if (opened)
-          await closeTranscript({
-            repo,
-            kind: 'agentSession',
-            sessionId: run.sessionId,
-            runId: run.id,
-            opened,
-          })
-      } finally {
-        try {
-          await this.ports.closeCapability(current.runtime!, active)
-        } finally {
-          if (this.current === current) this.current = undefined
-        }
-      }
+      if (stop) current.abort.signal.removeEventListener('abort', stop)
+      await settleRun({
+        repo,
+        id: run.id,
+        outcome,
+        signal: current.abort.signal,
+        cleanup: [
+          () => this.approvals.denyRun(run.id),
+          () => aborting,
+          async () => {
+            if (opened)
+              await closeTranscript({
+                repo,
+                kind: 'agentSession',
+                sessionId: run.sessionId,
+                runId: run.id,
+                opened,
+              })
+          },
+          () => this.ports.closeCapability(current.runtime!, active),
+        ],
+      })
+      if (this.current === current) this.current = undefined
     }
   }
   async cancel(id: string): Promise<Run> {
