@@ -48,6 +48,7 @@ export function createCodingService(
     check: extensions.resolver.check.bind(extensions.resolver),
   }
   const admission = new RunAdmission()
+  const checkAdmission = () => admission.check()
   const projects = projectWorkspace(repo)
   const runs: Runs = new Runs(
     repo,
@@ -86,9 +87,9 @@ export function createCodingService(
   return new CodingService(
     repo,
     runs,
-    new ProjectSessions(repo, projects),
-    new ChangeService(repo, projects),
-    new CapabilityVerifier(repo, runs, projects),
+    new ProjectSessions(repo, projects, checkAdmission),
+    new ChangeService(repo, projects, checkAdmission),
+    new CapabilityVerifier(repo, runs, projects, checkAdmission),
     extensions,
     agent,
     () => agentRepo.close(),

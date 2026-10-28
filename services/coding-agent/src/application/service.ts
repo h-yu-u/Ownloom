@@ -32,13 +32,13 @@ export class CodingService {
   private admission = new DataAdmission()
   private handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
     'data.restore.profile': async (p) => {
-      if (this.repo.active() || this.agent?.busy || this.extensions?.busy)
+      if (this.runs.busy || this.repo.active() || this.agent?.busy || this.extensions?.busy)
         throw new Error('BACKUP_BUSY')
       if (!this.restoreProfile) throw new Error('RESTORE_NOT_AVAILABLE')
       return this.restoreProfile(string(p.identifier))
     },
     'data.export': async () => {
-      if (this.repo.active() || this.agent?.busy || this.extensions?.busy)
+      if (this.runs.busy || this.repo.active() || this.agent?.busy || this.extensions?.busy)
         throw new Error('BACKUP_BUSY')
       if (!this.backup) throw new Error('BACKUP_NOT_AVAILABLE')
       return this.backup()

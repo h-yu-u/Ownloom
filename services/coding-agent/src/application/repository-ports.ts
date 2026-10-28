@@ -16,7 +16,7 @@ export type SnapshotRepository = Pick<
 export type ProjectSessionsRepository = SnapshotRepository &
   Pick<
     RepositoryPort,
-    'list' | 'findProject' | 'save' | 'listSessions' | 'delete' | 'deleteSession'
+    'list' | 'find' | 'findProject' | 'save' | 'listSessions' | 'delete' | 'deleteSession'
   >
 export type ChangeRepository = Pick<
   RepositoryPort,

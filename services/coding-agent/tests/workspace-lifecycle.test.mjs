@@ -48,7 +48,7 @@ test('project and probe removal close each observer, including when Host shutdow
   const { handles, versions } = observers()
   const f = await fixture(t, versions)
   f.repo.save('project', { id: 'fixture', path: f.root, name: 'fixture', commands: [] })
-  const sessions = new ProjectSessions(f.repo, f.projects)
+  const sessions = new ProjectSessions(f.repo, f.projects, () => {})
   await f.projects.fingerprint(f.root)
   await f.projects.fingerprint(f.root)
   assert.equal(handles.length, 1)
@@ -98,7 +98,7 @@ test('removing a project releases its saved version without deleting project fil
   const f = await fixture(t)
   f.repo.save('project', { id: 'fixture', path: f.root, name: 'fixture', commands: [] })
   await f.projects.fingerprint(f.root)
-  const sessions = new ProjectSessions(f.repo, f.projects)
+  const sessions = new ProjectSessions(f.repo, f.projects, () => {})
   assert.deepEqual(await sessions.handlers['projects.remove']({ id: 'fixture' }), { removed: true })
   assert.equal(await f.projects.version(f.root), 'partial:unavailable')
   assert.deepEqual(await f.projects.files(f.root), ['note.txt'])
@@ -110,7 +110,7 @@ test('Host close releases project observers and prevents captures from reopening
   const service = new CodingService(
     f.repo,
     { close: async () => {} },
-    new ProjectSessions(f.repo, f.projects),
+    new ProjectSessions(f.repo, f.projects, () => {}),
     { handlers: {} },
     {},
   )

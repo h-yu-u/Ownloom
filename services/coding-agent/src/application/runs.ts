@@ -42,6 +42,9 @@ export class Runs {
   get busy(): boolean {
     return !!this.current || this.reservations.busy
   }
+  owns(id: string): boolean {
+    return this.current?.id === id || this.reservations.owns(id)
+  }
   async submit(input: Submission, deferred = false): Promise<Run> {
     const previous = this.repo.findSubmission(input.sessionId, input.submissionId)
     if (previous) {

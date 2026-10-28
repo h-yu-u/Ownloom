@@ -7,6 +7,7 @@ export class ProjectSessions {
   constructor(
     private repo: ProjectSessionsRepository,
     private projects: ProjectPort,
+    private checkAdmission: () => void,
   ) {}
   close(): void {
     this.projects.close()
@@ -85,6 +86,7 @@ export class ProjectSessions {
     },
     'sessions.remove': async (p) => {
       {
+        this.checkAdmission()
         const id = string(p.id)
         if (this.repo.active(id)) throw new Error('SESSION_IN_USE')
         this.repo.get('session', id)

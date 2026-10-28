@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import type { Provider, ProjectPort } from './ports.js'
 import type { CapabilityRepository } from './repository-ports.js'
-import { terminal, type Capability } from '../domain/types.js'
+import type { Capability } from '../domain/types.js'
 import type { Runs } from './runs.js'
 export class CapabilityVerifier {
   constructor(
     private repo: CapabilityRepository,
     private runs: Runs,
     private projects: ProjectPort,
+    private checkAdmission: () => void,
   ) {}
-  async verify(provider: Provider): Promise<Capability> {
-    if (this.repo.active()) throw new Error('CODING_BUSY')
+  private async prepareProbe() {
     const directory = await this.projects.createProbe()
     const project = this.repo.save('project', {
       ...(await this.projects.register(directory)),
@@ -25,6 +25,13 @@ export class CapabilityVerifier {
       archived: false,
       piPath: null,
     })
+    return { directory, project, session }
+  }
+  async verify(provider: Provider): Promise<Capability> {
+    this.checkAdmission()
+    if (this.repo.active()) throw new Error('CODING_BUSY')
+    const { directory, project, session } = await this.prepareProbe()
+    let runId: string | undefined
     try {
       const run = await this.runs.submit({
         sessionId: session.id,
@@ -34,6 +41,7 @@ export class CapabilityVerifier {
         provider,
         probe: true,
       })
+      runId = run.id
       await this.runs.wait(run.id)
       const final = this.repo.get('run', run.id),
         events = this.repo.events(0, session.id)
@@ -62,7 +70,7 @@ export class CapabilityVerifier {
       })
       return this.repo.save('capability', result)
     } finally {
-      if (!this.repo.active() || terminal(this.repo.get('run', this.repo.active()!.id).status)) {
+      if (!runId || !this.runs.owns(runId)) {
         this.repo.deleteSession(session.id)
         this.repo.delete('project', project.id)
         await this.projects.removeProbe(directory)

@@ -69,7 +69,7 @@ test('accepted first input persists its title before execution and retries do no
 })
 test('explicit session renames, including placeholders, stay unchanged by later submissions', async (t) => {
   const { repo, submit } = fixture(t)
-  const sessions = new ProjectSessions(repo, {})
+  const sessions = new ProjectSessions(repo, {}, () => {})
   await sessions.handlers['sessions.update']({ id: 's', title: '新开发会话' })
   await submit('first')
   assert.equal(repo.get('session', 's').title, '新开发会话')
