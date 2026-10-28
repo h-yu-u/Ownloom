@@ -35,6 +35,18 @@
 
 达到输出上限与推理失败分别保存；仅最后一条因长度结束的回答提供“继续回答”。自动标题取首条非空用户输入的前七个字符并归一化空白，用户手动命名优先；相关规则由[会话标题领域函数](../../services/runtime/src/mlx_studio_runtime/domain/conversation_title.py)维护。共享侧栏与输入交互归属[桌面](desktop.md)。
 
+## 生成统计
+
+普通聊天从 [EngineSession](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/session.py) 透传 MLX-LM / MLX-VLM 返回的原生统计。`generationStats` 包含来源 `source`，以及可为空的 `generationTokens`、`generationTps`、`promptTokens`、`promptTps`、`cachedTokens`。计数是引擎累计值，速率单位为 token/s；不累加每帧计数、不平均每帧速率，也不根据字符数、事件到达间隔或整个请求耗时重新估算。
+
+`generationTps` 是引擎生成过程的累计平均速率，不是最近一秒的瞬时速度，也不代表纯 GPU 吞吐。统计保留上游的 token 和计时边界，输出数量可能包含未显示成正文的结束 token。输入处理和缓存字段仅作为原生元数据保存，不作为第一版界面的生成速率。
+
+统计随 `generation.delta` 传递，和文本共用 `textRevision`。上游响应没有可显示文本但更新了统计时，仍发送空文本增量并递增版本；末帧统计可以独立更新，并通过任务快照或成功消息恢复。客户端按任务、会话及版本投影，不自行计时。运行中的统计保留在任务内存中并随任务回收，不逐 token 写数据库。
+
+[ChatService](../../services/runtime/src/mlx_studio_runtime/application/chat_service.py) 将完成帧中的最终统计保存到成功回答的 `parameters.generationStats`，与正文及成功终态使用同一事务；消息和任务查询提供顶层 `generationStats` 投影。完成帧缺失或不再提供有效统计时，成功事件前显式清空临时值，最终值不依赖历史重载成功。重新打开会话、任务内存回收或 Runtime 重启后，已成功回答的统计从对应消息恢复。取消或失败不保存新的成功回答及最终统计，重新生成失败保留旧回答原有的统计；继续回答和重新生成分别统计本次推理。
+
+界面使用共享的 [GenerationStats.vue](../../apps/desktop/src/shared/ui/GenerationStats.vue)，目前仅普通聊天接入，展示“平均生成速度”与“输出” token 数。流式阶段样本不足时显示“统计中”，完成后显示最后的原生值；显示时的小数格式化不修改保存值。旧记录、FakeEngine 和没有原生统计的回答不显示统计行，真实统计中缺失或无效的单个字段显示 `—`。负值、非有限速率和无效计数不能成为有效统计，也不能使正文读取失败。
+
 ## 输出预算
 
 普通聊天的 `max_tokens = null` 表示“自动最大”，重置也恢复该模式。准备阶段先用有限输出预留挑选资料、压缩历史；真正生成前使用渲染后的模板和 tokenizer 重新计算输入，剩余窗口扣除 128 token 安全余量后作为输出上限。自动模式允许模型提前结束。
@@ -76,5 +88,7 @@ Search 保留原问题，时效性问题独立提供 day/week 参数，使用 `a
 在根目录运行 `pnpm test frontend`、`pnpm test runtime`；改变 HTTP 契约时运行 `pnpm generate api` 并检查生成 diff，完整命令见[开发指南](../development.md)。
 
 重点回归包括[请求与完成](../../tests/test_chat_completion.py)、[上下文与尝试](../../tests/test_chat_context.py)、[附件准备](../../tests/test_attachment_preparation.py)、[准备调度](../../tests/test_chat_preparation_scheduler.py)、[Tavily SDK](../../tests/test_tavily_sdk.py)、[日期过滤](../../tests/test_web_freshness.py)及[来源 URL](../../tests/test_web_reference_urls.py)。前端组件与 controller 测试位于同名 `.spec.ts`。
+
+生成统计另有[原生响应适配回归](../../tests/test_native_generation_stats.py)和[聊天统计持久化回归](../../tests/test_chat_generation_stats.py)，覆盖空文本结束帧、原生累计值、缺失/无效统计、快照及成功回答恢复、取消与失败。它们使用受控 MLX 响应和隔离数据库；前端同时验证统计展示及晚到快照的版本保护。
 
 这些测试不证明真实 VLM 历史视觉绑定、真实长输出质量、搜索正文完整网络矩阵、正式签名下 Keychain 或干净机器可用。已记录验证的范围及剩余要求统一见[验证矩阵](../verification.md)。

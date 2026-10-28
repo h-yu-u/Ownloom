@@ -54,6 +54,8 @@ Coding/工具助手草稿按项目和会话隔离，以 ID/revision 决定是否
 
 Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/MarkdownContent.vue)及受控渲染器。HTML、危险链接和引用定位走既有安全路径。外链由平台验证 HTTP/HTTPS 和凭据，不能开放通用 Shell 权限或改变聊天 Hash 路由。
 
+[GenerationStats.vue](../../apps/desktop/src/shared/ui/GenerationStats.vue) 只接收统计与展示状态，统一格式化平均生成速度和输出 token 数，不请求接口、计时或管理任务。第一版由普通聊天的消息组件消费；数据来源、持久化及恢复规则归属[聊天生成统计](./chat.md#生成统计)。
+
 ### 样式与可访问性
 
 唯一手写 token 来源是 [theme.tokens.json](../../apps/desktop/src/shared/styles/theme.tokens.json)。生成 CSS/TS 同时供 Naive UI 和产品样式使用，不手改生成值。基础控件优先 Naive UI，通用响应式能力优先 VueUse。
