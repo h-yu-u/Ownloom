@@ -28,7 +28,13 @@ test("separate workspace owners do not inherit each other's captured version", a
   const other = projectWorkspace(f.repo)
   t.after(() => other.close?.())
   const version = await f.projects.fingerprint(f.root)
-  assert.equal(await f.projects.version(f.root), version)
+  const captured = version.match(/^(?:partial:unstable:)?([a-f0-9]{64})$/)
+  assert.ok(captured, `expected a captured revision, received ${version}`)
+  const current = await f.projects.version(f.root)
+  assert.ok(
+    [captured[1], `stale:${captured[1]}`].includes(current),
+    `expected the same captured revision, received ${current}`,
+  )
   assert.equal(await other.version(f.root), 'partial:unavailable')
 })
 
@@ -43,6 +49,19 @@ function observers() {
   })
   return { handles, versions }
 }
+
+test('an observer change during capture marks its snapshot stale until it is recaptured', async (t) => {
+  const { handles, versions } = observers()
+  const f = await fixture(t, versions)
+  const capture = versions.begin(f.root)
+  await capture.file(join(f.root, 'note.txt'), await lstat(join(f.root, 'note.txt')))
+  handles[0].changed()
+  assert.equal(capture.finish('captured'), 'partial:unstable:captured')
+  assert.equal(await f.projects.version(f.root), 'stale:captured')
+  const stable = await f.projects.fingerprint(f.root)
+  assert.match(stable, /^[a-f0-9]{64}$/)
+  assert.equal(await f.projects.version(f.root), stable)
+})
 
 test('project and probe removal close each observer, including when Host shutdown fails', async (t) => {
   const { handles, versions } = observers()
