@@ -36,7 +36,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project services/runtime --frozen --extra mlx-vlm --extra mflux --extra audio
       - run: pnpm check && pnpm test
-      - run: pnpm build:app
+      - run: pnpm build app
         env:
           MLX_STUDIO_BUILD_PROFILE: release
       - name: Exercise the actual app resources offline
@@ -47,7 +47,7 @@ jobs:
           CLONE_MODEL: ${{ inputs.clone_model }}
         run: |
           uv run --frozen --project services/runtime --python 3.12 \
-            python scripts/verify_release_bundle.py \
+            python -m scripts.acceptance.verify_release_bundle \
             --app 'apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app' \
             --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
             --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL"

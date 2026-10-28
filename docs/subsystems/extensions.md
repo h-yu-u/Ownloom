@@ -91,12 +91,12 @@ HTTP transport 不重定向、不启动 OAuth、不自动刷新凭据或重放�
 ## 验证命令与维护
 
 ```bash
-pnpm rpc:generate
-pnpm api:generate
+pnpm generate rpc
+pnpm generate api
 pnpm check
-pnpm test:coding
-pnpm test:runtime
-pnpm build:coding:bundle
+pnpm test coding
+pnpm test runtime
+pnpm build coding-bundle
 ```
 
 执行目录为仓库根目录。重点测试：[extensions](../../services/coding-agent/tests/extensions.test.mjs)、[pi-extensions](../../services/coding-agent/tests/pi-extensions.test.mjs)、[管理 API](../../tests/test_extension_api.py)、[运行授权](../../tests/test_extension_capabilities.py)、[跨模态工作流](../../tests/test_extension_workflows.py)。这些测试使用受控服务、FakeEngine 或秘密替身，不读取用户 Keychain。

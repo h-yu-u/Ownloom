@@ -61,12 +61,12 @@ Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/Mar
 ## 验证与维护
 
 ```bash
-pnpm tokens:generate
-pnpm check:frontend
-pnpm test:frontend
-pnpm build:web
+pnpm generate tokens
+pnpm check frontend
+pnpm test frontend
+pnpm build web
 ```
 
-仅在修改 token 源时生成，命令详情见[开发指南](../development.md)。关键回归包括 AppProviders/设置路由、输入法与停止、草稿并发、设置回执恢复、任务分组、媒体分页/迟到结果及导出取消。Rust 变更另需 `pnpm check:rust`、`pnpm test:rust` 和实际桌面操作。
+仅在修改 token 源时生成，命令详情见[开发指南](../development.md)。关键回归包括 AppProviders/设置路由、输入法与停止、草稿并发、设置回执恢复、任务分组、媒体分页/迟到结果及导出取消。Rust 变更另需 `pnpm check rust`、`pnpm test rust` 和实际桌面操作。
 
 模块 UI 更新对应子系统；导航、平台或公共组件更新本文。新增页面包含失败恢复与资源释放，新增公共组件需有真实消费者，不能为统一外观接管功能状态。标签触发的预览版构建、版本校验、DMG 冒烟及上传归属[预览版发布](../preview-release.md)；真机与发布边界见[验证范围](../verification.md)。

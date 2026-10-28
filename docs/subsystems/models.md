@@ -54,8 +54,8 @@
 工具链和命令详情见[开发指南](../development.md)：
 
 ```bash
-pnpm test:frontend
-pnpm test:runtime
+pnpm test frontend
+pnpm test runtime
 ```
 
 重点回归包括[模型目录](../../tests/test_model_catalog.py)、[Manifest](../../tests/test_model_manifest.py)、[下载生命周期](../../tests/test_download_lifecycle.py)、[模型移除](../../tests/test_model_removal.py)及前端 models store。扫描变更覆盖缺失分片、未知配置、同路径导入和旧登记；下载变更覆盖暂停时实际退出、重启对账和固定 revision。

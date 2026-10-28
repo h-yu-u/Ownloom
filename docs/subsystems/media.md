@@ -51,14 +51,14 @@
 依赖、生成和测试命令详见[开发指南](../development.md)：
 
 ```bash
-pnpm api:generate
-pnpm test:frontend
-pnpm test:runtime
-pnpm build:web
+pnpm generate api
+pnpm test frontend
+pnpm test runtime
+pnpm build web
 ```
 
 重点覆盖[图片工作区](../../tests/test_image_studio.py)、[图片编辑](../../tests/test_image_editing.py)、[语音工作区](../../tests/test_audio_studio.py)、[语音引擎](../../tests/test_audio_engines.py)及前端历史、恢复、缓存和取消。断言产物可解码、元数据/终态一致、取消后没有成功作品；不对不确定生成结果做跨版本像素或完整文本相等断言。
 
-真实探针为 [verify_local_image.py](../../scripts/verify_local_image.py)、[verify_local_edit.py](../../scripts/verify_local_edit.py)、[verify_local_speech.py](../../scripts/verify_local_speech.py)、[verify_speech_quality.py](../../scripts/verify_speech_quality.py)。包内命令及记录约定见[发布验收](../release-acceptance.md)。帧数、能量和削波只证明信号特征，不能代替自然度、发音或音色相似度人工评价。
+真实探针为 [verify_local_image.py](../../scripts/verify/verify_local_image.py)、[verify_local_edit.py](../../scripts/verify/verify_local_edit.py)、[verify_local_speech.py](../../scripts/verify/verify_local_speech.py)、[verify_speech_quality.py](../../scripts/verify/verify_speech_quality.py)。包内命令及记录约定见[发布验收](../release-acceptance.md)。帧数、能量和削波只证明信号特征，不能代替自然度、发音或音色相似度人工评价。
 
 引擎依赖变化需同步锁文件、Sidecar 收集规则和固定模型复验；作品格式变化需验证重启、缺失文件、引用保护和恢复。证据及未验证范围统一见[验证范围](../verification.md)。

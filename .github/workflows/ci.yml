@@ -28,12 +28,12 @@ jobs:
           enable-cache: true
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project services/runtime --frozen
-      - run: pnpm api:generate
+      - run: pnpm generate api
       - name: Verify generated API types are current
         run: git diff --exit-code -- packages/api-client/src/generated-schema.d.ts
       - run: pnpm check
       - run: pnpm test
-      - run: pnpm build:web
+      - run: pnpm build web
 
   rust:
     runs-on: macos-14

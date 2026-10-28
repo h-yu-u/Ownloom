@@ -10,7 +10,7 @@
 
 1. 按开发指南准备锁定工具链、依赖和完整本地模型。
 2. 执行源码、类型、契约、Rust 和相关真实模型检查，记录实际结果。
-3. 运行 `pnpm build:app`；默认 `release` profile 包含真实引擎。不要将 fake profile、占位 Sidecar 或开发目录依赖混入发行包。
+3. 运行 `pnpm build app`；默认 `release` profile 包含真实引擎。不要将 fake profile、占位 Sidecar 或开发目录依赖混入发行包。
 4. 核对 `Ownloom.app`、DMG、版本、内置 Node/Host 与 Runtime 资源，对最终包计算摘要。
 5. 使用最终制品执行本手册。重建、更换签名或修改包内资源后重新绑定清单并复验。
 
@@ -20,7 +20,7 @@
 
 ## 2. 可携带工具与隔离边界
 
-仓库入口 `scripts/run-bundle-acceptance.sh` 使用指定应用内置的 Node。测试机器不需额外安装 Python、uv、pnpm 或 Node。工具冻结应用副本，核对完整文件/符号链接清单和签名，再在独立 HOME、缓存、临时目录、数据库及工作目录运行包内 Runtime/Node。
+仓库入口 `scripts/acceptance/run-bundle-acceptance.sh` 使用指定应用内置的 Node。测试机器不需额外安装 Python、uv、pnpm 或 Node。工具冻结应用副本，核对完整文件/符号链接清单和签名，再在独立 HOME、缓存、临时目录、数据库及工作目录运行包内 Runtime/Node。
 
 Runtime 使用系统 PATH，清空开发 Python 导入路径、关闭用户 site 并设置模型离线标志。Coding 只使用内置工具和固定系统验证命令。进程检查按 PID 与出生时间区分本次拥有的进程，不能清理用户已有进程。
 
@@ -38,7 +38,7 @@ Runtime 使用系统 PATH，清空开发 Python 导入路径、关闭用户 site
 以下命令从仓库根目录运行，输出目录必须不存在。将应用及模型变量替换为本次实际路径，不能指向个人资料库：
 
 ```bash
-sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
+sh scripts/acceptance/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --profile smoke --duration-seconds 0 --cycles 2 \
   --output "$HOME/Desktop/ownloom-smoke-001"
 ```
@@ -46,7 +46,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
 真实模型资格测试：
 
 ```bash
-sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
+sh scripts/acceptance/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --profile real --duration-seconds 0 --cycles 2 \
   --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
   --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL" \
@@ -60,7 +60,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
 资格测试通过并审查警告后，接通电源，再执行八小时/至少八轮测试：
 
 ```bash
-/usr/bin/caffeinate -i sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
+/usr/bin/caffeinate -i sh scripts/acceptance/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
   --profile real --duration-seconds 28800 --cycles 8 \
   --text-model "$TEXT_MODEL" --image-model "$IMAGE_MODEL" \
   --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL" \
@@ -94,7 +94,7 @@ sh scripts/run-bundle-acceptance.sh '/Applications/Ownloom.app' \
 
 ```bash
 APP='apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app'
-"$APP/Contents/Resources/coding-agent/bin/node" scripts/verify-packaged-data.mjs \
+"$APP/Contents/Resources/coding-agent/bin/node" scripts/acceptance/verify-packaged-data.mjs \
   --app "$APP" --python services/runtime/.venv/bin/python3 \
   --output .build/acceptance-data-001
 ```
@@ -106,7 +106,7 @@ APP='apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app'
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   uv run --project services/runtime --python 3.12 --frozen \
-  python scripts/verify_local_edit.py \
+  python -m scripts.verify.verify_local_edit \
   --sidecar "$APP/Contents/MacOS/mlx-studio-runtime" \
   --model-path "$EDIT_MODEL" --source "$SOURCE_PNG" \
   --reference "$REFERENCE_PNG" --mask "$MASK_PNG" \
@@ -114,7 +114,7 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
 
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   uv run --project services/runtime --python 3.12 --frozen \
-  python scripts/verify_speech_quality.py \
+  python -m scripts.verify.verify_speech_quality \
   --sidecar "$APP/Contents/MacOS/mlx-studio-runtime" \
   --preset-model "$PRESET_MODEL" --clone-model "$CLONE_MODEL" \
   --output .build/acceptance-speech-001
@@ -147,9 +147,9 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
 在 macOS 仓库中执行：
 
 ```bash
-sh scripts/package-acceptance-kit.sh .build/acceptance-kit-001
+sh scripts/acceptance/package-acceptance-kit.sh .build/acceptance-kit-001
 ```
 
 输出目录和同名 ZIP 必须不存在。工具包含入口、无第三方依赖的 Node 模块、回归测试、本文和 `SHA256SUMS`；不含应用、模型或凭据。与对应 DMG 一起提供，解压后核对摘要。
 
-`scripts/package-acceptance-kit.sh` 按固定路径复制本文件。修改依赖时同步打包清单，执行 `pnpm test:acceptance`，并实际从新工具包运行 smoke。本文不得依赖工具包中不存在的相对链接或本机报告；示例应同时区分仓库与工具包路径。
+`scripts/acceptance/package-acceptance-kit.sh` 按固定路径复制本文件。修改依赖时同步打包清单，执行 `pnpm test acceptance`，并实际从新工具包运行 smoke。本文不得依赖工具包中不存在的相对链接或本机报告；示例应同时区分仓库与工具包路径。

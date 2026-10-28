@@ -102,12 +102,12 @@ Node 单独验证本方清单和数据库，重映射 transcript 路径并验证
 ## 验证命令与维护
 
 ```bash
-pnpm build:coding
-pnpm test:coding
-pnpm test:runtime
-pnpm test:acceptance
+pnpm build coding
+pnpm test coding
+pnpm test runtime
+pnpm test acceptance
 ```
 
-在仓库根目录执行。重点回归：[data recovery](../../tests/test_data_recovery.py)、[history revisions](../../tests/test_history_revisions.py)、[附件迁移](../../tests/test_attachment_context_migrations.py)、[附件 GC](../../tests/test_attachment_gc.py)、[Node reliability](../../services/coding-agent/tests/reliability.test.mjs)和[验收脚本](../../scripts/acceptance.spec.mjs)。
+在仓库根目录执行。重点回归：[data recovery](../../tests/test_data_recovery.py)、[history revisions](../../tests/test_history_revisions.py)、[附件迁移](../../tests/test_attachment_context_migrations.py)、[附件 GC](../../tests/test_attachment_gc.py)、[Node reliability](../../services/coding-agent/tests/reliability.test.mjs)和[验收脚本](../../scripts/acceptance/acceptance.spec.mjs)。
 
-修改格式或恢复路径时，至少验证损坏 ZIP、缺失所有者、摘要不符、路径穿越、重启、重复恢复和回滚。包内实际数据恢复使用 [verify-packaged-data.mjs](../../scripts/verify-packaged-data.mjs)，结果统一记录在[验证范围](../verification.md)，真实用户数据不得作为自动化 fixture。
+修改格式或恢复路径时，至少验证损坏 ZIP、缺失所有者、摘要不符、路径穿越、重启、重复恢复和回滚。包内实际数据恢复使用 [verify-packaged-data.mjs](../../scripts/acceptance/verify-packaged-data.mjs)，结果统一记录在[验证范围](../verification.md)，真实用户数据不得作为自动化 fixture。

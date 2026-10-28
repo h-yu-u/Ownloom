@@ -46,7 +46,7 @@ UV_NO_SYNC=1 pnpm dev
 
 打开**模型库**，下载或导入兼容的本地模型，再到对应工作区选择模型。仓库不包含权重，首次安装依赖和下载模型需要网络。正常启动的模型库为空；FakeEngine 仅用于隔离开发和测试。
 
-`pnpm dev:web` 只启动前端。浏览器开发还需要单独配置 Runtime，步骤见[开发指南](docs/development.md)。
+`pnpm dev web` 只启动前端。浏览器开发还需要单独配置 Runtime，步骤见[开发指南](docs/development.md)。
 
 ## 系统组成
 

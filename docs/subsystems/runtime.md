@@ -95,10 +95,10 @@ stdout 专用于握手/NDJSON。默认诊断避免完整输入、输出和秘密
 从仓库根目录执行，环境准备见开发指南：
 
 ```bash
-pnpm check:runtime
-pnpm check:boundaries
-pnpm test:runtime
-pnpm api:generate
+pnpm check runtime
+pnpm check boundaries
+pnpm test runtime
+pnpm generate api
 git diff --exit-code -- packages/api-client/src/generated-schema.d.ts
 ```
 
