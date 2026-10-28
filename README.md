@@ -6,22 +6,44 @@
 
 **Your local AI workspace on Apple Silicon.**
 
-Chat with local models, create images and speech, and work on code in one desktop application. Ownloom combines a Vue interface, a Tauri shell and isolated MLX inference workers, with a Pi-powered workspace for coding and tools.
+Chat with local models, create images and speech, and work on code in one desktop application. Download compatible models, bring your own files and projects, and keep your conversations and creations on your Mac.
 
 **English** · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Contributing](docs/contributors.md) · [License](LICENSE)
 
-## Project status
+## Quick start
 
-Ownloom is a local AI workspace for **Apple Silicon macOS**. Download an installer from [Releases](https://github.com/h-yu-u/Ownloom/releases), or start from source below. Installers are ad-hoc signed and not Apple notarized; macOS may require manual approval in Privacy & Security. Compatibility depends on the model, adapter and available memory; an MLX label or a successful download does not guarantee support.
+You need an **Apple Silicon Mac**. Model weights are downloaded separately; choose models that fit your available memory.
 
-The repository contains automated checks and packaged-app acceptance tools. Developer ID signing, notarization, independent clean-machine testing and extended stability acceptance remain separately tracked verification work. See the [verification matrix](docs/verification.md) for the evidence and remaining limitations.
+### 1. Install
+
+[Download Ownloom for Apple Silicon](https://github.com/h-yu-u/Ownloom/releases/latest/download/ownloom-darwin-arm64.dmg), open the DMG, and drag **Ownloom.app** to **Applications**. See [Releases](https://github.com/h-yu-u/Ownloom/releases/latest) for release notes and checksums.
+
+Or install from Terminal:
+
+```sh
+curl -fsSL https://github.com/h-yu-u/Ownloom/releases/latest/download/install.sh | sh
+```
+
+### 2. Open Ownloom
+
+Launch the installed **Ownloom** app from Finder or Spotlight.
+
+Current builds are ad-hoc signed and not Apple notarized. If macOS blocks the first launch, you may need to allow Ownloom in **System Settings → Privacy & Security**.
+
+### 3. Add a model and start chatting
+
+Open **Model library (模型库)** and choose **Discover models (发现模型)** to download a compatible MLX model from Hugging Face. If you already have a complete model folder, choose **Import local model (导入本地模型)**.
+
+Once the model is available, open **Chat (聊天)**, select a text model, and send your first message. Ownloom prepares the model on the first request. For images, speech or Coding, choose a model with the corresponding capabilities in that workspace.
+
+Compatibility depends on the model's export format, adapter and available memory; an MLX label or a successful download does not guarantee support. The [user guide](docs/reference.md) explains model selection, workspaces and local data.
 
 ## What you can do
 
 | Workspace       | Capabilities                                                                                                                           |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Chat            | Stream local responses, keep conversation history, stop or regenerate a response, and use compatible image or document attachments.    |
-| Models          | Discover and download models from Hugging Face, import local directories, and manage loading and storage.                              |
+| Model library   | Discover and download models from Hugging Face, import local directories, and manage loading and storage.                              |
 | Image creation  | Generate images, edit with reference images and use masked editing with supported models; save and reuse works.                        |
 | Speech creation | Use Qwen3-TTS preset voices or reference-based cloning, manage voice profiles, and export WAV audio.                                   |
 | Coding          | Work in a local project through Pi, review tool activity and changes, approve protected operations, and inspect verification evidence. |
@@ -30,54 +52,21 @@ The repository contains automated checks and packaged-app acceptance tools. Deve
 
 Optional web search uses a configured Tavily-compatible service and preserves sources with the answer. Text-layer PDF, DOCX, TXT and Markdown are supported; scanned PDFs require OCR that is not currently provided. See the [user reference](docs/reference.md) for operation and compatibility details.
 
-## Quick start
-
-Install **Node.js 22 (22.19.0 or later)**, **pnpm 11.11.0**, **uv**, a **Python 3.12** runtime, **Rust** and the macOS command-line developer tools. The [development guide](docs/development.md) explains prerequisites and alternative development paths.
-
-```bash
-git clone https://github.com/h-yu-u/Ownloom.git
-cd Ownloom
-nvm use
-UV_PYTHON=3.12 pnpm bootstrap
-UV_NO_SYNC=1 pnpm dev
-```
-
-`nvm use` is for nvm users; otherwise select Node.js 22 with your version manager. `UV_PYTHON=3.12` selects the required Python version; `bootstrap` installs the locked dependencies and optional inference packages. `UV_NO_SYNC=1` keeps that prepared environment, including audio dependencies, when the desktop launches its development Runtime. After dependency changes, run `UV_PYTHON=3.12 pnpm bootstrap` again before starting.
-
-Open **Models**, download or import a compatible local model, then select it in the relevant workspace. Weights are not included. Initial dependency installation and model downloads require network access. The normal application starts with an empty model library; FakeEngine is an isolated development and testing facility.
-
-`pnpm dev web` starts only the frontend. A separately configured Runtime is required for browser development; follow the [development guide](docs/development.md).
-
-## How it fits together
-
-| Part                                  | Responsibility                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------ |
-| Vue 3, TypeScript, Pinia and Naive UI | Workspaces, interaction and presentation; application ports isolate platform access. |
-| Tauri 2 / Rust                        | Native dialogs, authenticated Runtime startup and process lifecycle.                 |
-| Python / FastAPI Supervisor           | Product API, task scheduling, model management and application data.                 |
-| Isolated inference Worker             | MLX text/vision, MFLUX images and MLX Audio speech adapters.                         |
-| Node.js / Pi Host                     | Coding and agent execution, approvals, extensions and their owned persistence.       |
-
-The [architecture](docs/architecture.md) defines the system invariants. [Subsystem references](docs/subsystems/README.md) describe the current runtime paths, contracts and failure behavior.
-
 ## Privacy and external services
 
 Local inference uses files on your machine. Optional web search sends the search question to its configured service, model downloads contact Hugging Face, and enabled MCP tools may communicate with their configured servers. Review tool access and approvals before using a workspace with sensitive files.
 
 The desktop Runtime listens on loopback with session authentication. The [Runtime reference](docs/subsystems/runtime.md) documents API boundaries and current limitations. Credentials and backup contents have different storage rules; consult the [user reference](docs/reference.md) and [storage reference](docs/subsystems/storage.md) before moving or sharing application data. Local execution does not make every optional workflow offline.
 
-## Development and contribution
+## Community and contribution
 
-Start with the [development guide](docs/development.md), [code standards](docs/code-standards.md) and the relevant subsystem reference. The main checks are:
+Report bugs, suggest improvements or share reproducible model compatibility findings through [GitHub Issues](https://github.com/h-yu-u/Ownloom/issues). Include your app version, Mac model, model source and reproduction steps; remove personal data from logs before sharing them.
 
-```bash
-pnpm check
-pnpm test
-```
+For source development and pull requests, start with the [contributor guide](docs/contributors.md). It links to toolchain setup, desktop and browser development, checks and tests in the [development guide](docs/development.md). Design and review expectations live in the [architecture](docs/architecture.md), [code standards](docs/code-standards.md) and [subsystem references](docs/subsystems/README.md). AI coding agents start at [AGENTS.md](AGENTS.md).
 
-`pnpm check` includes documentation validation. Test success does not establish real-model compatibility or release readiness; those checks are documented separately.
+## Compatibility and release status
 
-Bug reports and focused contributions are welcome through [GitHub Issues](https://github.com/h-yu-u/MlxDesktop/issues) and pull requests. Include reproduction steps, the tested revision, verification results and any untested paths. Follow [contributor guidance](docs/contributors.md); agents start at [AGENTS.md](AGENTS.md).
+Model support and release checks are tracked in the [verification matrix](docs/verification.md). Automated tests and packaged smoke checks cover specific paths; they do not establish compatibility with every model, native GUI/Gatekeeper behavior or independent clean-machine acceptance. Developer ID signing and notarization remain separate release work.
 
 ## Documentation
 
