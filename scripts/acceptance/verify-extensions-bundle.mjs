@@ -7,7 +7,7 @@ import { join } from 'node:path'
 export async function verifyExtensionsBundle(root) {
   const directory = await mkdtemp(join(tmpdir(), 'mlx-extension-bundle-'))
   const child = spawn(join(root, 'bin/node'), [join(root, 'dist/main.js'), directory], {
-    stdio: ['pipe', 'pipe', 'ignore'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       PATH: '/usr/bin:/bin',
       LANG: 'en_US.UTF-8',
@@ -17,8 +17,12 @@ export async function verifyExtensionsBundle(root) {
   })
   let catalog = false,
     buffer = '',
+    diagnostics = '',
     hostEpoch = '',
     protocolVersion = 0
+  child.stderr.on('data', (chunk) => {
+    diagnostics = (diagnostics + chunk.toString('utf8')).slice(-16000)
+  })
   try {
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -71,10 +75,15 @@ export async function verifyExtensionsBundle(root) {
           reject(error)
         }
       })
-      child.once('exit', (code) => {
+      child.once('close', (code, signal) => {
         clearTimeout(timer)
         if (code === 0 && catalog) resolve()
-        else reject(new Error('Bundled extension Host failed'))
+        else
+          reject(
+            new Error(
+              `Bundled extension Host failed (exit=${code}, signal=${signal ?? 'none'})\n${diagnostics}`,
+            ),
+          )
       })
     })
   } finally {

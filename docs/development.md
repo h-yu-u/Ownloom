@@ -139,6 +139,20 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 
 应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[版本发布](./release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
 
+### Coding Host 依赖边界
+
+`pnpm build coding-bundle` 在 Apple Silicon macOS 上编译 Host，通过锁定依赖的生产 deploy 收集资源，再复制 Node 22。裁剪只作用于部署副本的 `node_modules`，不修改源码工作区或上游包的 `package.json`。规则集中在 [Coding 打包策略](../scripts/build/coding-bundle-policy.mjs)：
+
+- 删除 `.js.map`、`.mjs.map`、`.cjs.map`、`.d.ts.map`、`.d.mts.map`、`.d.cts.map` 普通文件，保留其他 `.map` 数据。
+- 删除 `.d.ts`、`.d.mts`、`.d.cts` 普通文件，保留 `.ts` 源码及运行资源。
+- 删除固定 Pi SDK 包的 `dist/bundle/` 独立 CLI 目录；版本与 SDK 根入口不符合已审查布局时，裁剪前失败。
+
+遍历不跟随符号链接，并在删除前完成路径和入口校验。SDK 运行代码、许可证、JSON、WASM、worker 与内置 Skills 保留。这份部署副本只用于 Ownloom Host 运行，不提供 TypeScript 开发类型、独立 Pi CLI 或 Pi 的 `rpc-entry` 子入口。
+
+[构建校验器](../scripts/build/validate-coding-bundle.mjs)生成 `.build/coding/bundle-size.json`，记录 `node_modules` 普通文件的裁剪前后数量、字节数与三个互不重复的分类；Node 本体、Host 自有文件和链接不计入该统计，也不能将差值直接解释为 DMG 压缩收益。`provenance.json` 继续记录 Node/Pi/RPC 来源。
+
+[包内 Coding 验收](../scripts/acceptance/verify-coding-bundle.mjs)把裁剪产物复制到仓库外的临时目录，使用副本内的 Node，防止缺失依赖被工作区 `node_modules` 补齐。它检查 Host 握手、内置资源与关闭，并在副本上复用 Pi 流式响应、MCP 和 SQLite 仓库测试；测试文件与隔离资料库不进入发布资源。结果写入 `.build/coding/bundle-check.json`。[CI 的 `coding-bundle` job](../.github/workflows/ci.yml)运行同一构建并上传两份报告与来源记录。这里的模型响应来自本地协议假服务，不代表真实模型、完整 `.app`、签名或干净机器验收。
+
 ### Runtime Sidecar 依赖边界
 
 `pnpm build runtime` 由 [Runtime 打包脚本](../scripts/build/build-runtime.sh)执行，必须在 Apple Silicon macOS 上运行。`MLX_STUDIO_BUILD_PROFILE` 选择独立构建环境：
