@@ -63,6 +63,8 @@ Node 在同一事务保存产品状态与事件，提交后唤醒等待者。观
 
 同一会话观察代际内，HTTP 快照与 SSE 投影共用单调递增的 watermark：迟到快照不能覆盖较新的事件，已被快照涵盖的事件只推进观察器游标，不重复投影。打开会话（包括重连后重新加载工作区）会释放旧观察器、递增归属代际并清空快照基线，因此可以接纳新数据源的较低序列；旧代际的快照和回调始终失效。
 
+文件版本索引与文件系统观察器由每个 Host 的 `projectWorkspace` 实例拥有，指纹捕获和快照查询共享该实例。首次捕获才启动观察器，查询只检查已保存的元数据。移除项目、清理能力探针和关闭 Host 都释放相应索引与观察器；关闭后不能重新捕获，迟到的捕获结果或旧观察器回调不能覆盖重新登记的目录状态。
+
 Host 重启把未结束运行标为 `interrupted`、拒绝旧待审批操作，不自动重放命令。Pi JSONL 恢复校验会话身份、cwd、完整行和父链；上下文文件存在不等于完整可用。
 
 Coding 与 Agent Chat 共用 Host 级运行故障门禁。任务先保存业务结果，再等待审批、Pi/transcript 和运行授权清理完成，最后发布终态并释放运行槽位；清理期间仍保留所有权，取消不能被迟到成功覆盖。清理失败记录 `interrupted` / `CODING_CLEANUP_FAILED`，停止排队任务和两种新运行，并保留资源引用；需要重启 Host 恢复接纳。后台运行、取消和到期任务的拒绝均进入该故障边界，不作为未处理 Promise 逃逸。
@@ -105,6 +107,6 @@ pnpm check boundaries
 pnpm build coding-bundle
 ```
 
-契约变化另运行 `pnpm generate rpc` 和 `pnpm generate api`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
+契约变化另运行 `pnpm generate rpc` 和 `pnpm generate api`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[工作区资源生命周期](../../services/coding-agent/tests/workspace-lifecycle.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
 
 真实模型与包内 Host 使用 [verify_local_coding.py](../../scripts/verify/verify_local_coding.py)；参数和环境以脚本 `--help` 为准。协议假服务、FakeEngine、真实模型开发任务和最终安装包分别记录结果，统一进入[验证范围](../verification.md)，不以历史单机结果替代当前版本验收。

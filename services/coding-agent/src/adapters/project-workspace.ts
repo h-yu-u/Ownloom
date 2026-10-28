@@ -1,4 +1,4 @@
-import { currentVersion } from './workspace-version.js'
+import { WorkspaceVersions } from './workspace-version.js'
 import { mkdtemp, writeFile, rm, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -12,11 +12,16 @@ import {
   git,
 } from './workspace.js'
 import type { ProjectPort, RepositoryPort } from '../application/ports.js'
-export function projectWorkspace(repo: RepositoryPort): ProjectPort {
+export function projectWorkspace(
+  repo: RepositoryPort,
+  versions = new WorkspaceVersions(),
+): ProjectPort {
   return {
-    version: currentVersion,
+    version: (root) => versions.current(root),
+    release: (root) => versions.release(root),
+    close: () => versions.close(),
     register: registerProject,
-    fingerprint,
+    fingerprint: (root) => fingerprint(root, versions),
     files,
     git,
     read: async (root, path) => {
@@ -36,6 +41,9 @@ export function projectWorkspace(repo: RepositoryPort): ProjectPort {
       writeFile(join(repo.directory, `probe-report-${id}.json`), JSON.stringify(report, null, 2), {
         mode: 0o600,
       }),
-    removeProbe: (root) => rm(root, { recursive: true, force: true }),
+    removeProbe: async (root) => {
+      versions.release(root)
+      await rm(root, { recursive: true, force: true })
+    },
   }
 }

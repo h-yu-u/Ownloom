@@ -15,7 +15,7 @@ import { CapabilityVerifier } from './application/capability-verifier.js'
 import { projectWorkspace } from './adapters/project-workspace.js'
 import { Repository } from './adapters/repository.js'
 import { Commands } from './adapters/commands.js'
-import { fingerprint, git, instructions, Workspace } from './adapters/workspace.js'
+import { git, instructions, Workspace } from './adapters/workspace.js'
 import { openPi } from './adapters/pi-session.js'
 import { Runs } from './application/runs.js'
 import { CodingService } from './application/service.js'
@@ -48,6 +48,7 @@ export function createCodingService(
     check: extensions.resolver.check.bind(extensions.resolver),
   }
   const admission = new RunAdmission()
+  const projects = projectWorkspace(repo)
   const runs: Runs = new Runs(
     repo,
     {
@@ -55,7 +56,7 @@ export function createCodingService(
       activate: activateCapability,
       closeCapability,
       commands: new Commands(processEvent),
-      fingerprint,
+      fingerprint: projects.fingerprint,
       instructions,
       verificationManifest,
       gitStatus: (root) => git(root, 'status'),
@@ -82,7 +83,6 @@ export function createCodingService(
     },
     admission,
   )
-  const projects = projectWorkspace(repo)
   return new CodingService(
     repo,
     runs,

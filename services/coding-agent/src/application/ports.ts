@@ -122,6 +122,8 @@ export interface RunPorts {
 }
 export interface ProjectPort {
   version?(root: string): Promise<string>
+  release(root: string): void
+  close(): void
   register(path: string): Promise<Project>
   read(root: string, path: string): Promise<{ content: string; sha256: string }>
   files(root: string): Promise<string[]>

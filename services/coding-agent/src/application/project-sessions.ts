@@ -8,6 +8,9 @@ export class ProjectSessions {
     private repo: ProjectSessionsRepository,
     private projects: ProjectPort,
   ) {}
+  close(): void {
+    this.projects.close()
+  }
   handlers: Record<string, (p: Record<string, unknown>) => Promise<unknown>> = {
     'projects.list': async (p) => {
       return this.repo.list('project')
@@ -38,7 +41,9 @@ export class ProjectSessions {
         const id = string(p.id)
         if (this.repo.listSessions(id, undefined, 1).length > 0)
           throw new Error('PROJECT_HAS_SESSIONS')
+        const project = this.repo.find('project', id)
         this.repo.delete('project', id)
+        if (project) this.projects.release(project.path)
         return { removed: true }
       }
     },

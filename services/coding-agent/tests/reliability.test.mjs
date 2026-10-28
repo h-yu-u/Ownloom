@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os'
 import { openPi } from '../dist/adapters/pi-session.js'
 import { contextSettings } from '../dist/domain/context-budget.js'
 import { fingerprint, files } from '../dist/adapters/workspace.js'
-import { currentVersion } from '../dist/adapters/workspace-version.js'
+import { WorkspaceVersions } from '../dist/adapters/workspace-version.js'
 import { promptAndVerify } from '../dist/application/run-verification.js'
 
 test('small window reserve fits and manual compaction remains idle-only', () => {
@@ -84,23 +84,27 @@ test('real Pi treats text followed by SSE error as a failed turn with no tool ex
 
 test('2001 files and large files do not block browsing; saved version detects external edits', async (t) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'mlx-large-workspace-')))
-  t.after(() => rm(root, { recursive: true, force: true }))
+  const versions = new WorkspaceVersions()
+  t.after(async () => {
+    versions.close()
+    await rm(root, { recursive: true, force: true })
+  })
   await Promise.all(
     Array.from({ length: 2001 }, (_, i) => writeFile(join(root, `${i}.txt`), String(i))),
   )
   assert.equal((await files(root)).length, 2001)
-  let before = await fingerprint(root)
+  let before = await fingerprint(root, versions)
   // macOS may deliver creation events queued before the watcher was attached.
-  if (before.startsWith('partial:unstable:')) before = await fingerprint(root)
-  assert.equal(await currentVersion(root), before)
+  if (before.startsWith('partial:unstable:')) before = await fingerprint(root, versions)
+  assert.equal(await versions.current(root), before)
   await writeFile(join(root, '0.txt'), 'externally edited')
-  assert.notEqual(await currentVersion(root), before)
+  assert.notEqual(await versions.current(root), before)
   await mkdir(join(root, 'large'))
   const fs = await import('node:fs/promises')
   const huge = await fs.open(join(root, 'large', 'huge.bin'), 'w')
   await huge.truncate(65 * 1024 * 1024)
   await huge.close()
-  assert.ok((await fingerprint(root)).startsWith('partial:'))
+  assert.ok((await fingerprint(root, versions)).startsWith('partial:'))
 })
 
 test('ordinary opt-in verification stops at repair limit and zero only verifies once', async () => {

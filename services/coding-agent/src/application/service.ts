@@ -18,7 +18,7 @@ export class CodingService {
   constructor(
     readonly repo: ServiceRepository,
     private runs: Runs,
-    sessions: ProjectSessions,
+    private sessions: ProjectSessions,
     changes: ChangeService,
     private verifier: CapabilityVerifier,
     private extensions?: Extensions,
@@ -175,10 +175,14 @@ export class CodingService {
   private closing?: Promise<void>
   close(): Promise<void> {
     return (this.closing ??= (async () => {
-      await this.runs.close()
-      await this.agent?.close()
-      this.closeAgentRepository?.()
-      await this.extensions?.close()
+      try {
+        await this.runs.close()
+        await this.agent?.close()
+        this.closeAgentRepository?.()
+        await this.extensions?.close()
+      } finally {
+        this.sessions.close()
+      }
     })())
   }
 }
