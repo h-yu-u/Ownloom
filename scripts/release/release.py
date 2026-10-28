@@ -123,6 +123,12 @@ def smoke_summary(report: dict[str, object]) -> dict[str, object]:
 def collect_assets(
     root: Path, plan: Release, app: Path, report_path: Path, output: Path
 ) -> None:
+    notes_path = root / "docs/releases" / f"{plan.tag}.md"
+    if notes_path.is_symlink() or not notes_path.is_file():
+        raise ValueError(f"Missing or symbolic-link release notes: {notes_path}")
+    notes = notes_path.read_bytes()
+    if not notes.decode("utf-8").strip():
+        raise ValueError(f"Empty release notes: {notes_path}")
     report = json.loads(report_path.read_text())
     summary = smoke_summary(report)
     with (app / "Contents/Info.plist").open("rb") as stream:
@@ -163,32 +169,7 @@ def collect_assets(
     (output / "release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     hashes = [f"{digest(output / name)}  {name}\n" for name in plan.files[:-1]]
     (output / "SHA256SUMS").write_text("".join(hashes))
-    (output / "RELEASE_NOTES.md").write_text(
-        f"# {plan.title}\n\n"
-        "Apple Silicon macOS only. Model weights are downloaded separately.\n"
-        "This build is ad-hoc signed and is not Apple notarized. macOS may require manual "
-        "approval in Privacy & Security. Do not disable Gatekeeper globally.\n\n"
-        "仅支持 Apple Silicon macOS，模型权重需另行下载。"
-        "本版本使用临时签名，未经过 Apple 公证；安装时可能需要在「隐私与安全性」中手动允许。"
-        "请勿全局关闭 Gatekeeper。\n\n"
-        f"Source commit / 源码提交: {plan.commit}\n\n"
-        "Automated source checks, tests and packaged smoke checks passed. "
-        "Real-model inference, native GUI and independent clean-machine acceptance remain "
-        "unverified for this build.\n\n"
-        "源码检查、自动化测试和包内启动检查通过；本制品的真实模型、原生界面与独立干净机器"
-        "验收仍未验证。\n\n"
-        "## Install / 安装\n\n"
-        f"Download `{plan.dmg}`, open it and drag Ownloom to Applications. "
-        "Then open Ownloom and choose a compatible model in Models.\n\n"
-        f"下载 `{plan.dmg}`，打开后将 Ownloom 拖入「应用程序」。"
-        "打开 Ownloom，在「模型库」下载或导入兼容模型，即可开始使用。\n\n"
-        "Or install from Terminal / 也可通过终端安装：\n\n"
-        "```sh\n"
-        "curl -fsSL https://github.com/h-yu-u/Ownloom/releases/latest/download/install.sh | sh\n"
-        "```\n\n"
-        "Verify all downloaded release files / 下载全部附件后校验：\n\n"
-        "    shasum -a 256 -c SHA256SUMS\n"
-    )
+    (output / "RELEASE_NOTES.md").write_bytes(notes)
 
 
 def main() -> None:

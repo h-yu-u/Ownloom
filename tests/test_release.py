@@ -50,6 +50,14 @@ class ReleaseFixture(unittest.TestCase):
         installer = self.root / "scripts/release/install.sh"
         installer.parent.mkdir(parents=True)
         installer.write_text("#!/bin/sh\n# Isolated release payload fixture.\nexit 0\n")
+        self.notes = (
+            "# Ownloom v0.1.0\r\n\r\n更新 / Changes: fixture text.  \r\n\r\n"
+            "<details>\r\n<summary>技术详情 / Details</summary>\r\n\r\n"
+            "Keep Markdown and line endings unchanged.\r\n</details>\r\n"
+        ).encode()
+        notes = self.root / "docs/releases/v0.1.0.md"
+        notes.parent.mkdir(parents=True)
+        notes.write_bytes(self.notes)
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.name", "Release fixture")
         self.git("config", "user.email", "fixture@example.org")
@@ -71,7 +79,7 @@ class ReleaseFixture(unittest.TestCase):
         with (app / "Contents/Info.plist").open("wb") as stream:
             plistlib.dump(
                 {
-                    "CFBundleShortVersionString": "0.1.0",
+                    "CFBundleShortVersionString": self.plan.version,
                     "CFBundleIdentifier": "local.mlxstudio.app",
                     "CFBundleExecutable": "ownloom",
                 },
@@ -80,7 +88,7 @@ class ReleaseFixture(unittest.TestCase):
         dmg = (
             self.root
             / "apps/desktop/src-tauri/target/release/bundle/dmg"
-            / "Ownloom_0.1.0_aarch64.dmg"
+            / f"Ownloom_{self.plan.version}_aarch64.dmg"
         )
         dmg.parent.mkdir(parents=True)
         dmg.write_bytes(b"synthetic DMG fixture; never an installable application")
@@ -168,13 +176,7 @@ class ReleaseAssetsTests(ReleaseFixture):
             f"{digest(public_dmg)}  ownloom-darwin-arm64.dmg",
             (output / "SHA256SUMS").read_text(),
         )
-        notes = (output / "RELEASE_NOTES.md").read_text()
-        self.assertTrue(notes.startswith("# Ownloom v0.1.0\n\n"))
-        self.assertNotIn("Preview", notes)
-        self.assertNotIn("预览版", notes)
-        self.assertIn("not Apple notarized", notes)
-        self.assertIn("unverified for this build", notes)
-        self.assertIn("releases/latest/download/install.sh | sh", notes)
+        self.assertEqual((output / "RELEASE_NOTES.md").read_bytes(), self.notes)
 
     def test_failed_warned_or_incomplete_smoke_cannot_publish(self) -> None:
         for changed in (
@@ -209,6 +211,7 @@ class GitHubFixture:
         self.output = output
         self.release: dict[str, object] | None = None
         self.calls: list[list[str]] = []
+        self.bodies: list[bytes] = []
         self.corrupt_upload = False
         self.upload_failure = False
         self.hide_drafts = False
@@ -238,6 +241,7 @@ class GitHubFixture:
                 for index, argument in enumerate(args[:-1])
                 if argument in {"--raw-field", "--field"}
             }
+            self.bodies.append(Path(fields["body"].removeprefix("@")).read_bytes())
             self.release.update(
                 name=fields["name"],
                 draft=fields["draft"] == "true",
@@ -273,6 +277,7 @@ class GitHubFixture:
             self.latest = "--latest" in args
             if "--title" in args:
                 self.release["name"] = args[args.index("--title") + 1]
+            self.bodies.append(Path(args[args.index("--notes-file") + 1]).read_bytes())
             return "https://github.com/example/repo/releases/tag/v0.1.0"
         else:
             raise AssertionError(args)
@@ -309,6 +314,7 @@ class ReleasePublicationTests(ReleaseFixture):
         self.assertFalse(github.release["prerelease"])
         self.assertEqual(github.release["name"], "Ownloom v0.1.0")
         self.assertTrue(github.latest)
+        self.assertEqual(github.bodies, [self.notes, self.notes])
 
     def test_partial_uploads_and_server_corruption_leave_a_draft(self) -> None:
         output = self.assets()
@@ -370,3 +376,4 @@ class ReleasePublicationTests(ReleaseFixture):
         self.assertFalse(github.release["draft"])
         self.assertFalse(github.release["prerelease"])
         self.assertTrue(github.latest)
+        self.assertEqual(github.bodies, [self.notes])
