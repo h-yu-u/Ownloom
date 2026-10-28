@@ -3,7 +3,7 @@ import type { FileExportResult } from '../../../shared/lib/file-export'
 import type { AudioGateway } from '../application/ports'
 export function createAudioHistoryController(deps: {
   gateway: AudioGateway
-  exportAudio(blob: Blob, id: string): Promise<FileExportResult>
+  exportAudio(blob: Blob, id: string, signal?: AbortSignal): Promise<FileExportResult>
   onError(cause: unknown): void
 }) {
   const history = createArtifactHistory({

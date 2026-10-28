@@ -21,7 +21,7 @@ interface Dependencies {
   directory: ReturnType<typeof useModelDirectory>
   refreshModels(): Promise<void>
   gateway: AudioGateway
-  exportAudio(blob: Blob, id: string): Promise<FileExportResult>
+  exportAudio(blob: Blob, id: string, signal?: AbortSignal): Promise<FileExportResult>
 }
 export function createAudioController(deps: Dependencies) {
   const form = ref<SpeechDraft>({

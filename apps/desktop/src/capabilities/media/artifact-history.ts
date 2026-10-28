@@ -10,7 +10,7 @@ export function createArtifactHistory<T extends { id: string }>(deps: {
   artifact(id: string, signal?: AbortSignal): Promise<T>
   content(id: string, signal?: AbortSignal): Promise<Blob>
   thumbnail?(id: string, signal?: AbortSignal): Promise<Blob>
-  export(blob: Blob, id: string): Promise<FileExportResult>
+  export(blob: Blob, id: string, signal?: AbortSignal): Promise<FileExportResult>
 }) {
   const artifacts = shallowRef<T[]>([]),
     selectedId = ref<string | null>(null),
@@ -106,7 +106,11 @@ export function createArtifactHistory<T extends { id: string }>(deps: {
     }
   }
   async function save(id: string) {
-    return exports.run({ id, read: () => deps.content(id), write: (blob) => deps.export(blob, id) })
+    return exports.run({
+      id,
+      read: () => deps.content(id),
+      write: (blob, signal) => deps.export(blob, id, signal),
+    })
   }
   function forget(id: string): void {
     deleting.add(id)

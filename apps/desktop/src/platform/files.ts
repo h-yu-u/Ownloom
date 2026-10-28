@@ -6,7 +6,12 @@ export async function pickModelDirectory(): Promise<string | null> {
   const path = await open({ directory: true, multiple: false, title: '选择模型目录' })
   return typeof path === 'string' ? path : null
 }
-export async function exportBlob(blob: Blob, filename: string): Promise<FileExportResult> {
+export async function exportBlob(
+  blob: Blob,
+  filename: string,
+  signal?: AbortSignal,
+): Promise<FileExportResult> {
+  signal?.throwIfAborted()
   if (isTauri()) {
     if (blob.size > 64 * 1024 * 1024)
       return { kind: 'failed', code: 'too-large', message: '文件超过 64 MiB，无法导出' }
@@ -14,8 +19,10 @@ export async function exportBlob(blob: Blob, filename: string): Promise<FileExpo
     try {
       bytes = await blob.arrayBuffer()
     } catch {
+      signal?.throwIfAborted()
       return { kind: 'failed', code: 'read-failed', message: '读取导出内容失败' }
     }
+    signal?.throwIfAborted()
     try {
       const saved = await invoke<boolean>('export_blob', bytes, {
         headers: { 'x-mlx-export-name': filename },

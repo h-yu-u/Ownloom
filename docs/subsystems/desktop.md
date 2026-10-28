@@ -48,7 +48,7 @@ Coding/工具助手草稿按项目和会话隔离，以 ID/revision 决定是否
 
 恢复作品需检查目标草稿版本；缺失项明确显示，不能静默选择其他模型或音色。列表、详情和文件错误独立；删除 A 的迟到响应不能影响已选中的 B。
 
-保存返回已保存、已发起浏览器下载、取消或失败等明确结果。读取期间离页不得弹出迟到的保存窗口，已经发生的保存结果不能改成取消。实现见 [files.ts](../../apps/desktop/src/platform/files.ts)。
+保存返回已保存、已发起浏览器下载、取消或失败等明确结果。导出归属信号经过聊天、媒体、诊断端口传至平台，在 Blob 读取字节后、调用原生保存窗口前再次校验；读取期间离页只返回已失效，不弹迟到窗口或显示迟到的读取错误。原生调用已经开始后不撤销保存，仍返回实际保存、取消或失败结果。实现见 [export-operation.ts](../../apps/desktop/src/shared/lib/export-operation.ts)和 [files.ts](../../apps/desktop/src/platform/files.ts)。
 
 Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/MarkdownContent.vue)及受控渲染器。HTML、危险链接和引用定位走既有安全路径。外链由平台验证 HTTP/HTTPS 和凭据，不能开放通用 Shell 权限或改变聊天 Hash 路由。
 

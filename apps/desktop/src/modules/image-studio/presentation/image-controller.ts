@@ -21,7 +21,7 @@ interface ImageDependencies {
   directory: ReturnType<typeof useModelDirectory>
   refreshModels(): Promise<void>
   gateway: ImageGateway
-  exportImage(blob: Blob, id: string): Promise<FileExportResult>
+  exportImage(blob: Blob, id: string, signal?: AbortSignal): Promise<FileExportResult>
 }
 
 export function createImageController(deps: ImageDependencies) {

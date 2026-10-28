@@ -28,7 +28,7 @@ interface ChatDependencies {
   runtimeAvailable?(): boolean
   models: Readonly<Ref<readonly ModelSummary[]>>
   refreshModels(): Promise<void>
-  exportText(content: string, filename: string): Promise<FileExportResult>
+  exportText(content: string, filename: string, signal?: AbortSignal): Promise<FileExportResult>
   observe(
     id: string,
     after: number,
@@ -297,7 +297,7 @@ export function createChatController(deps: ChatDependencies) {
     return exporting.run({
       id: conversationId.value ?? 'new',
       read: async () => new Blob([content]),
-      write: () => deps.exportText(content, 'ownloom-conversation.md'),
+      write: (_blob, signal) => deps.exportText(content, 'ownloom-conversation.md', signal),
     })
   }
   function dispose(): void {

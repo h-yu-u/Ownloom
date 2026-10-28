@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import type { RuntimeMetrics } from '@mlx-studio/api-client'
 interface RuntimeOverviewDependencies {
   gateway: ReturnType<typeof import('./gateway').createRuntimeGateway>
-  exportFile(blob: Blob, filename: string): Promise<FileExportResult>
+  exportFile(blob: Blob, filename: string, signal?: AbortSignal): Promise<FileExportResult>
 }
 export function createRuntimeController(deps: RuntimeOverviewDependencies) {
   const info = ref<Record<string, unknown>>({})
@@ -70,7 +70,7 @@ export function createRuntimeController(deps: RuntimeOverviewDependencies) {
     return exporting.run({
       id: 'diagnostics',
       read: deps.gateway.diagnostics,
-      write: (blob) => deps.exportFile(blob, 'ownloom-diagnostics.zip'),
+      write: (blob, signal) => deps.exportFile(blob, 'ownloom-diagnostics.zip', signal),
     })
   }
   return {
