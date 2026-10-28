@@ -3142,6 +3142,24 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** GenerationStats */
+        GenerationStats: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "mlx-lm" | "mlx-vlm";
+            /** Generationtokens */
+            generationTokens?: number | null;
+            /** Generationtps */
+            generationTps?: number | null;
+            /** Prompttokens */
+            promptTokens?: number | null;
+            /** Prompttps */
+            promptTps?: number | null;
+            /** Cachedtokens */
+            cachedTokens?: number | null;
+        };
         /** HandoffMessageReference */
         HandoffMessageReference: {
             /** Id */
@@ -3411,6 +3429,7 @@ export interface components {
             textRevision: number;
             /** Sources */
             sources?: (components["schemas"]["FileSource"] | components["schemas"]["WebSource"])[];
+            generationStats?: components["schemas"]["GenerationStats"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -3564,6 +3583,7 @@ export interface components {
             attachments: components["schemas"]["AttachmentView"][];
             /** Sources */
             sources?: (components["schemas"]["FileSource"] | components["schemas"]["WebSource"])[];
+            generationStats?: components["schemas"]["GenerationStats"] | null;
         } & {
             [key: string]: unknown;
         };

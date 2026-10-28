@@ -7,6 +7,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from mlx_studio_runtime.entrypoints.http.attachment_contracts import CoverageView
 
 
+class GenerationStats(BaseModel):
+    source: Literal["mlx-lm", "mlx-vlm"]
+    generationTokens: int | None = Field(default=None, ge=0, strict=True)
+    generationTps: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
+    promptTokens: int | None = Field(default=None, ge=0, strict=True)
+    promptTps: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
+    cachedTokens: int | None = Field(default=None, ge=0, strict=True)
+
+
 class WebSearchOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     enabled: bool = Field(default=False, strict=True)

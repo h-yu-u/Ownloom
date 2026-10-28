@@ -10,6 +10,7 @@ from mlx_studio_runtime.adapters.persistence.attachment_reference_repository imp
     AttachmentReferences,
 )
 from mlx_studio_runtime.adapters.persistence.sqlite_database import SQLiteDatabase
+from mlx_studio_runtime.domain.generation_stats import read_generation_stats
 
 
 class JobRepository:
@@ -141,10 +142,12 @@ class JobRepository:
         if row is None:
             return None
         message = self.database.connection.execute(
-            "SELECT content FROM messages WHERE role='assistant' AND json_valid(parameters_json) "
+            "SELECT content,parameters_json FROM messages "
+            "WHERE role='assistant' AND json_valid(parameters_json) "
             "AND json_extract(parameters_json,'$.jobId')=? ORDER BY rowid DESC LIMIT 1",
             (job_id,),
         ).fetchone()
+        parameters: dict[str, Any] = json.loads(message[1]) if message else {}
         return {
             "id": row[0],
             "kind": row[1],
@@ -155,4 +158,5 @@ class JobRepository:
             "phase": row[6],
             "projectionVersion": row[7],
             "resultText": message[0] if message else "",
+            "resultGenerationStats": read_generation_stats(parameters.get("generationStats")),
         }

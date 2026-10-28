@@ -8,6 +8,7 @@ import { decodeCatalog } from './model-catalog'
 import { decodeRuntimeMetrics } from './runtime-metrics'
 import { attachmentEndpoints } from './attachments'
 import { decodeSource, type MessageSource } from './chat-sources'
+import { decodeGenerationStats, type GenerationStats } from './generation-stats'
 import { webSearchEndpoints, type ChatAttempt } from './web-search'
 import type { components } from './generated-schema'
 import { list, record, text, number, nullableText, malformed } from './decoders'
@@ -48,6 +49,7 @@ export interface Message {
   attachments: Attachment[]
   parameters: Record<string, unknown>
   sources?: MessageSource[]
+  generationStats?: GenerationStats | null
 }
 export type ConversationPatch = components['schemas']['ConversationPatch']
 export interface Conversation
@@ -75,6 +77,7 @@ export interface JobSnapshot {
   projectionVersion?: number
   textRevision?: number
   sources?: MessageSource[]
+  generationStats?: GenerationStats | null
 }
 export type ChatCommand = components['schemas']['ChatMessageRequest']
 const root = '/internal/v1'
@@ -138,6 +141,7 @@ export function decodeMessage(value: unknown): Message {
       }
     }),
     sources: list(item.sources ?? [], decodeSource),
+    generationStats: decodeGenerationStats(item.generationStats),
   }
 }
 export function decodeConversation(value: unknown): Conversation {
@@ -188,6 +192,7 @@ export function createEndpoints(transport: Transport) {
             item.projectionVersion == null ? undefined : number(item.projectionVersion),
           textRevision: item.textRevision == null ? undefined : number(item.textRevision),
           sources: list(item.sources ?? [], decodeSource),
+          generationStats: decodeGenerationStats(item.generationStats),
         }
       },
     },

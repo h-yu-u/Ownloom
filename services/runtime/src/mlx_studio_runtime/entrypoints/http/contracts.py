@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from mlx_studio_runtime.entrypoints.http.audio_contracts import SpeechCapabilitiesView
 from mlx_studio_runtime.entrypoints.http.chat_contracts import (
     FileSource,
+    GenerationStats,
     VisualSelection,
     WebSearchOptions,
     WebSource,
@@ -58,6 +59,7 @@ class MessageView(ReadModel):
     parameters: dict[str, Any]
     attachments: list[AttachmentView]
     sources: list[FileSource | WebSource] = Field(default_factory=list)
+    generationStats: GenerationStats | None = None
 
 
 class ConversationView(ReadModel):
@@ -124,6 +126,7 @@ class JobSnapshot(JobView):
     projectionVersion: int = 0
     textRevision: int = 0
     sources: list[FileSource | WebSource] = Field(default_factory=list)
+    generationStats: GenerationStats | None = None
 
 
 class ErrorInfo(BaseModel):

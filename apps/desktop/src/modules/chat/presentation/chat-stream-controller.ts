@@ -1,8 +1,14 @@
 import { ref, type Ref } from 'vue'
-import { decodeSource, type Conversation, type RuntimeEvent } from '@mlx-studio/api-client'
+import {
+  decodeGenerationStats,
+  decodeSource,
+  type Conversation,
+  type RuntimeEvent,
+} from '@mlx-studio/api-client'
 import type { ChatGateway } from '../application/ports'
 import { reduceChatState, type ChatState } from '../domain/chat-state'
 import { createDeltaBuffer } from './delta-buffer'
+import { projectJobSnapshot } from './chat-projection'
 import { chatError } from '../domain/chat-error'
 
 export interface ChatStreamDependencies {
@@ -25,9 +31,15 @@ export function createChatStream(deps: ChatStreamDependencies) {
     active = true,
     textRevision = 0
   let projectionVersion = 0,
-    instanceId = ''
-  const deltas = createDeltaBuffer((jobId, text) => {
-    deps.state.value = reduceChatState(deps.state.value, { type: 'generation.delta', jobId, text })
+    instanceId = '',
+    observedJobId = ''
+  const deltas = createDeltaBuffer((jobId, text, generationStats) => {
+    deps.state.value = reduceChatState(deps.state.value, {
+      type: 'generation.delta',
+      jobId,
+      text,
+      generationStats,
+    })
   })
   async function reconcile(): Promise<number | void> {
     deltas.flush()
@@ -36,33 +48,34 @@ export function createChatStream(deps: ChatStreamDependencies) {
       jobId = deps.state.value.activeJobId
     if (!id) return
     if (jobId) {
+      const requestedTextRevision = textRevision,
+        requestedProjectionVersion = projectionVersion
       const snapshot = await deps.gateway.job(jobId)
       if (
         owner !== epoch ||
         !active ||
         id !== deps.conversationId.value ||
-        jobId !== deps.state.value.activeJobId
+        jobId !== deps.state.value.activeJobId ||
+        snapshot.id !== jobId
       )
         return
+      const terminal = ['succeeded', 'failed', 'cancelled'].includes(snapshot.state)
+      const sameInstance = !instanceId || instanceId === snapshot.instance_id
       if (
-        instanceId === snapshot.instance_id &&
-        ((snapshot.textRevision ?? textRevision) < textRevision ||
-          (snapshot.projectionVersion ?? projectionVersion) < projectionVersion)
+        !terminal &&
+        sameInstance &&
+        ((snapshot.textRevision ?? requestedTextRevision) < textRevision ||
+          (snapshot.projectionVersion ?? requestedProjectionVersion) < projectionVersion)
       )
         return
+      deltas.flush()
       instanceId = snapshot.instance_id
-      textRevision = snapshot.textRevision ?? 0
-      projectionVersion = snapshot.projectionVersion ?? 0
+      textRevision = snapshot.textRevision ?? (sameInstance ? requestedTextRevision : 0)
+      projectionVersion =
+        snapshot.projectionVersion ?? (sameInstance ? requestedProjectionVersion : 0)
       phase.value = snapshot.phase ?? ''
-      deps.state.value = {
-        ...deps.state.value,
-        messages: deps.state.value.messages.map((item) =>
-          item.id === jobId
-            ? { ...item, content: snapshot.text, sources: snapshot.sources ?? [] }
-            : item,
-        ),
-      }
-      if (['succeeded', 'failed', 'cancelled'].includes(snapshot.state))
+      deps.state.value = projectJobSnapshot(deps.state.value, snapshot)
+      if (terminal)
         applyEvent(
           {
             type: `job.${snapshot.state}`,
@@ -100,12 +113,18 @@ export function createChatStream(deps: ChatStreamDependencies) {
       if (typeof revision === 'number') {
         if (revision <= textRevision) return
         if (revision !== textRevision + 1) {
-          void reconcile().catch(failed)
+          requestReconcile()
           return
         }
         textRevision = revision
       }
-      deltas.push(id, String(event.payload.text ?? ''))
+      deltas.push(
+        id,
+        String(event.payload.text ?? ''),
+        'generationStats' in event.payload
+          ? decodeGenerationStats(event.payload.generationStats)
+          : undefined,
+      )
       return
     }
     const terminal =
@@ -129,7 +148,7 @@ export function createChatStream(deps: ChatStreamDependencies) {
     deps.state.value = reduceChatState(deps.state.value, { ...terminal, jobId: id })
     release?.()
     release = undefined
-    if (event.type === 'job.succeeded' && restore) void reconcile().catch(failed)
+    if (event.type === 'job.succeeded' && restore) requestReconcile()
   }
   function applySources(id: string, value: unknown): void {
     try {
@@ -142,21 +161,31 @@ export function createChatStream(deps: ChatStreamDependencies) {
         ),
       }
     } catch {
-      void reconcile().catch(failed)
+      requestReconcile()
     }
+  }
+  function requestReconcile(): void {
+    const owner = epoch
+    void reconcile().catch((cause: unknown) => {
+      if (active && owner === epoch) failed(cause)
+    })
   }
   function failed(cause: unknown): void {
     deps.state.value.error = cause instanceof Error ? cause.message : '聊天恢复失败'
   }
-  function start(id: string, after: number): void {
-    if (!active) return
-    release?.()
+  function resetProjection(id: string): void {
+    observedJobId = id
     textRevision = 0
     projectionVersion = 0
     instanceId = ''
+  }
+  function start(id: string, after: number): void {
+    if (!active) return
+    const owner = ++epoch
+    release?.()
+    resetProjection(id)
     phase.value = 'accepted'
     if (active) release = deps.observe(id, after, applyEvent, reconcile)
-    const owner = epoch
     void deps.gateway
       .list()
       .then((items) => {
@@ -171,6 +200,7 @@ export function createChatStream(deps: ChatStreamDependencies) {
     const owner = ++epoch,
       id = deps.state.value.activeJobId
     if (!id) return
+    if (id !== observedJobId) resetProjection(id)
     try {
       const sequence = await reconcile()
       if (

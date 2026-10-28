@@ -1,5 +1,21 @@
-import type { Conversation } from '@mlx-studio/api-client'
+import type { Conversation, JobSnapshot } from '@mlx-studio/api-client'
 import { reduceChatState, type ChatMessage, type ChatState } from '../domain/chat-state'
+
+export function projectJobSnapshot(state: ChatState, snapshot: JobSnapshot): ChatState {
+  return {
+    ...state,
+    messages: state.messages.map((item) =>
+      item.id === snapshot.id
+        ? {
+            ...item,
+            content: snapshot.text,
+            sources: snapshot.sources ?? [],
+            generationStats: snapshot.generationStats ?? null,
+          }
+        : item,
+    ),
+  }
+}
 
 /** Convert durable records and accepted receipts without owning requests or observers. */
 export function projectConversation(state: ChatState, item: Conversation): ChatState {
