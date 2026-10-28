@@ -47,6 +47,6 @@
 
 **原因：** 一个页面可能既是网站阅读入口，也是交付物的输入。只改 Markdown 链接不能保证打包过程仍可运行。
 
-**证据：** [可携带验收包脚本](scripts/package-acceptance-kit.sh)把 `docs/release-acceptance.md` 复制为独立工具包的 `README.md`。该路径在本次整理中保留；本地链接和锚点由 `pnpm check:docs` 检查，打包及平台行为仍按[发布验收](docs/release-acceptance.md)执行。
+**证据：** [可携带验收包脚本](scripts/acceptance/package-acceptance-kit.sh)把 `docs/release-acceptance.md` 复制为独立工具包的 `README.md`。该路径在本次整理中保留；本地链接和锚点由 `pnpm check docs` 检查，打包及平台行为仍按[发布验收](docs/release-acceptance.md)执行。
 
 **Seen：** 2026-10-28（1 次独立审计）。

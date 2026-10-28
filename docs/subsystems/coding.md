@@ -12,7 +12,7 @@ Pi transcript 是模型上下文的权威来源，Coding SQLite 是产品状态�
 
 | 主题                    | 代码入口与关键符号                                                                                                                                                                                                                                  |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 协议定义与生成          | [schema.json](../../packages/coding-protocol/schema.json)、[generate_coding_rpc.py](../../scripts/generate_coding_rpc.py)                                                                                                                           |
+| 协议定义与生成          | [schema.json](../../packages/coding-protocol/schema.json)、[generate_coding_rpc.py](../../scripts/generate/generate_coding_rpc.py)                                                                                                                  |
 | Host 进程               | [agent_host.py](../../services/runtime/src/mlx_studio_runtime/adapters/agent_host.py)：`AgentHost`；[main.ts](../../services/coding-agent/src/main.ts)                                                                                              |
 | 用例与任务              | [service.ts](../../services/coding-agent/src/application/service.ts)：`CodingService`；[runs.ts](../../services/coding-agent/src/application/runs.ts)：`Runs`                                                                                       |
 | Pi 装配与流式桥         | [pi-session.ts](../../services/coding-agent/src/adapters/pi-session.ts)：`openPi`；[pi-events.ts](../../services/coding-agent/src/adapters/pi-events.ts)                                                                                            |
@@ -80,23 +80,23 @@ Host 重启把未结束运行标为 `interrupted`、拒绝旧待审批操作，�
 
 ## 协议与打包维护
 
-Host RPC 版本当前为 2，与 Runtime 握手及 `/internal/v1` 分开。修改 [schema.json](../../packages/coding-protocol/schema.json) 后运行 `pnpm rpc:generate`；生成内容包含两端类型/校验数据、扩展 HTTP DTO 和 Coding 限额，再通过 OpenAPI 生成前端类型。
+Host RPC 版本当前为 2，与 Runtime 握手及 `/internal/v1` 分开。修改 [schema.json](../../packages/coding-protocol/schema.json) 后运行 `pnpm generate rpc`；生成内容包含两端类型/校验数据、扩展 HTTP DTO 和 Coding 限额，再通过 OpenAPI 生成前端类型。
 
-发行资源由 [build-coding-host.sh](../../scripts/build-coding-host.sh) 打包固定 Node、Host、锁定依赖与内置 Skill，并生成来源摘要。冻结 Runtime 从固定资源目录启动 Host，不接受前端给出的任意程序路径；仅 Web 构建成功不能验证这条分发链路。
+发行资源由 [build-coding-host.sh](../../scripts/build/build-coding-host.sh) 打包固定 Node、Host、锁定依赖与内置 Skill，并生成来源摘要。冻结 Runtime 从固定资源目录启动 Host，不接受前端给出的任意程序路径；仅 Web 构建成功不能验证这条分发链路。
 
 ## 验证命令
 
 从仓库根目录执行：
 
 ```bash
-pnpm build:coding
-pnpm check:coding
-pnpm test:coding
-pnpm test:runtime
-pnpm check:boundaries
-pnpm build:coding:bundle
+pnpm build coding
+pnpm check coding
+pnpm test coding
+pnpm test runtime
+pnpm check boundaries
+pnpm build coding-bundle
 ```
 
-契约变化另运行 `pnpm rpc:generate` 和 `pnpm api:generate`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
+契约变化另运行 `pnpm generate rpc` 和 `pnpm generate api`。重点回归包括 [permissions](../../services/coding-agent/tests/permissions.test.mjs)、[workspace](../../services/coding-agent/tests/workspace.test.mjs)、[reliability](../../services/coding-agent/tests/reliability.test.mjs)、[verification](../../services/coding-agent/tests/verification.test.mjs)、[streaming](../../services/coding-agent/tests/streaming.test.mjs)及 [HTTP 集成](../../tests/test_coding_workspace.py)。
 
-真实模型与包内 Host 使用 [verify_local_coding.py](../../scripts/verify_local_coding.py)；参数和环境以脚本 `--help` 为准。协议假服务、FakeEngine、真实模型开发任务和最终安装包分别记录结果，统一进入[验证范围](../verification.md)，不以历史单机结果替代当前版本验收。
+真实模型与包内 Host 使用 [verify_local_coding.py](../../scripts/verify/verify_local_coding.py)；参数和环境以脚本 `--help` 为准。协议假服务、FakeEngine、真实模型开发任务和最终安装包分别记录结果，统一进入[验证范围](../verification.md)，不以历史单机结果替代当前版本验收。

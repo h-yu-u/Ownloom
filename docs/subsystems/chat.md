@@ -71,7 +71,7 @@ Search 保留原问题，时效性问题独立提供 day/week 参数，使用 `a
 
 ## 验证入口
 
-在根目录运行 `pnpm test:frontend`、`pnpm test:runtime`；改变 HTTP 契约时运行 `pnpm api:generate` 并检查生成 diff，完整命令见[开发指南](../development.md)。
+在根目录运行 `pnpm test frontend`、`pnpm test runtime`；改变 HTTP 契约时运行 `pnpm generate api` 并检查生成 diff，完整命令见[开发指南](../development.md)。
 
 重点回归包括[请求与完成](../../tests/test_chat_completion.py)、[上下文与尝试](../../tests/test_chat_context.py)、[附件准备](../../tests/test_attachment_preparation.py)、[准备调度](../../tests/test_chat_preparation_scheduler.py)、[Tavily SDK](../../tests/test_tavily_sdk.py)、[日期过滤](../../tests/test_web_freshness.py)及[来源 URL](../../tests/test_web_reference_urls.py)。前端组件与 controller 测试位于同名 `.spec.ts`。
 

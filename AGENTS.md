@@ -24,6 +24,6 @@ Keep [README.md](README.md) and [README.zh-CN.md](README.zh-CN.md) aligned on ca
 
 ## Verification
 
-Run `pnpm check` and `pnpm test` when the corresponding toolchains are available. Documentation changes must pass `pnpm check:docs`. Use the development guide to select additional contract, Rust, build or native checks for the changed path.
+Run `pnpm check` and `pnpm test` when the corresponding toolchains are available. Documentation changes must pass `pnpm check docs`. Use the development guide to select additional contract, Rust, build or native checks for the changed path.
 
 Report the commands, environment, tested revision, outcomes and checks not run. Distinguish source checks, FakeEngine tests, real-model tests, packaged-app tests and distribution acceptance. The current evidence boundary belongs in [verification](docs/verification.md), not in this file. Never describe an unavailable or skipped check as passed.

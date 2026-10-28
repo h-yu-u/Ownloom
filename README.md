@@ -46,7 +46,7 @@ UV_NO_SYNC=1 pnpm dev
 
 Open **Models**, download or import a compatible local model, then select it in the relevant workspace. Weights are not included. Initial dependency installation and model downloads require network access. The normal application starts with an empty model library; FakeEngine is an isolated development and testing facility.
 
-`pnpm dev:web` starts only the frontend. A separately configured Runtime is required for browser development; follow the [development guide](docs/development.md).
+`pnpm dev web` starts only the frontend. A separately configured Runtime is required for browser development; follow the [development guide](docs/development.md).
 
 ## How it fits together
 

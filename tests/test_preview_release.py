@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.preview_release import (
+from scripts.release.preview_release import (
     Preview,
     collect_assets,
     digest,
@@ -16,7 +16,7 @@ from scripts.preview_release import (
     smoke_summary,
     validate_checkout,
 )
-from scripts.publish_preview_release import publish
+from scripts.release.publish_preview_release import publish
 
 
 def completed_smoke() -> dict[str, object]:

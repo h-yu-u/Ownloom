@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from scripts.system_probe import parse_hardware_overview, parse_system_profiler
+from scripts.verify.system_probe import parse_hardware_overview, parse_system_profiler
 
 
 class ParseHardwareOverviewTests(unittest.TestCase):
