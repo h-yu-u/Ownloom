@@ -17,6 +17,7 @@ Ownloom 使用 SQLite 保存可查询产品记录，媒体和模型上下文使�
 | 附件引用与准备迁移    | [attachment_reference_repository.py](../../services/runtime/src/mlx_studio_runtime/adapters/persistence/attachment_reference_repository.py)、[attachment_context_migrations.py](../../services/runtime/src/mlx_studio_runtime/adapters/persistence/attachment_context_migrations.py) |
 | 媒体恢复与清理        | [media_recovery.py](../../services/runtime/src/mlx_studio_runtime/adapters/media_recovery.py)、[storage_management.py](../../services/runtime/src/mlx_studio_runtime/adapters/storage_management.py)                                                                                 |
 | 导出屏障与任务投影    | [data_management.py](../../services/runtime/src/mlx_studio_runtime/application/data_management.py)：`DataManagement`                                                                                                                                                                 |
+| 跨所有者恢复用例      | [restore_profile.py](../../services/runtime/src/mlx_studio_runtime/application/restore_profile.py)：`RestoreProfile`、`RestoreProfilePorts`                                                                                                                                          |
 | Python 备份与 profile | [backup_bundle.py](../../services/runtime/src/mlx_studio_runtime/adapters/backup_bundle.py)、[data_profiles.py](../../services/runtime/src/mlx_studio_runtime/adapters/data_profiles.py)：`DataProfiles`                                                                             |
 | Node 数据与迁移       | [repository.ts](../../services/coding-agent/src/adapters/repository.ts)、[coding-migrations.ts](../../services/coding-agent/src/adapters/coding-migrations.ts)、[extensions/repository.ts](../../services/coding-agent/src/adapters/extensions/repository.ts)                        |
 | Node 导出与恢复       | [data-export.ts](../../services/coding-agent/src/adapters/data-export.ts)、[data-restore.ts](../../services/coding-agent/src/adapters/data-restore.ts)、[transcript.ts](../../services/coding-agent/src/adapters/transcript.ts)                                                      |
@@ -72,6 +73,8 @@ Node 仍是 Node 数据库的唯一导出者，Python 只打包其导出文件�
 
 备份打包已提交到线程后，取消必须等待实际写入结束再删除输出，屏障在这段时间继续持有。直接调用 `DataManagement.backup` 的内部调用方取得文件所有权，使用后必须调用 `release_backup`；HTTP 适配器通过 `TemporaryFileResponse` 的 `finally` 承担这一责任。
 
+`data.export` 与 `data.restore.profile` 等待 Node 的完成回执或 Host 退出，不使用普通控制 RPC 的 30 秒期限，避免大文件处理仍在继续时先释放文件所有权。调用用例在取消时也保留屏障并等待该回执，再清理本次临时文件；普通 RPC 保留原期限。
+
 ## 恢复运行路径
 
 ```mermaid
@@ -89,9 +92,11 @@ flowchart TD
 
 上传失败或校验失败会删除整份暂存目录，包括已经展开的内容。校验/复制已在线程中开始后，取消先等待线程结束，再补偿，避免目录被迟到写入重建。预览可通过 `DELETE /internal/v1/storage/restore/{id}` 幂等丢弃；激活成功后也删除上传与展开文件。此操作只处理 `.restore/<id>`，不删除已导入的 profile。
 
+`RestoreProfile` 用例通过准备、完成检查、Node 导入、激活和清理端口协调各所有者；composition root 仅装配这些依赖。准备接口在取消时等待已开始的文件操作结束后再返回，Node 导入也由用例持有到真实回执，重复取消不会提前执行目录补偿。
+
 Node 单独验证本方清单和数据库，重映射 transcript 路径并验证上下文身份；全部完成才写入 `restore-complete`。Python 随后以临时文件替换 `active-profile.json`，重启后生效。旧 profile 保留，回滚只切换指针，不自动重放任务或工具。
 
-导入失败不应切换现用资料库。不完整导入可以重新准备；已完成的同一恢复标识可以幂等激活。外部模型目录、Coding 项目路径和服务凭据可能需要用户重新连接。
+导入失败不切换现用资料库，并在所有者停止写入后清理不完整目标及上传暂存；未完成的失败需要重新选择原备份，再次上传校验。取消发生在 Node 导入期间时，导入可完成，但本次请求不激活；完整的未激活 profile 保留，上传暂存清理，同一恢复标识重试时可直接激活，无需重复导入。激活失败也保留完整目标以便重试。外部模型目录、Coding 项目路径和服务凭据可能需要用户重新连接。
 
 异常退出留下的临时工件使用 24 小时过期兜底：启动时清理过期导出与恢复暂存，创建新导出/预览时清理对应过期目录。只清理受管根目录下的 UUID 子目录，进行中的上传与校验受保护；新预览、已导入 profile、回滚资料库、模型和用户保存文件均不参与清理。过期预览需要重新选择原备份文件。
 
@@ -116,6 +121,6 @@ pnpm test runtime
 pnpm test acceptance
 ```
 
-在仓库根目录执行。重点回归：[data recovery](../../tests/test_data_recovery.py)、[history revisions](../../tests/test_history_revisions.py)、[附件迁移](../../tests/test_attachment_context_migrations.py)、[附件 GC](../../tests/test_attachment_gc.py)、[Node reliability](../../services/coding-agent/tests/reliability.test.mjs)和[验收脚本](../../scripts/acceptance/acceptance.spec.mjs)。
+在仓库根目录执行。重点回归：[data recovery](../../tests/test_data_recovery.py)、[恢复用例顺序与取消](../../tests/test_restore_profile_use_case.py)、[数据 RPC 完成边界](../../tests/test_agent_data_completion.py)、[history revisions](../../tests/test_history_revisions.py)、[附件迁移](../../tests/test_attachment_context_migrations.py)、[附件 GC](../../tests/test_attachment_gc.py)、[Node reliability](../../services/coding-agent/tests/reliability.test.mjs)和[验收脚本](../../scripts/acceptance/acceptance.spec.mjs)。
 
 修改格式或恢复路径时，至少验证损坏 ZIP、缺失所有者、摘要不符、路径穿越、重启、重复恢复和回滚。包内实际数据恢复使用 [verify-packaged-data.mjs](../../scripts/acceptance/verify-packaged-data.mjs)，结果统一记录在[验证范围](../verification.md)，真实用户数据不得作为自动化 fixture。

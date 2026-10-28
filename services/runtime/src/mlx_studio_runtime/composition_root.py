@@ -60,6 +60,7 @@ from mlx_studio_runtime.application.model_catalog import ModelCatalog
 from mlx_studio_runtime.application.model_removal import ModelRemovalPorts, RemoveModel
 from mlx_studio_runtime.application.model_runtime import ModelRuntime
 from mlx_studio_runtime.application.queries import Queries
+from mlx_studio_runtime.application.restore_profile import RestoreProfile, RestoreProfilePorts
 from mlx_studio_runtime.application.runtime_control import RuntimeControl
 from mlx_studio_runtime.application.runtime_overview import RuntimeOverview, RuntimeSnapshot
 from mlx_studio_runtime.application.speech_generation_service import SpeechGenerationService
@@ -196,6 +197,18 @@ class RuntimeApplication:
                 lambda: self.inference.worker.pid if self.inference.worker else None,
             ),
         )
+        restore = RestoreProfile(
+            RestoreProfilePorts(
+                prepare=self.profiles.prepare_async,
+                complete=lambda target: (target / "restore-complete").is_file(),
+                import_node=lambda identifier: self.coding.call(
+                    "data.restore.profile", {"identifier": identifier}
+                ),
+                activate=self.profiles.activate,
+                discard=self.profiles.discard,
+                discard_upload=self.profiles.discard_upload,
+            )
+        )
         self.data = DataManagement(
             self.queries,
             self.coding,
@@ -208,7 +221,7 @@ class RuntimeApplication:
                 ).fetchone()
             ),
             lambda node: create_backup_async(self.storage, node, self.agent_host.directory),
-            self._restore_profile,
+            restore.execute,
             lambda archive: release_backup(self.storage, archive),
         )
         self.model_removal = RemoveModel(
@@ -233,16 +246,6 @@ class RuntimeApplication:
             ImageFiles(store.media_path),
             attachments.paths,
         )
-
-    async def _restore_profile(self, identifier: str) -> None:
-        try:
-            _, target = await self.profiles.prepare_async(identifier)
-            if not (target / "restore-complete").is_file():
-                await self.coding.call("data.restore.profile", {"identifier": identifier})
-            self.profiles.activate(identifier)
-        except BaseException:
-            self.profiles.discard(identifier)
-            raise
 
     async def close(self) -> None:
         await self.downloads.close()
