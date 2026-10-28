@@ -60,7 +60,9 @@ async function packageNames(root: string): Promise<string[]> {
   return names.sort()
 }
 
-export async function verifyPackage(root: string, files: Skill['files']): Promise<void> {
+export async function verifyPackage(directory: string, files: Skill['files']): Promise<void> {
+  if ((await lstat(directory)).isSymbolicLink()) throw new Error('SKILL_PATH_NOT_ALLOWED')
+  const root = await realpath(directory)
   const names = await packageNames(root)
   if (
     names.join('\0') !==

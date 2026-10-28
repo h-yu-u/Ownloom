@@ -50,6 +50,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Test Coding Host on macOS
+        run: pnpm test coding
       - name: Build and check the deployed Coding bundle
         run: pnpm build coding-bundle
       - uses: actions/upload-artifact@v4
