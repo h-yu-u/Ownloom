@@ -59,12 +59,12 @@ Release 标题由 GitHub 单独显示，正文不再重复 `Ownloom vX.Y.Z`。�
 ## 自动执行的步骤
 
 1. 校验标签指向的提交、`main` 归属、四个版本号及干净源码。
-2. 固定 Node 22、pnpm 11.11.0、Python 3.12 和锁定依赖，执行 API 生成一致性、`pnpm check`、`pnpm test`、Rust 检查与测试。
-3. 使用 `release` profile 打包完整 Runtime、Coding Host、Node、应用与 DMG；不会打包模型权重。
+2. 校验通过后，`quality`、`rust` 和 `build` 三个 macOS 任务并行运行，分别检出校验输出的同一个提交。`quality` 使用 Node 22、pnpm 11.11.0、Python 3.12 和锁定依赖，执行 API 生成一致性、`pnpm check` 与 `pnpm test`；`rust` 保留格式检查、Clippy 与 Rust 测试。两个检查任务结束时分别确认没有跟踪文件差异。
+3. `build` 构建 Coding Host 与内置 Node，恢复符合下文条件的 Runtime，或从源码构建 `release` profile Runtime，再由 Tauri 构建 Web、应用与 DMG。Web 只由 Tauri hook 构建一次；模型权重不进入安装包。
 4. 以只读方式挂载最终 DMG，运行其中应用的隔离 `smoke` 两轮检查。检查没有完成、有警告或签名完整性失败均阻止发布。
 5. 只收集安装包、安装脚本、公开元数据、摘要和双语发布说明。原始诊断、临时数据库、系统路径和模型不进入发布附件。
 6. 使用待发布的 `install.sh` 和真实 DMG，在临时目录验证首次安装、完整替换、损坏下载保护旧版、签名完整性及清理。下载由本地附件 fixture 提供，挂载、复制和签名检查使用真实 macOS 工具；报告单独上传到 Actions artifact。
-7. 在独立的 Ubuntu 发布任务中复核标签与本地摘要，创建正式版草稿，上传附件并核对 GitHub 返回的文件大小与 SHA-256。全部核对成功后公开，设置 `prerelease=false`、`make_latest=true`。核对失败时保留草稿，不修改 Latest。
+7. `validate`、`quality`、`rust` 和 `build` 全部成功且运行未取消，独立的 Ubuntu 发布任务才会开始。该任务复核标签与本地摘要，创建正式版草稿，上传附件并核对 GitHub 返回的文件大小与 SHA-256。全部核对成功后公开，设置 `prerelease=false`、`make_latest=true`。核对失败时保留草稿，不修改 Latest。
 
 候选发布目录为 `.build/release`，DMG 内应用的 smoke 报告位于 `.build/release-acceptance`。版本校验和制品收集由 [scripts.release.release](../scripts/release/release.py)负责，上传、摘要核对及公开由 [scripts.release.publish_release](../scripts/release/publish_release.py)负责。
 
@@ -73,6 +73,23 @@ Release 标题由 GitHub 单独显示，正文不再重复 `Ownloom vX.Y.Z`。�
 ```bash
 shasum -a 256 -c SHA256SUMS
 ```
+
+## 缓存与 Runtime 制品复用
+
+Rust 使用固定提交版本的 `Swatinem/rust-cache` 缓存依赖与编译产物，工作区为 `apps/desktop/src-tauri -> target`。CI 的 `macos-14-check`、Release 的 `macos-15-check` 与 `macos-15-release` 分别使用独立缓存键，保留 action 对 Rust 工具链、Cargo 配置与锁文件的哈希。检查和正式构建不再共用一个临时任务，也不删除检查产物来腾出发布空间。Release 的 `CARGO_BUILD_JOBS=2` 和检查时的 debug 信息设置保持不变。
+
+缓存仍受 [GitHub 的分支与标签作用域](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)约束：可以读取默认分支中的兼容缓存，但不同标签之间不能直接共享各自保存的缓存。日常 CI 的 `macos-14-check` 不预热 Release 的两个 `macos-15` 缓存；手动从 `main` 发起 Release 才能为它们建立可从默认分支复用的缓存。新工具链、依赖变化或首次发布仍可能冷构建。缓存不替代任何检查。
+
+Runtime 复用的是完成打包与包内验收的 Sidecar，不缓存或搬运 Python 虚拟环境。生产和消费入口分别为 [runtime_artifact](../scripts/build/runtime_artifact.py) 和 [restore_runtime](../scripts/release/restore_runtime.py)：
+
+- CI 在导入与资源、包内协议和退出清理检查通过后，记录二进制大小与 SHA-256、源码输入摘要、构建 profile、Python/PyInstaller/hooks 版本、macOS 架构与 runner 镜像，以及仓库、完整提交 SHA、运行 ID 和 attempt。生成与恢复都要求当前 Git HEAD 与指定 SHA 一致且跟踪源码干净。
+- 仅 `main` 的 push CI 上传 `runtime-release-<sha>-<attempt>`，保留 7 天、压缩级别为 0。Release 只接受同仓库、同一完整 SHA、指定 CI 工作流、`push main` 且整次工作流成功的制品，不使用 PR 制品或只通过 Runtime 单项的运行。
+- 恢复前核对运行与制品来源、GitHub 提供的整个 ZIP 摘要、清单与二进制的大小及摘要，再与当前源码、锁文件、Python、平台和 runner 镜像匹配。归档只允许预期的普通文件，拒绝路径穿越、链接和额外内容；验证通过后才原子替换 Sidecar 并恢复可执行权限。
+- 没有符合条件的制品、CI 尚未完成、制品过期、下载失败或校验不匹配时，日志记录回退原因，本次 Release 重新从源码构建完整 Runtime。不会为等待 CI 或缓存无限阻塞，也不会用未经校验的二进制继续打包。
+
+只有 Release 的 `build` job 额外拥有 `actions: read`，该 job 仅向恢复 step 显式注入 `GH_TOKEN`；其他 action 仍可使用各自支持的自动令牌机制。复用成功后仍重新构建最终应用和 DMG，并完成最终 DMG 内 smoke 与真实 DMG 安装器验收；CI 的 Sidecar 验收不能替代这些发布条件。
+
+并行检查缩短串行等待，Runtime 命中时省去一次 PyInstaller 构建。实际收益取决于排队时间、缓存命中与构建输入是否变化；并行也会占用更多同时运行的 runner。应比较 Actions 各 job/step 耗时与任务入口的命令摘要，分别记录冷构建和命中制品的运行，不将首次执行或静态配置检查当作提速实测。
 
 ## 终端安装与隔离验收
 
@@ -103,7 +120,7 @@ python -m scripts.acceptance.verify_installer \
 
 创建草稿后直接使用创建接口返回的对象，不通过列表回读来判断是否创建成功，避免列表可见性延迟导致误判。
 
-流程和发布脚本的回归在 [test_release.py](../tests/test_release.py)，随 `pnpm test` 执行。修改后还应运行 `pnpm check`、工作流语法检查和真实云端候选制品验证。
+发布脚本回归在 [test_release.py](../tests/test_release.py)，任务依赖、并行检查与发布汇合条件由 [test_release_workflow.py](../tests/test_release_workflow.py)覆盖，均随 `pnpm test` 执行。修改后还应运行 `pnpm check`、工作流语法检查和真实云端候选制品验证。
 
 ## 验证边界
 
