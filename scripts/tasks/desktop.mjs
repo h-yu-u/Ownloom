@@ -29,7 +29,6 @@ export const desktopTasks = {
   'build:web': task('Type-check and build the web frontend.', [desktop('build')]),
   'build:app': task('Build the complete app and DMG on Apple Silicon macOS.', [
     bundleCoding,
-    desktop('build'),
     buildRuntime,
     { ...desktop('tauri', 'build', '--ci'), env: { CI: 'true' } },
   ]),

@@ -36,6 +36,7 @@ function simulatedTool() {
   })
   if (process.env.OWNLOOM_TASK_MODE === 'fail') process.exit(23)
   if (process.env.OWNLOOM_TASK_MODE === 'signal') process.kill(process.pid, 'SIGTERM')
+  if (process.env.OWNLOOM_TASK_MODE === 'slow') setTimeout(() => {}, 50)
   if (process.env.OWNLOOM_TASK_MODE === 'wait') {
     const child = spawn(process.execPath, ['-e', process.env.OWNLOOM_TASK_CHILD_SOURCE], {
       stdio: 'inherit',
@@ -59,6 +60,7 @@ async function fixture(t, extra = {}) {
   const env = {
     ...process.env,
     PATH: bin,
+    GITHUB_STEP_SUMMARY: '',
     OWNLOOM_TASK_LOG: log,
     OWNLOOM_TASK_VALUE: 'inherited value',
     OWNLOOM_TASK_CHILD_SOURCE: `(${simulatedGrandchild.toString()})()`,
@@ -132,9 +134,40 @@ test('dev web builds the Host before starting Vite', async (t) => {
 
 test('the first child failure preserves its exit code and stops later commands', async (t) => {
   const work = await fixture(t, { OWNLOOM_TASK_MODE: 'fail' })
+  work.env.GITHUB_STEP_SUMMARY = join(work.directory, 'summary.md')
   const result = work.run('dev', 'web')
   assert.equal(result.status, 23, result.stderr)
   assert.equal((await work.records()).length, 1)
+  assert.match(result.stdout, /^\[duration\] \d+\.\d{3}s \| exit 23 \| /m)
+  assert.match(await readFile(work.env.GITHUB_STEP_SUMMARY, 'utf8'), /\| exit 23 \|/)
+})
+
+test('completed commands report measured durations and append a CI summary', async (t) => {
+  const work = await fixture(t, { OWNLOOM_TASK_MODE: 'slow' })
+  const summaryPath = join(work.directory, 'summary.md')
+  work.env.GITHUB_STEP_SUMMARY = summaryPath
+  await writeFile(summaryPath, 'Existing summary\n')
+  const result = work.run('dev', 'web')
+  assert.equal(result.status, 0, result.stderr)
+  const durations = [...result.stdout.matchAll(/^\[duration\] (\d+\.\d{3})s \| exit 0 \| /gm)]
+  assert.equal(durations.length, 2)
+  assert.ok(durations.every(([, seconds]) => Number(seconds) >= 0.04))
+  const summary = await readFile(summaryPath, 'utf8')
+  assert.ok(summary.startsWith('Existing summary\n'))
+  assert.match(summary, /\| Command \| Duration \| Result \|/)
+  assert.match(summary, /pnpm --filter @mlx-studio\/coding-agent build/)
+  assert.match(summary, /pnpm --filter @mlx-studio\/desktop dev/)
+  assert.equal([...summary.matchAll(/\| \d+\.\d{3}s \| exit 0 \|/g)].length, 2)
+  assert.ok(!`${result.stdout}${result.stderr}${summary}`.includes('inherited value'))
+})
+
+test('a CI summary write failure does not replace the failed command result', async (t) => {
+  const work = await fixture(t, { OWNLOOM_TASK_MODE: 'fail' })
+  work.env.GITHUB_STEP_SUMMARY = work.directory
+  const result = work.run('dev', 'web')
+  assert.equal(result.status, 23, result.stderr)
+  assert.equal((await work.records()).length, 1)
+  assert.match(result.stderr, /Could not write command duration summary/)
 })
 
 test('verification preserves arguments, inherited environment, and repository cwd', async (t) => {
@@ -169,14 +202,27 @@ test('explicit script help reaches the verification program', async (t) => {
   assert.equal((await work.records())[0].args.at(-1), '--help')
 })
 
-test('app build preserves environment and sets CI only for Tauri', async (t) => {
+test('app build delegates the web build to Tauri and sets CI only for Tauri', async (t) => {
   const work = await fixture(t, { CI: 'caller-value' })
   const result = work.run('build', 'app')
   assert.equal(result.status, 0, result.stderr)
+  const calls = await work.records()
   assert.deepEqual(
-    (await work.records()).map(({ ci }) => ci),
-    ['caller-value', 'caller-value', 'caller-value', 'true'],
+    calls.map(({ args }) => args),
+    [
+      ['scripts/build/build-coding-host.sh'],
+      ['scripts/build/build-runtime.sh'],
+      ['--filter', '@mlx-studio/desktop', 'tauri', 'build', '--ci'],
+    ],
   )
+  assert.deepEqual(
+    calls.map(({ ci }) => ci),
+    ['caller-value', 'caller-value', 'true'],
+  )
+  const config = JSON.parse(
+    await readFile(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'),
+  )
+  assert.equal(config.build.beforeBuildCommand, 'pnpm build')
 })
 
 test('a missing executable returns failure instead of a successful null status', async (t) => {
@@ -184,13 +230,17 @@ test('a missing executable returns failure instead of a successful null status',
   const result = work.run('generate', 'api')
   assert.equal(result.status, 127, result.stderr)
   assert.match(result.stderr, /Cannot run pnpm/)
+  assert.equal([...result.stdout.matchAll(/\| exit 127 \|/g)].length, 1)
 })
 
 test('a child terminated by a signal terminates the runner with that signal', async (t) => {
   const work = await fixture(t, { OWNLOOM_TASK_MODE: 'signal' })
+  work.env.GITHUB_STEP_SUMMARY = work.directory
   const result = work.run('dev', 'web')
   assert.equal(result.signal, 'SIGTERM', result.stderr)
   assert.equal((await work.records()).length, 1)
+  assert.match(result.stdout, /^\[duration\] \d+\.\d{3}s \| signal SIGTERM \| /m)
+  assert.match(result.stderr, /Could not write command duration summary/)
 })
 
 test(

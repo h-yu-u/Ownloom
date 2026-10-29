@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
 import { delimiter, resolve } from 'node:path'
 
 function execute(step, { cwd, env }) {
@@ -52,12 +53,43 @@ function execute(step, { cwd, env }) {
   })
 }
 
+function summaryCommand(command) {
+  return command
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('|', '&#124;')
+    .replace(/[\r\n]/g, ' ')
+}
+
+function appendSummary(rows, path) {
+  if (!path || !rows.length) return
+  try {
+    const header =
+      '\n### Command durations\n\n| Command | Duration | Result |\n| --- | ---: | --- |\n'
+    appendFileSync(path, `${header}${rows.join('\n')}\n`)
+  } catch {
+    process.stderr.write('Could not write command duration summary; command result is unchanged.\n')
+  }
+}
+
 /** Run a flat, ordered plan and stop on the first failure or interruption. */
 export async function runCommands(commands, { cwd, env = process.env }) {
-  for (const step of commands) {
-    process.stdout.write(`> ${[step.program, ...step.args].join(' ')}\n`)
-    const result = await execute(step, { cwd, env })
-    if (result.code !== 0 || result.signal) return result
+  const rows = []
+  try {
+    for (const step of commands) {
+      const command = [step.program, ...step.args].join(' ')
+      process.stdout.write(`> ${command}\n`)
+      const started = performance.now()
+      const result = await execute(step, { cwd, env })
+      const duration = `${((performance.now() - started) / 1000).toFixed(3)}s`
+      const outcome = result.signal ? `signal ${result.signal}` : `exit ${result.code}`
+      process.stdout.write(`[duration] ${duration} | ${outcome} | ${command}\n`)
+      rows.push(`| <code>${summaryCommand(command)}</code> | ${duration} | ${outcome} |`)
+      if (result.code !== 0 || result.signal) return result
+    }
+    return { code: 0 }
+  } finally {
+    appendSummary(rows, env.GITHUB_STEP_SUMMARY)
   }
-  return { code: 0 }
 }
