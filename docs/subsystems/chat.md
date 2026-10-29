@@ -37,25 +37,40 @@
 
 ## 生成统计
 
-普通聊天从 [EngineSession](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/session.py) 透传 MLX-LM / MLX-VLM 返回的原生统计。`generationStats` 包含来源 `source`，以及可为空的 `generationTokens`、`generationTps`、`promptTokens`、`promptTps`、`cachedTokens`。计数是引擎累计值，速率单位为 token/s；不累加每帧计数、不平均每帧速率，也不根据字符数、事件到达间隔或整个请求耗时重新估算。
+普通聊天从 [EngineSession](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/session.py) 取得 MLX-LM / MLX-VLM 的原生统计，由 [GenerationMeasurements](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/generation_measurements.py) 附加本轮 Worker 测量。`generationStats` 保留来源 `source` 和可为空的 `generationTokens`、`generationTps`、`promptTokens`、`promptTps`、`cachedTokens`，并兼容旧记录缺少的 `draftMode`、`prefillTokens`、`prefillMs`、`firstTokenMs`、`durationMs`。只有收到有效原生统计时才附加测量；未知值不补零、不根据字符数或事件到达间隔估算。
 
-`generationTps` 是引擎生成过程的累计平均速率，不是最近一秒的瞬时速度，也不代表纯 GPU 吞吐。统计保留上游的 token 和计时边界，输出数量可能包含未显示成正文的结束 token。输入处理和缓存字段仅作为原生元数据保存，不作为第一版界面的生成速率。
+`generationTps` 是引擎生成过程的累计平均速率，单位为 token/s，不是最近一秒的瞬时速度，也不代表纯 GPU 吞吐。不累加每帧计数、不平均每帧速率，不用本轮总耗时重新计算该速率。输出数量保留上游边界，可能包含未显示成正文的结束 token。输入总量包含缓存部分；使用手工前缀适配器时，缓存所有者提供完整输入数和真正从上一请求复用的数量，避免将本轮推进检查点的计算误算为缓存命中。`prefillTokens` 仅在这两个计数都已知且有效时取其差值。
+
+| 字段           | 展示与计量边界                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `draftMode`    | 本轮传给引擎的草稿方案：`none`、`mtp` 或 `dflash2`，不从模型设置或生成速度推断。                                 |
+| `firstTokenMs` | “首字等待”：Worker 本轮生成开始至首个可见非空文本；只有工具调用且没有正文时可为空。                              |
+| `prefillMs`    | “输入准备”：同一起点至首个原生 token，包含模板处理、缓存处理、预填充及首 token 计算，不等同于纯 GPU 预填充时间。 |
+| `durationMs`   | “本轮推理”：同一起点至本轮 Worker 生成结束，不是整个任务耗时。                                                   |
+
+三个耗时字段均不包含排队、模型加载、联网准备和工具执行。旧记录缺少测量时保留未知；真实零值仍可展示。
 
 统计随 `generation.delta` 传递，和文本共用 `textRevision`。上游响应没有可显示文本但更新了统计时，仍发送空文本增量并递增版本；末帧统计可以独立更新，并通过任务快照或成功消息恢复。客户端按任务、会话及版本投影，不自行计时。运行中的统计保留在任务内存中并随任务回收，不逐 token 写数据库。
 
 [ChatService](../../services/runtime/src/mlx_studio_runtime/application/chat_service.py) 将完成帧中的最终统计保存到成功回答的 `parameters.generationStats`，与正文及成功终态使用同一事务；消息和任务查询提供顶层 `generationStats` 投影。完成帧缺失或不再提供有效统计时，成功事件前显式清空临时值，最终值不依赖历史重载成功。重新打开会话、任务内存回收或 Runtime 重启后，已成功回答的统计从对应消息恢复。取消或失败不保存新的成功回答及最终统计，重新生成失败保留旧回答原有的统计；继续回答和重新生成分别统计本次推理。
 
-界面使用共享的 [GenerationStats.vue](../../apps/desktop/src/shared/ui/GenerationStats.vue)，目前仅普通聊天接入，展示“平均生成速度”与“输出” token 数。流式阶段样本不足时显示“统计中”，完成后显示最后的原生值；显示时的小数格式化不修改保存值。旧记录、FakeEngine 和没有原生统计的回答不显示统计行，真实统计中缺失或无效的单个字段显示 `—`。负值、非有限速率和无效计数不能成为有效统计，也不能使正文读取失败。
+普通聊天和 Coding 时间线共用 [GenerationStats.vue](../../apps/desktop/src/shared/ui/GenerationStats.vue)。摘要展示原生平均生成速度、输出 token 数及已知的本轮草稿方案；展开后展示已知的输入总量、缓存复用、本轮输入处理和三个耗时。流式阶段样本不足时显示“统计中”，完成后显示最后的原生值；显示时的小数格式化不修改保存值。没有有效原生统计的旧记录及 FakeEngine 不显示统计行；摘要缺失字段显示 `—`，展开区省略未知字段。负值、非有限速率和无效计数不能成为有效统计，也不能使正文读取失败。
+
+Coding 仅将成功完成的单次模型回复所带统计投影到对应 `assistant.message`；传输见 [Runtime Provider 统计](./runtime.md#coding-多轮前缀缓存)。工具耗时和整个 Coding 运行耗时保持各自口径，失败或取消的模型回复不显示成功统计。后续工具或模型轮次失败，不抹去此前已经成功完成的模型回复及其统计。
 
 ## 多轮前缀缓存
 
 普通纯文字聊天通过 [ChatPrefixCache](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/prefix_cache.py) 复用 MLX-VLM 的 exact APC 快照。只对上游 `model_apc_mode` 返回 `exact` 的模型启用，保留 KV 与循环状态的完整副本，不对混合模型的 `ArraysCache` 执行裁剪。MLX-LM、block 模式、图片输入、没有会话归属的生成和 Coding/结构化推理不使用此缓存；[Coding 前缀缓存](./runtime.md#coding-多轮前缀缓存)另有独立所有者。
 
-Worker 只持有当前会话的一份前缀快照，不写磁盘。快照最多 8192 token，所有层的 `nbytes` 合计最多 1 GiB；无法计量或超过限制时不克隆，输入超过 8192 token 时清除快照并完整处理输入。这是保留快照的上限，不是整个推理过程或 GPU 分配器的内存上限。缓存命中要求 token 前缀、会话及上游模型/处理器语义标识匹配；编辑历史或重新生成不满足条件时正常执行完整输入。
+Worker 只持有当前会话的一份前缀快照，不写磁盘。快照最多 8192 token，所有层的 `nbytes` 合计最多 1 GiB；无法计量或超过字节限制时不克隆。完整请求可以超过 8192 token，并继续复用满足上限的稳定前缀；实际请求长度仍由模型上下文预算限制。这是保留快照的上限，不是整个推理过程或 GPU 分配器的内存上限。缓存命中要求 token 前缀、会话及上游模型/处理器语义标识匹配；编辑历史或重新生成不满足条件时正常执行完整输入。
 
-首次未命中时保存输入尾部之前的检查点，后续命中沿用该检查点，不在每轮结束后扩展到整个生成结果。当前时间放在本轮用户输入末尾，时间及模板尾部不进入稳定检查点，避免每秒变化使历史前缀失效。时间仍进入冻结上下文和预算，原始用户正文不变；重新生成复用资料快照时沿用该快照的时间。增加的 `cacheSuffix` 元数据缺省为空，旧快照仍可读取。
+首次未命中时保存输入尾部之前的检查点。配置为 `qwen3_5` 的普通纯文字请求通过 [Chat 预填充适配器](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/chat_prefill.py) 在稳定前缀新增至少 512 token 时推进检查点；达到 8192 token 上限时允许完成最后一次不足阈值的推进。推进从旧快照的独立副本继续计算新增输入，不重算已有前缀、不裁剪循环状态，也不保存生成结果。增长不足阈值时不替换保留的检查点，避免每轮额外克隆存储快照；原生生成仍使用独立的工作副本。其他 exact 模型沿用上游原生缓存路径，命中后不主动推进。
 
-取消、推理失败、切换会话或模型、卸载、Worker 重启、图片请求以及 Coding/结构化推理会释放缓存。命中和保存失败会禁用该次缓存并继续完整输入路径，只记录异常类型；不重试已经输出的生成。引擎的 `cachedTokens` 仍沿用上述原生统计链路，缓存主要减少重复输入的处理和首字等待时间，不能据此承诺提高逐 token 生成速度。
+共享的[文字输入适配器](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/prefill_inputs.py)只接纳单样本、完整且无 padding 的 attention mask，以及不含媒体 token 的纯文字输入。完整 mask 以锁定 MLX-VLM 快捷输入要求的 `mask` 参数传入原生生成；预填充后的尾部保持绝对 RoPE 位置。缺失 mask 或不符合该窄契约时清理缓存，交回原生完整输入路径。
+
+当前时间放在本轮用户输入末尾，时间及模板尾部不进入稳定检查点，避免每秒变化使历史前缀失效。推进后的边界也遵守这个限制。时间仍进入冻结上下文和预算，原始用户正文不变；重新生成复用资料快照时沿用该快照的时间。增加的 `cacheSuffix` 元数据缺省为空，旧快照仍可读取。
+
+取消、推理失败、切换会话或模型、卸载、Worker 重启、图片请求以及 Coding/结构化推理会释放缓存。缓存查找或输入准备失败时清理快照并交回原生完整输入路径，只记录异常类型。保存快照失败时丢弃保留状态，已经完成预填充的有效工作副本继续本次生成；不会重算该次输入或重试已经输出的生成。缓存所有者记录完整输入数与真正从上一请求恢复的 token 数；当本轮手工预填充推进检查点时，新计算的输入不计入跨请求 `cachedTokens`。缓存主要减少重复输入的处理和首字等待时间，不能据此承诺提高逐 token 生成速度。
 
 ## 输出预算
 
@@ -101,6 +116,6 @@ Search 保留原问题，时效性问题独立提供 day/week 参数，使用 `a
 
 生成统计另有[原生响应适配回归](../../tests/test_native_generation_stats.py)和[聊天统计持久化回归](../../tests/test_chat_generation_stats.py)，覆盖空文本结束帧、原生累计值、缺失/无效统计、快照及成功回答恢复、取消与失败。它们使用受控 MLX 响应和隔离数据库；前端同时验证统计展示及晚到快照的版本保护。
 
-前缀缓存的[容量与归属回归](../../tests/test_chat_prefix_cache.py)和[引擎生命周期回归](../../tests/test_chat_prefix_cache_session.py)覆盖单快照上限、同会话复用、历史变更未命中、时间边界、取消/失败/卸载清理及异常回退。真实模型的命中率、首字等待和退出结果需另外验证，不能从这些替身测试推断。
+前缀缓存的[容量与归属回归](../../tests/test_chat_prefix_cache.py)、[预填充契约回归](../../tests/test_chat_prefill_contract.py)和[引擎生命周期回归](../../tests/test_chat_prefix_cache_session.py)覆盖单快照上限、长请求复用、按阈值暖推进、完整 mask、同会话复用、历史变更未命中、时间边界、取消/失败/卸载清理及异常回退。真实模型的命中率、首字等待和退出结果需另外验证，不能从这些替身测试推断。
 
 这些测试不证明真实 VLM 历史视觉绑定、真实长输出质量、搜索正文完整网络矩阵、正式签名下 Keychain 或干净机器可用。已记录验证的范围及剩余要求统一见[验证矩阵](../verification.md)。

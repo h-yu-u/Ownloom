@@ -13,6 +13,7 @@ import {
 } from '../presentation/coding-activity'
 import { statusLabel, activeStatus } from '../domain/status'
 import MarkdownContent from '../../../shared/ui/MarkdownContent.vue'
+import GenerationStats from '../../../shared/ui/GenerationStats.vue'
 import { useMarkdownCopy } from '../../../shared/ui/markdown-copy'
 import { copyText } from '../../../platform/clipboard'
 import { useTimelineScroll } from '../presentation/use-timeline-scroll'
@@ -76,6 +77,7 @@ const scroller = useTimelineScroll(entries)
           <summary>错误详情</summary>
           <pre>{{ codingRunErrorText(eventError(entry.event.data) ?? '') }}</pre>
         </details>
+        <GenerationStats :stats="entry.generationStats" />
       </article>
       <!-- eslint-enable vue/no-v-html -->
     </template>

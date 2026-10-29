@@ -19,6 +19,11 @@ export function nativeStats(generationTokens = 8, generationTps = 12.5): Generat
     promptTokens: 16,
     promptTps: 100,
     cachedTokens: 0,
+    draftMode: null,
+    prefillTokens: null,
+    prefillMs: null,
+    firstTokenMs: null,
+    durationMs: null,
   }
 }
 export function jobSnapshot(

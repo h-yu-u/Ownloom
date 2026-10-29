@@ -1,6 +1,8 @@
 import type { CodingEvent, CodingRun } from '../application/ports'
 import { activeStatus } from '../domain/status'
 import { commandDescription } from './command-description'
+import { codingGenerationStats } from './coding-generation-stats'
+import type { GenerationStatsView } from '../../../shared/lib/generation-stats'
 export interface ActivityItem {
   id: string
   label: string
@@ -9,7 +11,12 @@ export interface ActivityItem {
   status: 'running' | 'completed' | 'failed' | 'cancelled'
 }
 export type TimelineEntry =
-  | { kind: 'message'; key: string; event: CodingEvent }
+  | {
+      kind: 'message'
+      key: string
+      event: CodingEvent
+      generationStats?: GenerationStatsView | null
+    }
   | { kind: 'activity'; seq: number; runId: string | null; items: ActivityItem[] }
 
 export function assistantMessageKey(event: CodingEvent): string | null {
@@ -37,6 +44,7 @@ export function timelineEntries(
     tools = new Map<string, ActivityItem>()
   const messages = new Map<string, Extract<TimelineEntry, { kind: 'message' }>>()
   for (const event of events) {
+    const generationStats = codingGenerationStats(event)
     if (
       [
         'tool.started',
@@ -50,13 +58,15 @@ export function timelineEntries(
     } else if (
       ['run.started', 'user.steering', 'run.interrupted'].includes(event.type) ||
       (['assistant.delta', 'assistant.message'].includes(event.type) &&
-        (event.text.trim() || eventError(event.data)))
+        (event.text.trim() || eventError(event.data) || generationStats))
     ) {
       const key = assistantMessageKey(event) ?? String(event.seq),
         previous = messages.get(key)
-      if (previous) previous.event = event
-      else {
-        const entry = { kind: 'message' as const, key, event }
+      if (previous) {
+        previous.event = event
+        previous.generationStats = generationStats
+      } else {
+        const entry = { kind: 'message' as const, key, event, generationStats }
         result.push(entry)
         messages.set(key, entry)
       }

@@ -14,6 +14,11 @@ class GenerationStats(BaseModel):
     promptTokens: int | None = Field(default=None, ge=0, strict=True)
     promptTps: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
     cachedTokens: int | None = Field(default=None, ge=0, strict=True)
+    draftMode: Literal["none", "mtp", "dflash2"] | None = None
+    prefillTokens: int | None = Field(default=None, ge=0, strict=True)
+    prefillMs: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
+    firstTokenMs: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
+    durationMs: float | None = Field(default=None, ge=0, strict=True, allow_inf_nan=False)
 
 
 class WebSearchOptions(BaseModel):

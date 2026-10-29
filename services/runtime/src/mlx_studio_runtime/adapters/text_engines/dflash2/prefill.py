@@ -1,8 +1,8 @@
 """Request-scoped capture; bounded features and no prefill rollback history."""
 
 # pyright: basic
-import mlx.core as mx
-from mlx import nn
+import mlx.core as mx  # type: ignore[import-not-found]
+from mlx import nn  # type: ignore[import-not-found]
 
 from mlx_studio_runtime.adapters.text_engines.coding_cache import DraftPrefix
 

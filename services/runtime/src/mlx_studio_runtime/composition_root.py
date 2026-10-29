@@ -61,6 +61,7 @@ from mlx_studio_runtime.application.job_scheduler import JobScheduler
 from mlx_studio_runtime.application.model_acceleration import ModelAcceleration
 from mlx_studio_runtime.application.model_catalog import ModelCatalog
 from mlx_studio_runtime.application.model_removal import ModelRemovalPorts, RemoveModel
+from mlx_studio_runtime.application.model_run_references import ModelRunReferences
 from mlx_studio_runtime.application.model_runtime import ModelRuntime
 from mlx_studio_runtime.application.queries import Queries
 from mlx_studio_runtime.application.restore_profile import RestoreProfile, RestoreProfilePorts
@@ -124,8 +125,14 @@ class RuntimeApplication:
             store.jobs,
         )
         self.controls = RuntimeControl(self.scheduler, self.inference)
+        model_run_references = ModelRunReferences()
         self.acceleration = ModelAcceleration(
-            self.catalog, self.scheduler, self.inference, validate_mtp, validate_draft
+            self.catalog,
+            self.scheduler,
+            self.inference,
+            validate_mtp,
+            validate_draft,
+            references=model_run_references,
         )
         contexts = ChatContextRepository(store.database)
         self.queries = Queries(
@@ -191,6 +198,7 @@ class RuntimeApplication:
             self.extensions,
             self.catalog.models,
             lambda: self.agent_host.epoch,
+            references=model_run_references,
         )
         self.coding_submissions = CodingRunSubmission(
             self.coding_requests, self.extensions, self.capability_grants

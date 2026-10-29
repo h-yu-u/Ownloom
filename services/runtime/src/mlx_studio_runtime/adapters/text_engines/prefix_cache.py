@@ -33,11 +33,13 @@ class ExactCacheBackend(Protocol):
 
 
 class BoundedExactCache:
-    """Keep only the first prefill checkpoint, including hybrid recurrent state.
+    """Keep one pre-generation checkpoint, including hybrid recurrent state.
 
     The upstream callback stores a guarded prefix before the final prompt token,
     then offers the whole prompt. Retaining the guarded snapshot allows identical
     prompts (regeneration) to hit without trimming non-trimmable ArraysCache.
+    The Qwen text adapter can advance that boundary before native generation;
+    other exact models keep the upstream checkpoint callback.
     """
 
     def __init__(self, backend: ExactCacheBackend) -> None:
@@ -45,10 +47,13 @@ class BoundedExactCache:
         self.exact_cache_guard_tokens = 16
         self.failed = False
         self._stored = False
+        self.cached_tokens: int | None = None
+        self.prompt_tokens: int | None = None
 
     def begin(self) -> None:
         self._stored = False
         self.exact_cache_guard_tokens = 16
+        self.cached_tokens = self.prompt_tokens = None
 
     def store_exact_cache(
         self, token_ids: Sequence[int], prompt_cache: Sequence[Any], *, extra_hash: int = 0
@@ -77,11 +82,18 @@ class BoundedExactCache:
     ) -> tuple[list[Any] | None, int]:
         if self.failed:
             return None, 0
+        self.prompt_tokens = len(token_ids)
+        self.cached_tokens = 0
         try:
-            if len(token_ids) > MAX_PREFIX_TOKENS:
-                self.backend.clear()
-                return None, 0
-            return self.backend.lookup_exact_cache(token_ids, **kwargs)
+            # Bound the retained checkpoint, not the request that can reuse it.
+            # Upstream computes its cold checkpoint after this lookup, so leave
+            # both the volatile suffix and any tokens beyond the cap uncached.
+            self.exact_cache_guard_tokens = max(
+                self.exact_cache_guard_tokens, len(token_ids) - MAX_PREFIX_TOKENS
+            )
+            layers, count = self.backend.lookup_exact_cache(token_ids, **kwargs)
+            self.cached_tokens = count if layers is not None else 0
+            return layers, count
         except Exception as error:
             self._invalidate(error)
             return None, 0
@@ -123,6 +135,14 @@ class ChatPrefixCache:
         self.suffix = ""
         self._conversation_id: str | None = None
         self._cache: BoundedExactCache | None = None
+
+    @property
+    def cached_tokens(self) -> int | None:
+        return self._cache.cached_tokens if self._cache is not None else None
+
+    @property
+    def prompt_tokens(self) -> int | None:
+        return self._cache.prompt_tokens if self._cache is not None else None
 
     def begin(self, model: Any, engine: str, payload: dict[str, Any]) -> None:
         conversation = payload.get("conversation_id")

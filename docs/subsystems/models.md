@@ -46,7 +46,11 @@
 
 [设置契约](../../services/runtime/src/mlx_studio_runtime/entrypoints/http/draft_contracts.py)和 [领域设置](../../services/runtime/src/mlx_studio_runtime/domain/drafts.py)维护 Manifest 的可空 `draft` 字段：`enabled`、`mode`、`mtpPath`、`dflashPath`、`mtpBlockSize`、`dflashBlockSize`。`POST /internal/v1/models/{model_id}/draft` 需要内部认证。关闭只改变 `enabled`，保留目录；文件丢失时仍可关闭。同路径重新导入和 Runtime 重启保留设置。旧 `mtp` 字段与 `/mtp` 入口兼容；保存新设置清空旧字段，旧入口显式更新会清空新字段，避免两套配置同时生效。
 
-[配置用例](../../services/runtime/src/mlx_studio_runtime/application/model_acceleration.py)等待推理租约，再校验已选择方案、卸载同 ID 模型并持久化。失败不提交新设置，不打断当前推理；下次加载生效。自动模式要求两套草稿目录。MTP 的静态检查接受 `qwen3_5_mtp` 配 `qwen3_5` / `qwen3_5_moe`。DFlash2 仅接受已适配的滑动窗口、卷积及 selector 配置与 dense `qwen3_5` 主模型，并检查词表、hidden size、目标层数和有界参数。两种路径都要求本地 `config.json`、`model.safetensors`，加载时严格检查全部权重；保存设置不能代表推理质量已验收。
+[配置用例](../../services/runtime/src/mlx_studio_runtime/application/model_acceleration.py)先取得与父任务互斥的[模型引用保留](../../services/runtime/src/mlx_studio_runtime/application/model_run_references.py)，再等待推理租约、校验已选择方案、卸载同 ID 模型并持久化。Coding / Agent 从 Host 准备前到运行授权关闭一直保留模型引用，包含排队、工具执行和审批等待；有引用时，新旧草稿配置接口均返回 `MODEL_IN_USE`，保留原设置和 Worker。配置更新期间同一模型的新任务也被拒绝，不让异步验证或 Worker 停止产生接纳空隙。失败或取消的准备保留会释放，已授予的运行引用在取消清理完成后释放；配置失败不提交新设置。即使设置相同，空闲时保存仍会卸载已驻留模型，确保下次加载时重新校验可能已替换的草稿文件。新设置下次加载生效。
+
+自动模式要求两套草稿目录。MTP 的静态检查接受 `qwen3_5_mtp` 配 `qwen3_5` / `qwen3_5_moe`。DFlash2 仅接受已适配的滑动窗口、卷积及 selector 配置与 dense `qwen3_5` 主模型，并检查词表、hidden size、目标层数和有界参数。两种路径都要求本地 `config.json`、`model.safetensors`，加载时严格检查全部权重；保存设置不能代表推理质量已验收。
+
+提交 Coding / Agent 任务时，MCP 连接凭据先异步读取为实际字符串，再创建运行授权并发送 Host RPC；凭据读取失败不会留下运行授权。若提交 RPC 的结果未知，运行可能已经开始，授权和模型引用继续保留，直到显式停止、Host 关闭授权或授权过期清理完成；不因丢失回复而假定任务没有执行或自动重放。
 
 草稿共用目标 tokenizer、embedding 和输出头；不下载权重、不执行模型仓库代码。其他模型登记的草稿路径（包括关闭后保留的目录）位于待删除目录内时阻止物理删除；移除登记不删除草稿文件。执行与缓存规则见 [Runtime 草稿接入](./runtime.md#实验性草稿接入)，验收范围见[验证记录](../verification.md)。
 

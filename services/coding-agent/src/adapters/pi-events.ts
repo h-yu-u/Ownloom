@@ -4,11 +4,13 @@ import type { PiSession } from '../application/ports.js'
 import type { Snapshot } from '../extensions/domain/types.js'
 import { providerErrorCode } from '../application/model-result.js'
 import { toolEvidence } from './extensions/tool-evidence.js'
+import type { ProviderMeasurements } from './provider-measurements.js'
 
 export function createPiEventBridge(
   callback: Parameters<PiSession['subscribe']>[0],
   snapshot?: Snapshot,
   live = true,
+  measurements?: ProviderMeasurements,
 ): (event: AgentSessionEvent) => void {
   let messageId = randomUUID(),
     emittedAt = 0
@@ -49,6 +51,7 @@ export function createPiEventBridge(
           streaming: false,
           stopReason: event.message.stopReason,
           error: providerErrorCode(event.message.errorMessage) ?? null,
+          generationStats: measurements?.finish(event.message.stopReason),
         },
       })
     if (event.type === 'tool_execution_end') toolFinished(event, callback, snapshot)

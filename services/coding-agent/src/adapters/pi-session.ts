@@ -11,6 +11,7 @@ import { skillTool } from './extensions/skill-tool.js'
 import { tools } from './tools.js'
 import { piSystemPrompt } from './pi-prompt.js'
 import { codingStream } from './coding-provider.js'
+import { ProviderMeasurements } from './provider-measurements.js'
 import type { Provider, ToolContext, PiSession } from '../application/ports.js'
 import {
   createAgentSession,
@@ -62,13 +63,14 @@ export async function openPi(
     refreshOnCreate: false,
     allowModelNetwork: false,
   })
+  const measurements = new ProviderMeasurements()
   runtime.registerProvider('mlx-studio', {
     name: 'Ownloom',
     baseUrl: input.provider.baseUrl,
     api: 'openai-completions',
     apiKey: input.provider.token,
     ...(input.workspace !== 'chat'
-      ? { streamSimple: codingStream(input.provider.contextWindow) }
+      ? { streamSimple: codingStream(input.provider.contextWindow, measurements) }
       : {}),
     models: [
       {
@@ -202,7 +204,9 @@ export async function openPi(
       return last?.role === 'assistant' ? providerErrorCode(last.errorMessage) : undefined
     },
     subscribe: (callback) => {
-      pi.subscribe(createPiEventBridge(callback, input.snapshot, input.workspace !== 'chat'))
+      pi.subscribe(
+        createPiEventBridge(callback, input.snapshot, input.workspace !== 'chat', measurements),
+      )
     },
   }
   return { session, path: () => manager.getSessionFile() }

@@ -1,7 +1,19 @@
 import { record } from './decoders'
 import type { components } from './generated-schema'
 
-export type GenerationStats = Required<components['schemas']['GenerationStats']>
+type NativeStats = components['schemas']['GenerationStats']
+export type GenerationStats = NativeStats &
+  Required<
+    Pick<
+      NativeStats,
+      | 'source'
+      | 'generationTokens'
+      | 'generationTps'
+      | 'promptTokens'
+      | 'promptTps'
+      | 'cachedTokens'
+    >
+  >
 
 function nonnegative(value: unknown, integer = false): number | null {
   return typeof value === 'number' &&
@@ -25,6 +37,14 @@ export function decodeGenerationStats(value: unknown): GenerationStats | null {
       promptTokens: nonnegative(item.promptTokens, true),
       promptTps: nonnegative(item.promptTps),
       cachedTokens: nonnegative(item.cachedTokens, true),
+      draftMode:
+        item.draftMode === 'none' || item.draftMode === 'mtp' || item.draftMode === 'dflash2'
+          ? item.draftMode
+          : null,
+      prefillTokens: nonnegative(item.prefillTokens, true),
+      prefillMs: nonnegative(item.prefillMs),
+      firstTokenMs: nonnegative(item.firstTokenMs),
+      durationMs: nonnegative(item.durationMs),
     }
     return [
       stats.generationTokens,
@@ -32,6 +52,10 @@ export function decodeGenerationStats(value: unknown): GenerationStats | null {
       stats.promptTokens,
       stats.promptTps,
       stats.cachedTokens,
+      stats.prefillTokens,
+      stats.prefillMs,
+      stats.firstTokenMs,
+      stats.durationMs,
     ].some((value) => value !== null)
       ? stats
       : null

@@ -16,20 +16,26 @@ class CodingRunSubmission:
     async def submit(
         self, params: dict[str, object], base_url: str, model_id: str, agent: bool = False
     ) -> Any:
+        with self.grants.references.preparing((model_id,)):
+            return await self._submit(params, base_url, model_id, agent)
+
+    async def _submit(
+        self, params: dict[str, object], base_url: str, model_id: str, agent: bool
+    ) -> Any:
         run = await self.requests.call(
             "agent.runs.prepare" if agent else "runs.prepare", params, base_url, model_id
         )
         if run["status"] in {"completed", "cancelled", "failed", "interrupted"}:
             return run
-        bootstrap = await self.grants.prepare(run)
         connections = {
             server["id"]: {
                 "revision": server["revision"],
                 "digest": server["digest"],
-                "values": self.extensions.connection(server),
+                "values": await self.extensions.connection(server),
             }
             for server in run["capabilitySnapshot"]["servers"]
         }
+        bootstrap = await self.grants.prepare(run)
         committed = await self.extensions.coding.call(
             "agent.runs.commit" if agent else "runs.commit",
             {

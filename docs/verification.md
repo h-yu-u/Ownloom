@@ -120,6 +120,18 @@
 
 本机证据保存在未入库的 `.build/coding-cache-20261029/`：`bench-result.json`、`bench.log`、`product-result.json`、`product-v2.log`、`final-check.log`、`tests-authorized.log`、`final-targeted.log`。没有新增依赖、下载权重或修改上游环境。未重新构建 Web、Rust 或安装版 `.app`，未验证 MoE、跨模型泛化、32K 极限稳定性、长时间内存压力或概率分布等价。需重启开发版后端生效；首次请求建立缓存，Worker 重启后需要重新建立。
 
+## 缓存与草稿评审修复的验证边界
+
+2026-10-29，针对 `da82ac08ff776f9c2402d2d407610e47aa2995fb` 的评审修复，在 Linux 隔离环境使用 Node 22.23.1、pnpm 11.11.0、Python 3.12.14 与冻结依赖进行源码和协议验证。该环境没有 MLX/Metal 设备或模型权重，不能重跑上方 Mac 模型样本，也不能继承它们作为修复后版本的速度或质量证据。
+
+新增[预填充契约](../tests/test_coding_prefill_contract.py)覆盖完整 attention mask、后缀绝对位置与不支持输入的冷路径；[聊天契约](../tests/test_chat_prefill_contract.py)覆盖暖检查点推进、长输入复用、时间后缀边界、取消与真实跨请求命中数。它们以锁定 MLX-VLM 0.6.14 的调用契约和 CPU 数值/录制替身检查参数和状态，不等同于真实模型输出等价测试。此前 Coding 单样本缓存耗时记录保留为历史结果；修复完整 mask 后，需要在固定 Mac、模型与温度下重新测量。
+
+[活动引用回归](../tests/test_draft_run_lifecycle.py)覆盖任务准备、排队、工具间隙、变更等待推理锁、失败/取消和子任务关闭；[凭据提交回归](../tests/test_coding_submission_credentials.py)覆盖等待异步连接凭据和准备失败释放。真实 Node Host 与 HTTP 集成同时覆盖等待审批和排队时拒绝更改草稿设置。配置失败不绕过既有模型身份校验。
+
+[Worker 计时回归](../tests/test_generation_measurements.py)使用可控时钟区分原生输入准备、首段可见文字和完整推理；[Pi 统计回归](../services/coding-agent/tests/pi-measurements.test.mjs)使用真实固定版本 SDK 和本地 SSE 服务，验证成功提交、缺失或畸形扩展、失败终态与下一请求隔离。没有从时间估算 tok/s，也没有把本轮手工预填充计作先前请求缓存。现有 Chat 持久化、取消和最终空帧回归继续验证统计的生命周期。
+
+本轮未执行真实模型、Metal GPU、采样分布等价、原生 GUI 或长期内存压力测试；发布制品、Rust 与 DMG 的结果以对应 PR/Release 的 CI 记录为准。新增测试代码、Linux 检查通过和最终发行包通过是不同证据，不互相替代。
+
 ## 当前发布缺口
 
 | 项目          | 当前应采用的结论                                    | 完成条件                                           |

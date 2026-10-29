@@ -13,7 +13,12 @@ from mlx_studio_runtime.composition_root import RuntimeApplication
 from mlx_studio_runtime.domain.errors import RuntimeFault
 from mlx_studio_runtime.domain.worker_protocol import STREAM_QUEUE_SIZE
 from mlx_studio_runtime.entrypoints.http.inference_contracts import InferenceRequest
-from mlx_studio_runtime.entrypoints.http.provider_stream import provider_error, stream_result, usage
+from mlx_studio_runtime.entrypoints.http.provider_stream import (
+    ownloom_metadata,
+    provider_error,
+    stream_result,
+    usage,
+)
 
 
 def register_inference_routes(
@@ -114,6 +119,7 @@ def register_inference_routes(
                     }
                 ],
                 "usage": usage(result),
+                **ownloom_metadata(result),
             }
         return StreamingResponse(
             stream_result(task, queue, identity), media_type="text/event-stream"

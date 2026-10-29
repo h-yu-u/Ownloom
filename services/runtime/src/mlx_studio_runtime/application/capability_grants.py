@@ -14,6 +14,7 @@ from mlx_studio_runtime.application.builtin_tool_bridge import BuiltinToolBridge
 from mlx_studio_runtime.application.capability_ports import CapabilityLedgerPort
 from mlx_studio_runtime.application.extension_gateway import ExtensionGateway
 from mlx_studio_runtime.application.inference_service import InferenceService
+from mlx_studio_runtime.application.model_run_references import ModelRunReferences, run_model_ids
 from mlx_studio_runtime.application.ports import JobAdmission
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
 from mlx_studio_runtime.domain.models import ModelManifest
@@ -50,6 +51,8 @@ class CapabilityGrants:
         models: dict[str, ModelManifest],
         generation: Callable[[], str],
         clock: Callable[[], float] = time.monotonic,
+        *,
+        references: ModelRunReferences,
     ) -> None:
         self.ledger, self.scheduler, self.inference, self.bridge = (
             ledger,
@@ -69,6 +72,7 @@ class CapabilityGrants:
         self.lock = asyncio.Lock()
         self.reaper: asyncio.Task[None] | None = None
         self.closing = False
+        self.references = references
         for dispatch in ledger.unbound():
             if dispatch["action"] == "inference":
                 continue
@@ -80,9 +84,17 @@ class CapabilityGrants:
                 ledger.bind(dispatch["run_id"], dispatch["invocation_id"], job_id)
 
     async def prepare(self, run: dict[str, Any]) -> str:
+        with self.references.preparing(run_model_ids(run)):
+            return await self._prepare(run)
+
+    async def _prepare(self, run: dict[str, Any]) -> str:
         async with self.lock:
+            if self.closing:
+                raise fault("CAPABILITY_REVOKED")
             snapshot = run["capabilitySnapshot"]
             await self.extensions.validate_text(snapshot)
+            if self.closing:
+                raise fault("CAPABILITY_REVOKED")
             self._validate_models(snapshot, run["modelId"])
             prior = self.grants.get(run["id"])
             if prior:
@@ -105,19 +117,12 @@ class CapabilityGrants:
                     else None
                 ),
             )
-            model_ids = {grant.model_id}
-            selected = {
-                tool["originalName"] for tool in snapshot["tools"] if tool["serverId"] == "builtin"
-            }
-            for action, key in [
-                ("image_generate", "imageModelId"),
-                ("speech_generate", "speechModelId"),
-            ]:
-                if action in selected:
-                    model_ids.add(snapshot["mediaBindings"][key])
             grant.model_identities = {
                 model_id: json.dumps(self.models[model_id].to_dict(), sort_keys=True)
-                for model_id in model_ids
+                for model_id in run_model_ids(run)
+            }
+            selected = {
+                tool["originalName"] for tool in snapshot["tools"] if tool["serverId"] == "builtin"
             }
             bindings = snapshot.get("mediaBindings", {})
             if (
@@ -136,6 +141,7 @@ class CapabilityGrants:
                     "voiceVersion": grant.voice_version,
                 },
             )
+            self.references.retain(grant.run_id, grant.model_identities)
             self.grants[grant.run_id] = grant
             self.pending[grant.bootstrap] = grant
             if not self.reaper or self.reaper.done():
@@ -354,6 +360,7 @@ class CapabilityGrants:
         self.pending.pop(grant.bootstrap, None)
         if grant.token:
             self.tokens.pop(grant.token, None)
+        self.references.release(grant.run_id)
 
     async def revoke(self, target: str) -> None:
         async with self.lock:
