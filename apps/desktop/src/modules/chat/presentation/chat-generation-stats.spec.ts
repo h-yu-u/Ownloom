@@ -28,6 +28,43 @@ it('replaces cumulative metrics on stats-only frames without adding tokens or ch
   expect(state.value.messages[0]?.generationStats).toEqual(nativeStats(3, 15))
 })
 
+it('preserves actual acceleration and measured latency through final frames and history projection', async () => {
+  vi.useFakeTimers()
+  const { state, gateway, delta, emit, present } = setup()
+  const measured = {
+    ...nativeStats(24, 17.25),
+    draftMode: 'mtp' as const,
+    prefillTokens: 40,
+    prefillMs: 250,
+    firstTokenMs: 300,
+    durationMs: 1500,
+  }
+  gateway.get.mockRejectedValueOnce(new Error('history unavailable'))
+  delta('Answer', 1, nativeStats())
+  delta('', 2, measured)
+  emit('job.succeeded', {})
+  await flushPromises()
+  expect(state.value.messages[0]?.generationStats).toEqual(measured)
+  present({
+    id: 'conversation',
+    title: 'Chat',
+    modelId: 'model',
+    pinned: false,
+    messages: [
+      {
+        id: 'saved',
+        turnId: 'turn',
+        role: 'assistant',
+        content: 'Answer',
+        attachments: [],
+        parameters: {},
+        generationStats: measured,
+      },
+    ],
+  })
+  expect(state.value.messages[0]?.generationStats).toEqual(measured)
+})
+
 it('ignores metrics and terminal events for another job', () => {
   const { state, emit } = setup()
   emit('generation.delta', {

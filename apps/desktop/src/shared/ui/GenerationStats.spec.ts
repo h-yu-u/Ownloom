@@ -44,3 +44,67 @@ it.each([null, undefined])('hides the row when no native statistics exist: %s', 
   expect(wrapper.find('[aria-label="模型生成统计"]').exists()).toBe(false)
   wrapper.unmount()
 })
+
+it('separates measured input preparation and inference latency from the native output rate', () => {
+  const wrapper = mount(GenerationStats, {
+    props: {
+      stats: {
+        ...stats,
+        draftMode: 'dflash2',
+        promptTokens: 14315,
+        cachedTokens: 14275,
+        prefillTokens: 40,
+        prefillMs: 300.5,
+        firstTokenMs: 390,
+        durationMs: 1302,
+      },
+    },
+  })
+  expect(wrapper.text()).toContain('17.3 tok/s')
+  expect(wrapper.text()).toContain('DFlash2 草稿')
+  const details = wrapper.get('dl')
+  expect(details.text()).toContain('输入总量14315 tokens')
+  expect(details.text()).toContain('缓存复用14275 tokens')
+  expect(details.text()).toContain('本轮输入处理40 tokens')
+  expect(details.text()).toContain('输入准备300.5 ms')
+  expect(details.text()).toContain('首字等待390 ms')
+  expect(details.text()).toContain('本轮推理1.30 s')
+  expect(
+    wrapper
+      .findAll('dt')
+      .find((item) => item.text() === '本轮推理')
+      ?.attributes('title'),
+  ).toContain('不含排队')
+  wrapper.unmount()
+})
+
+it('keeps legacy replies readable without estimating unrecorded fields', () => {
+  const wrapper = mount(GenerationStats, {
+    props: { stats: { ...stats, promptTokens: 100, cachedTokens: 80 } },
+  })
+  expect(wrapper.text()).toContain('输入总量100 tokens')
+  expect(wrapper.text()).not.toContain('本轮输入处理')
+  expect(wrapper.text()).not.toContain('输入准备')
+  expect(wrapper.text()).not.toContain('首字等待')
+  expect(wrapper.text()).not.toContain('本轮推理')
+  expect(wrapper.text()).not.toContain('草稿')
+  wrapper.unmount()
+})
+
+it('shows measured zeros and the actual disabled draft path', () => {
+  const wrapper = mount(GenerationStats, {
+    props: {
+      stats: {
+        ...stats,
+        draftMode: 'none',
+        cachedTokens: 0,
+        prefillMs: 0,
+      },
+    },
+  })
+  expect(wrapper.text()).toContain('本轮未使用草稿')
+  expect(wrapper.text()).toContain('缓存复用0 tokens')
+  expect(wrapper.text()).toContain('输入准备0 ms')
+  expect(wrapper.text()).not.toContain('首字等待')
+  wrapper.unmount()
+})

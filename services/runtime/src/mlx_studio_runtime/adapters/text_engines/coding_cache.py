@@ -24,6 +24,7 @@ class CodingPrefixCache:
         self._backend: ExactCacheBackend | None = None
         self._features: DraftPrefix | None = None
         self.cached_tokens = 0
+        self.prompt_tokens: int | None = None
         self.retained_tokens = 0
         self.retained_bytes = 0
 
@@ -32,6 +33,7 @@ class CodingPrefixCache:
         if key != self._key:
             self.clear()
         self.cached_tokens = 0
+        self.prompt_tokens = None
         if self._backend is None:
             self._backend = factory()
         self._key = key
@@ -77,21 +79,27 @@ class CodingPrefixCache:
             self.retained_tokens, self.retained_bytes = len(tokens), size
             return True
         except Exception as error:
-            self._failed(error)
+            # The request may still generate from its valid working prefix.
+            # Releasing a failed retained snapshot must not erase actual reuse.
+            self._failed(error, preserve_measurements=True)
             return False
 
     def finish(self, completed: bool) -> None:
         if not completed:
             self.clear()
 
-    def _failed(self, error: Exception) -> None:
+    def _failed(self, error: Exception, *, preserve_measurements: bool = False) -> None:
         LOGGER.warning("Coding prefix cache disabled: %s", type(error).__name__)
+        cached, prompt = self.cached_tokens, self.prompt_tokens
         self.clear()
+        if preserve_measurements:
+            self.cached_tokens, self.prompt_tokens = cached, prompt
 
     def clear(self) -> None:
         backend, self._backend = self._backend, None
         self._key = self._features = None
         self.cached_tokens = self.retained_tokens = self.retained_bytes = 0
+        self.prompt_tokens = None
         if backend is not None:
             try:
                 backend.clear()

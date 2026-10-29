@@ -8,6 +8,11 @@ const stats = {
   promptTokens: 100,
   promptTps: 350.5,
   cachedTokens: 80,
+  draftMode: 'dflash2',
+  prefillTokens: 20,
+  prefillMs: 1500.5,
+  firstTokenMs: 1620.25,
+  durationMs: 3500.7,
 }
 function endpoints(value: unknown) {
   return createEndpoints({
@@ -50,6 +55,11 @@ it('preserves real zeros and normalizes missing individual values to null', () =
     promptTokens: null,
     promptTps: null,
     cachedTokens: null,
+    draftMode: null,
+    prefillTokens: null,
+    prefillMs: null,
+    firstTokenMs: null,
+    durationMs: null,
   })
   expect(decodeGenerationStats({ source: 'mlx-vlm', promptTokens: 20 })).toMatchObject({
     generationTokens: null,
@@ -88,10 +98,47 @@ it.each([
   ['generationTokens', Number.MAX_SAFE_INTEGER + 1],
   ['cachedTokens', -1],
   ['promptTokens', true],
+  ['prefillTokens', 1.5],
+  ['prefillMs', -1],
+  ['firstTokenMs', '100'],
+  ['durationMs', Infinity],
+  ['draftMode', 'auto'],
 ])('normalizes an invalid %s field without discarding other native values', (field, value) => {
   expect(decodeGenerationStats({ ...stats, [String(field)]: value })).toEqual({
     ...stats,
     [String(field)]: null,
+  })
+})
+
+it('decodes historical metrics without inferring missing mode, cache work or timings', () => {
+  expect(
+    decodeGenerationStats({ source: 'mlx-vlm', promptTokens: 100, cachedTokens: 80 }),
+  ).toMatchObject({
+    promptTokens: 100,
+    cachedTokens: 80,
+    draftMode: null,
+    prefillTokens: null,
+    prefillMs: null,
+    firstTokenMs: null,
+    durationMs: null,
+  })
+  expect(decodeGenerationStats({ source: 'mlx-vlm', draftMode: 'mtp' })).toBeNull()
+})
+
+it('preserves a measured zero and real timings even when token rates are unavailable', () => {
+  expect(
+    decodeGenerationStats({
+      source: 'mlx-vlm',
+      draftMode: 'none',
+      prefillTokens: 0,
+      firstTokenMs: 42.75,
+    }),
+  ).toMatchObject({
+    draftMode: 'none',
+    prefillTokens: 0,
+    firstTokenMs: 42.75,
+    generationTps: null,
+    durationMs: null,
   })
 })
 

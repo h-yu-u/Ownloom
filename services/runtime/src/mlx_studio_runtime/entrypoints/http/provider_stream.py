@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from mlx_studio_runtime.domain.errors import RuntimeFault
+from mlx_studio_runtime.domain.generation_stats import read_generation_stats
 
 
 def provider_error(error: RuntimeFault) -> dict[str, object]:
@@ -37,6 +38,11 @@ def usage(result: dict[str, Any]) -> dict[str, Any]:
         "total_tokens": incoming + outgoing,
         "prompt_tokens_details": {"cached_tokens": int(result.get("cached_tokens", 0))},
     }
+
+
+def ownloom_metadata(result: dict[str, Any]) -> dict[str, object]:
+    stats = read_generation_stats(result.get("generationStats"))
+    return {"ownloom": {"generationStats": stats}} if stats is not None else {}
 
 
 def frame(identity: dict[str, Any], delta: dict[str, object], reason: str | None = None) -> str:
@@ -98,6 +104,7 @@ async def stream_result(
                     "object": "chat.completion.chunk",
                     "choices": [],
                     "usage": usage(result),
+                    **ownloom_metadata(result),
                 }
             )
             + "\n\n"

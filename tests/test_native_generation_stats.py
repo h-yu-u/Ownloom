@@ -9,6 +9,9 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 from mlx_studio_runtime import PROTOCOL_VERSION
+from mlx_studio_runtime.adapters.text_engines.generation_measurements import (
+    GenerationMeasurements,
+)
 from mlx_studio_runtime.adapters.text_engines.session import EngineSession
 from mlx_studio_runtime.adapters.text_engines.structured import _generate_native
 from mlx_studio_runtime.adapters.worker_host import WorkerHost
@@ -22,6 +25,7 @@ def response(text="answer", **values):
 
 def native_events(engine, responses, session=None):
     session = session or EngineSession()
+    session.measurements = GenerationMeasurements(lambda: 10.0)
     events = []
     session.event_sink = lambda kind, payload: events.append((kind, payload))
     session.engine = engine
@@ -88,9 +92,16 @@ class NativeGenerationStatsTests(unittest.TestCase):
                     "promptTokens": 12,
                     "promptTps": 921.25,
                     "cachedTokens": 4,
+                    "draftMode": "none",
+                    "prefillTokens": 8,
+                    "prefillMs": 0.0,
+                    "firstTokenMs": 0.0,
+                    "durationMs": None,
                 }
                 self.assertEqual(deltas[-1]["generationStats"], expected)
-                self.assertEqual(events[-1][1]["generationStats"], expected)
+                self.assertEqual(
+                    events[-1][1]["generationStats"], {**expected, "durationMs": 0.0}
+                )
                 self.assertEqual(events[-1][1]["generation_tokens"], 3)
 
     def test_invalid_native_scalars_remain_unknown_without_recomputation(self):
@@ -115,6 +126,11 @@ class NativeGenerationStatsTests(unittest.TestCase):
                 "promptTokens": 12,
                 "promptTps": None,
                 "cachedTokens": None,
+                "draftMode": "none",
+                "prefillTokens": None,
+                "prefillMs": None,
+                "firstTokenMs": 0.0,
+                "durationMs": 0.0,
             },
         )
 
@@ -192,7 +208,10 @@ class NativeGenerationStatsTests(unittest.TestCase):
                 self.assertIsNone(stats["generationTps"])
                 self.assertEqual(stats["generationTokens"], 0)
                 self.assertEqual(
-                    GenerationStats.model_validate(stats).model_dump(), stats
+                    GenerationStats.model_validate(stats).model_dump(
+                        exclude_unset=True
+                    ),
+                    stats,
                 )
 
     def test_structured_inference_does_not_start_publishing_chat_statistics(self):

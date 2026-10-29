@@ -1,9 +1,10 @@
 """Native text-engine measurements; unknown values are never estimated or zero-filled."""
 
 import math
-from typing import Literal, TypedDict, cast
+from typing import Literal, NotRequired, TypedDict, cast
 
 GenerationSource = Literal["mlx-lm", "mlx-vlm"]
+DraftMode = Literal["none", "mtp", "dflash2"]
 
 
 class GenerationStats(TypedDict):
@@ -13,6 +14,11 @@ class GenerationStats(TypedDict):
     promptTokens: int | None
     promptTps: float | None
     cachedTokens: int | None
+    draftMode: NotRequired[DraftMode | None]
+    prefillTokens: NotRequired[int | None]
+    prefillMs: NotRequired[float | None]
+    firstTokenMs: NotRequired[float | None]
+    durationMs: NotRequired[float | None]
 
 
 def read_generation_stats(value: object) -> GenerationStats | None:
@@ -30,9 +36,24 @@ def read_generation_stats(value: object) -> GenerationStats | None:
         "promptTps": _rate(fields.get("promptTps")),
         "cachedTokens": _count(fields.get("cachedTokens")),
     }
-    return (
-        stats if any(item is not None for key, item in stats.items() if key != "source") else None
-    )
+    if not any(item is not None for key, item in stats.items() if key != "source"):
+        return None
+    if "draftMode" in fields:
+        mode = fields["draftMode"]
+        stats["draftMode"] = (
+            cast(DraftMode, mode)
+            if isinstance(mode, str) and mode in {"none", "mtp", "dflash2"}
+            else None
+        )
+    if "prefillTokens" in fields:
+        stats["prefillTokens"] = _count(fields["prefillTokens"])
+    if "prefillMs" in fields:
+        stats["prefillMs"] = _rate(fields["prefillMs"])
+    if "firstTokenMs" in fields:
+        stats["firstTokenMs"] = _rate(fields["firstTokenMs"])
+    if "durationMs" in fields:
+        stats["durationMs"] = _rate(fields["durationMs"])
+    return stats
 
 
 def _count(value: object) -> int | None:

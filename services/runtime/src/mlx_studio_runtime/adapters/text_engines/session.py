@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from mlx_studio_runtime.adapters.text_engines.coding_cache import CodingPrefixCache
 from mlx_studio_runtime.adapters.text_engines.drafts import DraftAcceleration
-from mlx_studio_runtime.adapters.text_engines.generation_stats import native_generation_stats
+from mlx_studio_runtime.adapters.text_engines.generation_measurements import GenerationMeasurements
 from mlx_studio_runtime.adapters.text_engines.mtp import MtpDraft
 from mlx_studio_runtime.adapters.text_engines.prefix_cache import ChatPrefixCache
 from mlx_studio_runtime.adapters.worker_runtime.context import WorkerContext
@@ -34,6 +34,7 @@ class EngineSession:
         self.finish_reason = "stop"
         self.generation_tokens = 0
         self.generation_stats: GenerationStats | None = None
+        self.measurements = GenerationMeasurements()
         self.context_limit = 8192
         self.prefix_cache = ChatPrefixCache()
         self.coding_cache = CodingPrefixCache()
@@ -94,6 +95,7 @@ class EngineSession:
         self.finish_reason = "stop"
         self.generation_tokens = 0
         self.generation_stats = None
+        self.measurements.begin()
         completed = False
         self.prefix_cache.begin(self.model, self.engine, payload)
         try:
@@ -139,6 +141,8 @@ class EngineSession:
             if callable(close):
                 close()
         terminal = "cancelled" if self.cancel.is_set() or self.shutdown.is_set() else "completed"
+        self.measurements.finish()
+        self.generation_stats = self.measurements.result(self.prefix_cache)
         self.emit(
             f"generation.{terminal}",
             {
@@ -210,6 +214,8 @@ class EngineSession:
             raise ValueError("zero to four image paths are supported")
         from mlx_vlm import stream_generate  # type: ignore[import-not-found]
 
+        from mlx_studio_runtime.adapters.text_engines.chat_prefill import prepare_chat_prefix
+
         paths = [str(path) for path in image_paths]
         formatted = self._vlm_prompt(prompt, paths, messages)
         max_tokens = self._check_budget(
@@ -222,6 +228,8 @@ class EngineSession:
         with self.drafts.request(
             self.model, temperature=temperature, has_images=bool(paths)
         ) as draft:
+            self.measurements.draft(draft)
+            prefix = prepare_chat_prefix(self, formatted)
             responses = stream_generate(
                 model=self.model,
                 processor=self.processor,
@@ -230,7 +238,7 @@ class EngineSession:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 verbose=False,
-                **self.prefix_cache.options,
+                **prefix,
                 **draft,
             )
             try:
@@ -307,7 +315,9 @@ class EngineSession:
 
     def record_chat_completion(self, response: object) -> None:
         self.record_completion(response)
-        self.generation_stats = native_generation_stats(self.engine, response)
+        text = response if isinstance(response, str) else getattr(response, "text", "")
+        self.measurements.visible_text(str(text) if text else "")
+        self.generation_stats = self.measurements.result(self.prefix_cache)
 
     def _chat_stats_payload(self, include_unknown: bool = False) -> dict[str, object]:
         if self.generation_stats is not None or include_unknown:
@@ -315,6 +325,7 @@ class EngineSession:
         return {}
 
     def record_completion(self, response: Any) -> None:
+        self.measurements.observe(self.engine, response)
         reason = getattr(response, "finish_reason", None)
         if reason in {"stop", "length"}:
             self.finish_reason = reason

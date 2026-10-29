@@ -40,6 +40,44 @@ it('shows the actionable Runtime cause of a failed model task', () => {
   wrapper.unmount()
 })
 
+it('shows per-inference native metrics for a tool-only reply without estimating missing rates', async () => {
+  const event = {
+    seq: 1,
+    sessionId: 's',
+    runId: 'r',
+    type: 'assistant.message',
+    text: '',
+    data: {
+      messageId: 'message',
+      stopReason: 'toolUse',
+      generationStats: {
+        source: 'mlx-vlm',
+        generationTokens: 30,
+        generationTps: 15.25,
+        promptTokens: 1000,
+        cachedTokens: 960,
+        prefillTokens: 40,
+        draftMode: 'dflash2',
+        prefillMs: 250,
+        firstTokenMs: null,
+        durationMs: 1500,
+      },
+    },
+  }
+  const wrapper = mount(CodingTimeline, { props: { runs: [], events: [event] } })
+  expect(wrapper.findAll('article')).toHaveLength(1)
+  expect(wrapper.get('[aria-label="模型生成统计"]').text()).toContain('15.3 tok/s')
+  expect(wrapper.text()).toContain('DFlash2 草稿')
+  expect(wrapper.text()).toContain('缓存复用960 tokens')
+  expect(wrapper.text()).not.toContain('首字等待')
+  await wrapper.setProps({
+    events: [{ ...event, text: 'failed reply', data: { ...event.data, stopReason: 'error' } }],
+  })
+  expect(wrapper.text()).toContain('failed reply')
+  expect(wrapper.find('[aria-label="模型生成统计"]').exists()).toBe(false)
+  wrapper.unmount()
+})
+
 it('updates a streaming reply in place and shows the current command below it once', async () => {
   const event = (seq: number, type: string, text: string, data: object = {}) => ({
     seq,

@@ -97,8 +97,22 @@ class BoundedPrefixTests(unittest.TestCase):
         long_tokens = [1] * (MAX_PREFIX_TOKENS + 1)
         self.assertFalse(self.cache.store_exact_cache(long_tokens, self.layers))
         self.assertTrue(self.cache.store_exact_cache([1], self.layers))
-        self.assertEqual(self.cache.lookup_exact_cache(long_tokens), (None, 0))
-        self.assertIsNone(self.backend.entry)
+        self.assertEqual(self.cache.lookup_exact_cache(long_tokens)[1], 1)
+        self.assertIsNotNone(self.backend.entry)
+
+    def test_long_request_reuses_bounded_snapshot_and_caps_its_next_checkpoint(self):
+        prefix = list(range(MAX_PREFIX_TOKENS))
+        self.assertTrue(self.cache.store_exact_cache(prefix, self.layers))
+        self.cache.begin()
+        full = prefix + [9] * 2048
+        self.assertEqual(self.cache.lookup_exact_cache(full)[1], MAX_PREFIX_TOKENS)
+        self.assertEqual(self.cache.exact_cache_guard_tokens, 2048)
+        self.assertEqual(self.backend.stores, 1)
+
+    def test_long_cold_request_preserves_larger_volatile_suffix_guard(self):
+        self.cache.exact_cache_guard_tokens = 4000
+        self.assertEqual(self.cache.lookup_exact_cache([1] * 10000), (None, 0))
+        self.assertEqual(self.cache.exact_cache_guard_tokens, 4000)
 
     def test_lookup_and_store_failure_disable_cache_without_exposing_prompt(self):
         for operation in ("lookup_exact_cache", "store_exact_cache"):

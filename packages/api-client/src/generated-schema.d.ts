@@ -3253,6 +3253,16 @@ export interface components {
             promptTps?: number | null;
             /** Cachedtokens */
             cachedTokens?: number | null;
+            /** Draftmode */
+            draftMode?: ("none" | "mtp" | "dflash2") | null;
+            /** Prefilltokens */
+            prefillTokens?: number | null;
+            /** Prefillms */
+            prefillMs?: number | null;
+            /** Firsttokenms */
+            firstTokenMs?: number | null;
+            /** Durationms */
+            durationMs?: number | null;
         };
         /** HandoffMessageReference */
         HandoffMessageReference: {

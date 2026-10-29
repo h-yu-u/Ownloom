@@ -151,6 +151,7 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
     job_id = str(payload["job_id"])
     session.finish_reason = "stop"
     session.generation_tokens = 0
+    session.measurements.begin()
     completed = False
     session.emit("generation.started", {"job_id": job_id})
     try:
@@ -171,6 +172,7 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
             session.emit("generation.cancelled", {"job_id": job_id})
             return
         result = parse_completion(text, payload["tools"], session.finish_reason, parser)
+        session.measurements.finish()
         session.emit(
             "generation.result",
             {
@@ -184,6 +186,7 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
                     "snapshot_bytes": session.coding_cache.retained_bytes,
                 },
                 "budget": budget,
+                "generationStats": session.measurements.result(session.coding_cache),
             },
         )
         session.emit(
@@ -227,6 +230,7 @@ def _generate_native(session: Any, rendered: str, payload: dict[str, Any]) -> st
         with session.drafts.request(
             session.model, temperature=payload["temperature"], coding=True
         ) as draft:
+            session.measurements.draft(draft)
             prefix = prepare_coding_prefix(session, rendered, payload)
             responses = stream_generate(
                 model=session.model,
@@ -276,10 +280,12 @@ def _collect_native(session: Any, responses: Any, payload: dict[str, Any]) -> st
             # Hold a possible marker prefix across chunk boundaries.
             count = marker if tool_started else max(0, len(visible) - len("<tool_call>"))
             for part in text_parts(visible[:count]):
+                session.measurements.visible_text(part)
                 session.emit("text.delta", {"job_id": payload["job_id"], "text": part})
             visible = visible[count:]
     if not tool_started:
         for part in text_parts(visible):
+            session.measurements.visible_text(part)
             session.emit("text.delta", {"job_id": payload["job_id"], "text": part})
     if session.generation_tokens >= payload["max_tokens"]:
         session.finish_reason = "length"

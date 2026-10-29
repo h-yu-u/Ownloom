@@ -42,15 +42,15 @@ Compatible Qwen models offer an experimental **Draft acceleration** switch in th
 
 ## What you can do
 
-| Workspace       | Capabilities                                                                                                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chat            | Stream local responses, keep conversation history and native generation statistics, stop or regenerate a response, and use compatible image or document attachments. |
-| Model library   | Discover and download models from Hugging Face, import local directories, and manage loading and storage.                                                            |
-| Image creation  | Generate images, edit with reference images and use masked editing with supported models; save and reuse works.                                                      |
-| Speech creation | Use Qwen3-TTS preset voices or reference-based cloning, manage voice profiles, and export WAV audio.                                                                 |
-| Coding          | Work in a local project through Pi, review tool activity and changes, approve protected operations, and inspect verification evidence.                               |
-| Extensions      | Configure managed Skills, MCP connections and local tools for supported agent workflows.                                                                             |
-| Tasks and data  | Follow tasks across workspaces, inspect diagnostics, and explicitly back up, restore or clean application data.                                                      |
+| Workspace       | Capabilities                                                                                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat            | Stream local responses, keep conversation history and native generation statistics, stop or regenerate a response, and use compatible image or document attachments.                     |
+| Model library   | Discover and download models from Hugging Face, import local directories, and manage loading and storage.                                                                                |
+| Image creation  | Generate images, edit with reference images and use masked editing with supported models; save and reuse works.                                                                          |
+| Speech creation | Use Qwen3-TTS preset voices or reference-based cloning, manage voice profiles, and export WAV audio.                                                                                     |
+| Coding          | Work in a local project through Pi, review tool activity, changes and native generation statistics for each model turn, approve protected operations, and inspect verification evidence. |
+| Extensions      | Configure managed Skills, MCP connections and local tools for supported agent workflows.                                                                                                 |
+| Tasks and data  | Follow tasks across workspaces, inspect diagnostics, and explicitly back up, restore or clean application data.                                                                          |
 
 Optional web search uses a configured Tavily-compatible service and preserves sources with the answer. Text-layer PDF, DOCX, TXT and Markdown are supported; scanned PDFs require OCR that is not currently provided. See the [user reference](docs/reference.md) for operation and compatibility details.
 

@@ -1,12 +1,21 @@
 import { streamSimpleOpenAICompletions } from '@earendil-works/pi-ai/compat'
 import type { ProviderConfig } from '@earendil-works/pi-coding-agent'
 import { object } from '../domain/types.js'
+import type { ProviderMeasurements } from './provider-measurements.js'
 
 /** Keep Pi's compaction reserve separate from the actual per-request output ceiling. */
-export function codingStream(contextWindow: number): NonNullable<ProviderConfig['streamSimple']> {
-  return (model, context, options) =>
-    streamSimpleOpenAICompletions({ ...model, api: 'openai-completions' }, context, {
+export function codingStream(
+  contextWindow: number,
+  measurements?: ProviderMeasurements,
+): NonNullable<ProviderConfig['streamSimple']> {
+  return (model, context, options) => {
+    measurements?.begin()
+    return streamSimpleOpenAICompletions({ ...model, api: 'openai-completions' }, context, {
       ...options,
+      onProviderStreamEvent: async (chunk, selected) => {
+        measurements?.observe(chunk)
+        await options?.onProviderStreamEvent?.(chunk, selected)
+      },
       onPayload: async (original, selected) => {
         const payload = object((await options?.onPayload?.(original, selected)) ?? original)
         // Compaction/summaries have no tools and keep their explicit short budget.
@@ -19,4 +28,5 @@ export function codingStream(contextWindow: number): NonNullable<ProviderConfig[
         }
       },
     })
+  }
 }
