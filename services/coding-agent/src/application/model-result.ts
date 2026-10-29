@@ -3,6 +3,8 @@ import type { PiSession } from './ports.js'
 // Preserve a stable Runtime code without persisting arbitrary provider response bodies.
 export function providerErrorCode(message: string | undefined): string | undefined {
   const normalized = message?.replaceAll('\\"', '"')
+  const streamedCode = normalized?.match(/\[runtime:([A-Z][A-Z0-9_]{1,79})\]/)?.[1]
+  if (streamedCode) return streamedCode
   const runtimeCode = normalized?.match(/"runtimeCode"\s*:\s*"([A-Z][A-Z0-9_]{1,79})"/)?.[1]
   if (
     runtimeCode &&

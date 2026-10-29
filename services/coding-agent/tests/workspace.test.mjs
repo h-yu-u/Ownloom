@@ -8,6 +8,7 @@ import { Workspace, safePath, hash, read, git as workspaceGit } from '../dist/ad
 import { createCodingService } from '../dist/composition-root.js'
 import { Approvals } from '../dist/application/approvals.js'
 import { Commands } from '../dist/adapters/commands.js'
+import { tools } from '../dist/adapters/tools.js'
 const run = {
   id: 'r',
   sessionId: 's',
@@ -36,6 +37,30 @@ async function fixture(action) {
     await rm(root, { recursive: true, force: true })
   }
 }
+test('write can omit a hash for a new file but cannot overwrite an existing file without its hash', () =>
+  fixture(async ({ project, repo }) => {
+    const write = tools({
+      root: project,
+      mode: 'develop',
+      workspace: new Workspace(repo, project, run),
+      invoke: async (_id, _name, execute) => execute(),
+      authorizeWrite: async () => {},
+      changed() {},
+    }).find((tool) => tool.name === 'write')
+    await write.execute('create', { path: 'new.js', content: 'original' })
+    assert.equal(await read(project, 'new.js'), 'original')
+    await assert.rejects(
+      write.execute('replace', { path: 'new.js', content: 'unsafe' }),
+      /FILE_VERSION_CONFLICT/,
+    )
+    assert.equal(await read(project, 'new.js'), 'original')
+    await write.execute('edit', {
+      path: 'new.js',
+      content: 'updated',
+      expectedHash: hash('original'),
+    })
+    assert.equal(await read(project, 'new.js'), 'updated')
+  }))
 test('managed read/write reject traversal, symlinks, credentials, binary and stale versions', () =>
   fixture(async ({ root, project, repo }) => {
     await writeFile(join(project, '代码.txt'), '用户原有修改\n')

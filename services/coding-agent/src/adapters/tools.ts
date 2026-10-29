@@ -4,11 +4,13 @@ import { relative } from 'node:path'
 import { files, read, hash, git, safePath } from './workspace.js'
 import { object } from '../domain/types.js'
 import type { ToolContext } from '../application/ports.js'
+import { queryProgress, type QueryProgress } from '../domain/query-progress.js'
 const pathSchema = Type.Object(
   { path: Type.String({ maxLength: 4096 }) },
   { additionalProperties: false },
 )
 export function tools(context: ToolContext): ToolDefinition[] {
+  let progress: QueryProgress | undefined
   function tool(
     name: string,
     description: string,
@@ -90,32 +92,28 @@ export function tools(context: ToolContext): ToolDefinition[] {
     selected.push(
       tool(
         'write',
-        'Create or replace a file. expectedHash must equal the read sha256; null only for a new file.',
+        'Create or replace a file. Omit expectedHash (or pass null) only for a new file. Replacing an existing file requires the sha256 returned by read.',
         Type.Object(
           {
             path: Type.String(),
             content: Type.String({ maxLength: 524288 }),
-            expectedHash: Type.Union([Type.String(), Type.Null()]),
+            expectedHash: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           },
           { additionalProperties: false },
         ),
         async (_id, params) => {
+          const expected =
+            params.expectedHash === undefined || params.expectedHash === null
+              ? null
+              : String(params.expectedHash)
           const path = relative(
             context.root,
             await safePath(context.root, String(params.path), true),
           )
-          await context.authorizeWrite(
-            _id,
-            path,
-            String(params.content),
-            params.expectedHash === null ? null : String(params.expectedHash),
-          )
-          const result = await context.workspace.write(
-            path,
-            String(params.content),
-            params.expectedHash === null ? null : String(params.expectedHash),
-          )
+          await context.authorizeWrite(_id, path, String(params.content), expected)
+          const result = await context.workspace.write(path, String(params.content), expected)
           context.changed(path)
+          progress = undefined
           return { sha256: result }
         },
       ),
@@ -150,6 +148,7 @@ export function tools(context: ToolContext): ToolDefinition[] {
             String(params.expectedHash),
           )
           context.changed(path)
+          progress = undefined
           return { sha256: result }
         },
       ),
@@ -157,12 +156,18 @@ export function tools(context: ToolContext): ToolDefinition[] {
     selected.push(
       tool(
         'run_command',
-        'Run a command under the selected access policy; the runtime asks approval when required. Never use git commit/push/reset/clean.',
+        'Run a non-interactive command (120-second limit) under the selected access policy; the runtime asks approval when required. Prefer build/test checks to background development servers. Never use git commit/push/reset/clean or broad process-name termination.',
         Type.Object(
           { command: Type.String({ minLength: 1, maxLength: 4096 }) },
           { additionalProperties: false },
         ),
-        (id, params, signal) => context.command(id, String(params.command), signal),
+        async (id, params, signal) => {
+          const command = String(params.command)
+          const result = await context.command(id, command, signal)
+          const next = queryProgress(progress, command, result)
+          progress = next.state
+          return next.notice ? { ...object(result), progressNotice: next.notice } : result
+        },
       ),
     )
   }

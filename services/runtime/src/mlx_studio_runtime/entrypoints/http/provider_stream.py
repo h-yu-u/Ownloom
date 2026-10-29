@@ -20,7 +20,7 @@ def provider_error(error: RuntimeFault) -> dict[str, object]:
                 "context_length_exceeded: input plus requested output exceeds the context window."
             )
             if overflow
-            else error.info.message,
+            else f"{error.info.message} [runtime:{code}]",
             "details": {
                 **(error.info.details or {}),
                 "runtimeCode": "EXTENSION_CONTEXT_BUDGET_EXCEEDED" if overflow else code,
@@ -29,12 +29,13 @@ def provider_error(error: RuntimeFault) -> dict[str, object]:
     }
 
 
-def usage(result: dict[str, Any]) -> dict[str, int]:
+def usage(result: dict[str, Any]) -> dict[str, Any]:
     incoming, outgoing = int(result.get("input_tokens", 0)), int(result.get("generation_tokens", 0))
     return {
         "prompt_tokens": incoming,
         "completion_tokens": outgoing,
         "total_tokens": incoming + outgoing,
+        "prompt_tokens_details": {"cached_tokens": int(result.get("cached_tokens", 0))},
     }
 
 

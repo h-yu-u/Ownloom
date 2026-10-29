@@ -38,6 +38,8 @@ Once the model is available, open **Chat (聊天)**, select a text model, and se
 
 Compatibility depends on the model's export format, adapter and available memory; an MLX label or a successful download does not guarantee support. The [user guide](docs/reference.md) explains model selection, workspaces and local data.
 
+Compatible Qwen models offer an experimental **Draft acceleration** switch in the model library. With matching local drafts, choose automatic routing (MTP for chat, DFlash2 for Coding) or either draft explicitly. New configurations default to off; existing MTP settings remain enabled. Image requests use ordinary generation, and DFlash2 currently uses a cold chat prefix. Output may differ from ordinary generation. See [draft integration](docs/subsystems/runtime.md#实验性草稿接入) for scope and verification limits.
+
 ## What you can do
 
 | Workspace       | Capabilities                                                                                                                                                         |

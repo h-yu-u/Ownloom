@@ -13,12 +13,14 @@ from mlx_studio_runtime.adapters.coding_model_identity import coding_model_ident
 from mlx_studio_runtime.adapters.data_profiles import DataProfiles
 from mlx_studio_runtime.adapters.diagnostics import HostDiagnostics
 from mlx_studio_runtime.adapters.download_transfer import transfer
+from mlx_studio_runtime.adapters.draft_metadata import validate_draft
 from mlx_studio_runtime.adapters.event_hub import EventHub
 from mlx_studio_runtime.adapters.image_files import ImageFiles
 from mlx_studio_runtime.adapters.managed_models import ManagedModelFiles
 from mlx_studio_runtime.adapters.media_recovery import recover_media
 from mlx_studio_runtime.adapters.model_download import download_model
 from mlx_studio_runtime.adapters.model_scan import manifest_from_directory
+from mlx_studio_runtime.adapters.mtp_metadata import validate_mtp
 from mlx_studio_runtime.adapters.persistence.attachment_preparation_repository import (
     PreparationRepository,
 )
@@ -56,6 +58,7 @@ from mlx_studio_runtime.application.image_generation_service import ImageGenerat
 from mlx_studio_runtime.application.inference_service import InferenceService
 from mlx_studio_runtime.application.job_lifecycle import JobLifecycle
 from mlx_studio_runtime.application.job_scheduler import JobScheduler
+from mlx_studio_runtime.application.model_acceleration import ModelAcceleration
 from mlx_studio_runtime.application.model_catalog import ModelCatalog
 from mlx_studio_runtime.application.model_removal import ModelRemovalPorts, RemoveModel
 from mlx_studio_runtime.application.model_runtime import ModelRuntime
@@ -121,6 +124,9 @@ class RuntimeApplication:
             store.jobs,
         )
         self.controls = RuntimeControl(self.scheduler, self.inference)
+        self.acceleration = ModelAcceleration(
+            self.catalog, self.scheduler, self.inference, validate_mtp, validate_draft
+        )
         contexts = ChatContextRepository(store.database)
         self.queries = Queries(
             store.conversations,

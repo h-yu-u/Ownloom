@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Literal, cast
 
+from mlx_studio_runtime.domain.drafts import DraftSettings, restore_draft
+from mlx_studio_runtime.domain.mtp import MtpSettings, restore_mtp
 from mlx_studio_runtime.domain.speech import (
     SpeechCapabilities,
     SpeechOperation,
@@ -49,6 +51,8 @@ class ModelManifest:
     managed_installation: bool = False
     artifact_identity: str | None = None
     speech: SpeechCapabilities | None = None
+    mtp: MtpSettings | None = None
+    draft: DraftSettings | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -57,6 +61,8 @@ class ModelManifest:
             "managedInstallation": self.managed_installation,
             "artifactIdentity": self.artifact_identity,
             "speech": self.speech.to_dict() if self.speech else None,
+            "mtp": self.mtp.to_dict() if self.mtp else None,
+            "draft": self.draft.to_dict() if self.draft else None,
             "displayName": self.display_name,
             "source": self.source,
             "localPath": self.local_path,
@@ -260,6 +266,8 @@ def manifest_from_dict(value: dict[str, object]) -> ModelManifest:
         managed_installation=value.get("managedInstallation") is True,
         artifact_identity=str(value["artifactIdentity"]) if value.get("artifactIdentity") else None,
         speech=_restore_speech(value.get("speech")),
+        mtp=restore_mtp(value.get("mtp")),
+        draft=restore_draft(value.get("draft")),
     )
 
 

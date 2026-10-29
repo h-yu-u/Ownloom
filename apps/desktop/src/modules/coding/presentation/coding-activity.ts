@@ -1,8 +1,10 @@
 import type { CodingEvent, CodingRun } from '../application/ports'
 import { activeStatus } from '../domain/status'
+import { commandDescription } from './command-description'
 export interface ActivityItem {
   id: string
   label: string
+  command?: string
   event: CodingEvent
   status: 'running' | 'completed' | 'failed' | 'cancelled'
 }
@@ -82,14 +84,22 @@ function recordActivity(
   const id = `${event.runId}:${'toolCallId' in data ? String(data.toolCallId) : event.seq}`
   let item = tools.get(id)
   if (!item) {
-    item = { id, event, label: activityLabel(event.text), status: 'running' }
+    item = {
+      id,
+      event,
+      label: event.type === 'verification.finished' ? '执行项目验证' : activityLabel(event.text),
+      status: 'running',
+    }
     tools.set(id, item)
     const previous = result.at(-1)
     if (previous?.kind === 'activity' && previous.runId === event.runId) previous.items.push(item)
     else result.push({ kind: 'activity', seq: event.seq, runId: event.runId, items: [item] })
   }
   if (event.type !== 'tool.settled' || item.event.type !== 'tool.finished') item.event = event
-  if (event.type === 'command.started') item.label = `运行命令 · ${event.text}`
+  if (event.type === 'command.started') {
+    item.command = event.text
+    item.label = commandDescription(event.text)
+  }
   if (!['tool.started', 'command.started'].includes(event.type))
     item.status = activityFailed(data) ? 'failed' : 'completed'
 }
@@ -159,8 +169,21 @@ export function activityLabel(name: string): string {
         write: '保存文件',
         edit: '修改代码',
         git_status: '查看 Git 状态',
-        run_command: '运行命令',
+        run_command: '执行项目命令',
       } as Record<string, string>
-    )[name] ?? name
+    )[name] ?? '调用扩展工具'
   )
+}
+
+export function activityItemDescription(item: ActivityItem): string {
+  if (item.status === 'running') return `正在${item.label}`
+  const state = { completed: '已结束', failed: '失败', cancelled: '已停止' }[item.status]
+  return `${item.label} · ${state}`
+}
+
+export function activitySummary(items: readonly ActivityItem[]): string {
+  const current = items.find((item) => item.status === 'running') ?? items.at(-1)
+  if (!current) return '暂无操作'
+  const count = items.length > 1 ? ` · ${items.length} 项操作` : ''
+  return `${activityItemDescription(current)}${count}`
 }

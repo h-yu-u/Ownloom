@@ -1,4 +1,4 @@
-import { createEndpoints, type RuntimeClient } from '@mlx-studio/api-client'
+import { createEndpoints, type RuntimeClient, type components } from '@mlx-studio/api-client'
 export function createModelsGateway(provider: () => Promise<RuntimeClient>) {
   const endpoints = async () => createEndpoints(await provider())
   return {
@@ -11,6 +11,10 @@ export function createModelsGateway(provider: () => Promise<RuntimeClient>) {
     deleteFiles: async (id: string) => (await endpoints()).models.deleteFiles(id),
     unload: async (id: string) => (await endpoints()).models.unload(id),
     load: async (id: string) => (await endpoints()).models.load(id),
+    configureDraft: async (id: string, settings: components['schemas']['DraftSettingsRequest']) =>
+      (await endpoints()).models.configureDraft(id, settings),
+    configureMtp: async (id: string, settings: components['schemas']['MtpSettingsRequest']) =>
+      (await endpoints()).models.configureMtp(id, settings),
     unregister: async (id: string) => (await endpoints()).models.unregister(id),
   }
 }

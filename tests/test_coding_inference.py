@@ -115,6 +115,42 @@ class CodingInferenceTests(unittest.TestCase):
                     parser,
                 )
 
+    def test_xml_preserves_schema_errors_for_pi_validation_without_guessing_arguments(
+        self,
+    ):
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "write",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "content": {"type": "string"},
+                            "expectedHash": {
+                                "anyOf": [{"type": "string"}, {"type": "null"}]
+                            },
+                        },
+                        "required": ["path", "content", "expectedHash"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ]
+        for extra in ("", "<parameter=unexpected>do not discard</parameter>"):
+            xml = f"<tool_call><function=write><parameter=path>app.js</parameter><parameter=content>export default 1</parameter>{extra}</function></tool_call>"
+            result = parse_completion(xml, tools, "stop", "qwen-xml")
+            args = json.loads(
+                result["message"]["tool_calls"][0]["function"]["arguments"]
+            )
+            self.assertNotIn("expectedHash", args)
+            if extra:
+                self.assertEqual(args["unexpected"], "do not discard")
+        duplicate = "<tool_call><function=read><parameter=path>a</parameter><parameter=path>b</parameter></function></tool_call>"
+        with self.assertRaisesRegex(ValueError, "TOOL_ARGUMENTS_INVALID"):
+            parse_completion(duplicate, TOOLS, "stop", "qwen-xml")
+
     def test_scoped_inference_credential_has_no_coding_or_model_permissions(self):
         with tempfile.TemporaryDirectory() as directory:
             app = create_app("desktop", Path(directory) / "app.db")

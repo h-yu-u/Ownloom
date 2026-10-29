@@ -123,7 +123,12 @@ class ModelRuntime:
             code = str(getattr(error, "code", "MODEL_LOAD_FAILED"))
             if code == "WORKER_COMMAND_FAILED":
                 code = "MODEL_LOAD_FAILED"
-            raise RuntimeFault(RuntimeErrorInfo(code, "模型加载失败", True)) from error
+            message = (
+                "草稿加载失败，请检查配套目录或关闭草稿加速后重试"
+                if code in {"MTP_LOAD_FAILED", "DRAFT_LOAD_FAILED"}
+                else "模型加载失败"
+            )
+            raise RuntimeFault(RuntimeErrorInfo(code, message, True)) from error
         if self.worker is not worker or self.epoch != epoch:
             raise RuntimeFault(RuntimeErrorInfo("WORKER_REPLACED", "加载已被中断"))
         self.loading_model_id = None

@@ -12,7 +12,9 @@ from mlx_studio_runtime.entrypoints.http.chat_contracts import (
     WebSearchOptions,
     WebSource,
 )
+from mlx_studio_runtime.entrypoints.http.draft_contracts import DraftSettingsView
 from mlx_studio_runtime.entrypoints.http.extension_models import ExtensionSelection
+from mlx_studio_runtime.entrypoints.http.mtp_contracts import MtpSettingsView
 
 
 class ReadModel(BaseModel):
@@ -40,6 +42,8 @@ class ModelView(ReadModel):
     managedInstallation: bool = False
     artifactIdentity: str | None = None
     speech: SpeechCapabilitiesView | None = None
+    mtp: MtpSettingsView | None = None
+    draft: DraftSettingsView | None = None
 
 
 class AttachmentView(ReadModel):

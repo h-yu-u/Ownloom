@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from mlx_studio_runtime.domain.context_budget import ContextBudget, schema_digest
+from mlx_studio_runtime.domain.context_budget import SAFETY_RESERVE, ContextBudget, schema_digest
 
 
 class ContextOverflow(ValueError):
@@ -51,10 +51,16 @@ def prepare_input(session: Any, payload: dict[str, Any]) -> tuple[str, str, dict
         count = len(tokenizer.encode(rendered))
         revision = str(getattr(tokenizer, "name_or_path", session.model_id))
         template_revision = schema_digest(template)
+    limit = min(session.context_limit, payload.get("context_limit") or session.context_limit)
+    output = (
+        max(1, limit - count - SAFETY_RESERVE)
+        if payload.get("output_budget") == "remaining"
+        else payload["max_tokens"]
+    )
     budget = ContextBudget(
-        session.context_limit,
+        limit,
         count,
-        payload["max_tokens"],
+        output,
         measurement="exact",
         tokenizerRevision=revision,
         templateRevision=template_revision,

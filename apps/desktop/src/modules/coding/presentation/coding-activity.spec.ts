@@ -43,7 +43,7 @@ it('shows live commands once and attaches completion and output to the same tool
   const live = timelineEntries(events.slice(0, 3))
   expect(live[1]).toMatchObject({
     kind: 'activity',
-    items: [{ status: 'running', label: '运行命令 · pnpm test' }],
+    items: [{ status: 'running', label: '运行项目测试', command: 'pnpm test' }],
   })
   const done = timelineEntries(events)
   expect(done).toHaveLength(2)
@@ -51,4 +51,16 @@ it('shows live commands once and attaches completion and output to the same tool
   expect(done[1].items).toHaveLength(1)
   expect(done[1].items[0]?.status).toBe('completed')
   expect(activityText(done[1].items[0]!.event)).toBe('command output')
+})
+
+it('preserves the explanation and raw command after completion, with output available separately', () => {
+  const command = 'npm view vue@2 version'
+  const entries = timelineEntries([
+    event(1, 'tool.started', 'run_command', { toolCallId: 'call' }),
+    event(2, 'command.started', command, { toolCallId: 'call' }),
+    event(3, 'tool.finished', 'run_command', { toolCallId: 'call', result: { preview: '2.7.16' } }),
+  ])
+  expect(entries[0]).toMatchObject({
+    items: [{ label: '查询 Vue 的可用版本', command, status: 'completed' }],
+  })
 })

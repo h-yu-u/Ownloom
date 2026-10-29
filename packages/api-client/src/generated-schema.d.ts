@@ -327,6 +327,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/models/{model_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Configure Draft */
+        post: operations["configure_draft_internal_v1_models__model_id__draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/models/{model_id}/mtp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Configure Mtp */
+        post: operations["configure_mtp_internal_v1_models__model_id__mtp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/models/{model_id}": {
         parameters: {
             query?: never;
@@ -2874,6 +2908,66 @@ export interface components {
             /** Client Upload Ids */
             client_upload_ids?: string[];
         };
+        /** DraftSettingsRequest */
+        DraftSettingsRequest: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Mode
+             * @default auto
+             * @enum {string}
+             */
+            mode: "auto" | "mtp" | "dflash2";
+            /** Mtppath */
+            mtpPath?: string | null;
+            /** Dflashpath */
+            dflashPath?: string | null;
+            /**
+             * Mtpblocksize
+             * @default 3
+             * @enum {integer}
+             */
+            mtpBlockSize: 3 | 4;
+            /**
+             * Dflashblocksize
+             * @default 5
+             * @enum {integer}
+             */
+            dflashBlockSize: 4 | 5;
+        };
+        /** DraftSettingsView */
+        DraftSettingsView: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Mode
+             * @default auto
+             * @enum {string}
+             */
+            mode: "auto" | "mtp" | "dflash2";
+            /** Mtppath */
+            mtpPath?: string | null;
+            /** Dflashpath */
+            dflashPath?: string | null;
+            /**
+             * Mtpblocksize
+             * @default 3
+             * @enum {integer}
+             */
+            mtpBlockSize: 3 | 4;
+            /**
+             * Dflashblocksize
+             * @default 5
+             * @enum {integer}
+             */
+            dflashBlockSize: 4 | 5;
+        };
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorInfo"];
@@ -3368,6 +3462,14 @@ export interface components {
             /** Max Tokens */
             max_tokens?: number | null;
             /**
+             * Output Budget
+             * @default fixed
+             * @enum {string}
+             */
+            output_budget: "fixed" | "remaining";
+            /** Context Limit */
+            context_limit?: number | null;
+            /**
              * Temperature
              * @default 0.2
              */
@@ -3639,8 +3741,32 @@ export interface components {
             /** Artifactidentity */
             artifactIdentity?: string | null;
             speech?: components["schemas"]["SpeechCapabilitiesView"] | null;
+            mtp?: components["schemas"]["MtpSettingsView"] | null;
+            draft?: components["schemas"]["DraftSettingsView"] | null;
         } & {
             [key: string]: unknown;
+        };
+        /** MtpSettingsRequest */
+        MtpSettingsRequest: {
+            /** Draftpath */
+            draftPath: string | null;
+            /**
+             * Blocksize
+             * @default 3
+             * @enum {integer}
+             */
+            blockSize: 3 | 4;
+        };
+        /** MtpSettingsView */
+        MtpSettingsView: {
+            /** Draftpath */
+            draftPath: string;
+            /**
+             * Blocksize
+             * @default 3
+             * @enum {integer}
+             */
+            blockSize: 3 | 4;
         };
         /** PreviewBlock */
         PreviewBlock: {
@@ -5965,6 +6091,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HubModelOption"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    configure_draft_internal_v1_models__model_id__draft_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    configure_mtp_internal_v1_models__model_id__mtp_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MtpSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelView"];
                 };
             };
             /** @description Bad Request */

@@ -8,6 +8,7 @@ defineEmits<{
   unload: [id: string]
   unregister: [id: string]
   deleteFiles: [id: string, name: string]
+  draft: []
 }>()
 </script>
 <template>
@@ -45,8 +46,26 @@ defineEmits<{
       }}
     </p>
     <p v-else-if="model.engine === 'unknown'" class="local-model-source">尚未适配此模型架构</p>
+    <p v-if="model.draft?.enabled || (!model.draft && model.mtp)" class="local-model-source">
+      草稿加速已开启 ·
+      {{
+        model.draft?.mode === 'auto'
+          ? '自动选择'
+          : model.draft?.mode === 'dflash2'
+            ? 'DFlash2'
+            : 'MTP'
+      }}
+    </p>
     <template #footer>
       <div class="local-model-actions">
+        <NButton
+          v-if="model.engine === 'mlx-vlm'"
+          size="small"
+          :disabled="!!activeAction"
+          @click="$emit('draft')"
+        >
+          草稿加速
+        </NButton>
         <NButton
           v-if="model.state === 'loaded'"
           size="small"

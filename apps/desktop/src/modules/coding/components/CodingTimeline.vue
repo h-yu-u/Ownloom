@@ -4,7 +4,13 @@ import { computed } from 'vue'
 import { NEmpty } from 'naive-ui'
 import type { CodingEvent, CodingRun } from '../application/ports'
 import { codingRunErrorText } from '../presentation/coding-errors'
-import { activityText, eventError, timelineEntries } from '../presentation/coding-activity'
+import {
+  activityText,
+  activitySummary,
+  activityItemDescription,
+  eventError,
+  timelineEntries,
+} from '../presentation/coding-activity'
 import { statusLabel, activeStatus } from '../domain/status'
 import MarkdownContent from '../../../shared/ui/MarkdownContent.vue'
 import { useMarkdownCopy } from '../../../shared/ui/markdown-copy'
@@ -32,18 +38,21 @@ const scroller = useTimelineScroll(entries)
             v-if="entry.items.some((item) => item.status === 'running')"
             class="activity-spinner"
             aria-hidden="true"
-          />{{
-            entry.items.find((item) => item.status === 'running')?.label ??
-            `${entry.items.length} 项操作`
-          }}
+          />
+          <span class="activity-description" :title="activitySummary(entry.items)">{{
+            activitySummary(entry.items)
+          }}</span>
         </summary>
         <details v-for="item in entry.items" :key="item.id" :data-state="item.status">
           <summary>
             <span v-if="item.status === 'running'" class="activity-spinner" aria-hidden="true" />
-            {{ item.event.type === 'verification.finished' ? '执行验证' : item.label }}
-            <span v-if="item.status === 'failed'"> · 失败</span>
-            <span v-else-if="item.status === 'cancelled'"> · 已停止</span>
+            <span class="activity-description" :title="activityItemDescription(item)">{{
+              activityItemDescription(item)
+            }}</span>
           </summary>
+          <pre v-if="item.command" class="activity-command" aria-label="执行的命令">{{
+            item.command
+          }}</pre>
           <pre v-if="activityText(item.event)">{{ activityText(item.event) }}</pre>
           <ArtifactLinks :data="item.event.data" />
         </details>
@@ -123,6 +132,20 @@ pre {
 .coding-activity {
   color: var(--muted);
   font-size: 12px;
+}
+.coding-activity summary {
+  white-space: nowrap;
+}
+.activity-description {
+  display: inline-block;
+  max-width: calc(100% - 30px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.activity-command {
+  margin-bottom: 8px;
 }
 .coding-activity details {
   margin: 10px 0 0 14px;

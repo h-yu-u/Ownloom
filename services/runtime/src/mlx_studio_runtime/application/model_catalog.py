@@ -87,6 +87,8 @@ class ModelCatalog:
                 manifest,
                 id=existing.id,
                 managed_installation=existing.managed_installation or managed_installation,
+                mtp=existing.mtp,
+                draft=existing.draft,
             )
         self.check_available(manifest.id, manifest.local_path)
         result = manifest.to_dict()
@@ -100,7 +102,18 @@ class ModelCatalog:
         self.models.pop(model_id, None)
 
     def shared_path(self, model: ModelManifest) -> bool:
+        root = Path(model.local_path).resolve()
         return any(
-            item.id != model.id and item.local_path == model.local_path
+            item.id != model.id
+            and (
+                item.local_path == model.local_path
+                or (
+                    any(
+                        Path(path).expanduser().resolve().is_relative_to(root)
+                        for path in ((item.mtp.draft_path,) if item.mtp else ())
+                        + (item.draft.paths() if item.draft else ())
+                    )
+                )
+            )
             for item in self.models.values()
         )

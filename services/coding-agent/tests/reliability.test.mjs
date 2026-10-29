@@ -26,6 +26,15 @@ test('small window reserve fits and manual compaction remains idle-only', () => 
   assert.ok(budget.output + budget.keepRecentTokens + budget.reserveTokens < 4096)
 })
 
+test('Coding reserves enough output for longer file writes without expanding the model window', () => {
+  const coding = contextSettings(32768, 'coding')
+  assert.equal(coding.output, 8192)
+  assert.ok(coding.reserveTokens > coding.output)
+  assert.ok(coding.reserveTokens + coding.keepRecentTokens < 32768)
+  assert.equal(contextSettings(32768, 'chat').output, 4096)
+  assert.equal(contextSettings(4096, 'coding').output, 512)
+})
+
 test('real Pi treats text followed by SSE error as a failed turn with no tool execution', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'mlx-pi-failure-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
@@ -38,7 +47,7 @@ test('real Pi treats text followed by SSE error as a failed turn with no tool ex
       `data: ${JSON.stringify({ id: 'test', object: 'chat.completion.chunk', choices: [{ index: 0, delta: { content: 'partial' }, finish_reason: null }] })}\n\n`,
     )
     res.end(
-      `event: error\ndata: ${JSON.stringify({ error: { type: 'server_error', code: 'INFERENCE_PROTOCOL_INCOMPLETE', message: 'INFERENCE_PROTOCOL_INCOMPLETE' } })}\n\n`,
+      `event: error\ndata: ${JSON.stringify({ error: { type: 'server_error', code: 'TOOL_OUTPUT_TRUNCATED', message: '结构化推理未完成 [runtime:TOOL_OUTPUT_TRUNCATED]' } })}\n\n`,
     )
   })
   server.listen(0, '127.0.0.1')
@@ -70,10 +79,12 @@ test('real Pi treats text followed by SSE error as a failed turn with no tool ex
       changed() {},
     },
   })
+  t.after(() => opened.session.close())
   const allocated = await opened.session.checkpoint()
   assert.equal(allocated.state, 'allocated')
   await opened.session.prompt('hello')
   assert.equal(opened.session.lastStopReason(), 'error')
+  assert.equal(opened.session.lastErrorCode(), 'TOOL_OUTPUT_TRUNCATED')
   assert.equal(executed, 0)
   const descriptor = await opened.session.checkpoint()
   assert.equal(descriptor.path, allocated.path)

@@ -31,6 +31,7 @@ class RunGrant:
     generation: str
     bootstrap: str
     expires: float
+    cache_scope: str | None = None
     model_identities: dict[str, str] = field(default_factory=dict)
     voice_version: int | None = None
     token: str | None = None
@@ -98,6 +99,11 @@ class CapabilityGrants:
                 self.generation(),
                 secrets.token_urlsafe(32),
                 self.clock() + 86400,
+                cache_scope=(
+                    "coding:" + str(run["sessionId"])
+                    if snapshot["workspace"] == "coding" and run.get("sessionId")
+                    else None
+                ),
             )
             model_ids = {grant.model_id}
             selected = {
@@ -261,7 +267,9 @@ class CapabilityGrants:
             invocation = "text-" + uuid.uuid4().hex
             self._reserve(grant.run_id, invocation, "inference", "text", {})
             prepared = await self.inference.admit(
-                request, lambda job: self.ledger.bind(grant.run_id, invocation, job.id), on_event
+                {**request, "cache_scope": grant.cache_scope},
+                lambda job: self.ledger.bind(grant.run_id, invocation, job.id),
+                on_event,
             )
         result = await self.inference.wait(prepared)
         self._check(grant)

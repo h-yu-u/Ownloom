@@ -5,6 +5,8 @@ import { imageEndpoints } from './image-endpoints'
 import { audioEndpoints } from './audio-endpoints'
 import { decodeSpeech } from './audio-decoders'
 import { decodeCatalog } from './model-catalog'
+import { decodeDraft } from './model-draft'
+import { decodeMtp } from './model-mtp'
 import { decodeRuntimeMetrics } from './runtime-metrics'
 import { attachmentEndpoints } from './attachments'
 import { decodeSource, type MessageSource } from './chat-sources'
@@ -33,6 +35,8 @@ export interface ModelSummary
   managedInstallation: boolean
   artifactIdentity: string | null
   speech?: ModelSchema['speech']
+  mtp?: ModelSchema['mtp']
+  draft?: ModelSchema['draft']
   inputLimits?: { maxImages: number }
 }
 export interface Attachment {
@@ -118,6 +122,8 @@ export function decodeModel(value: unknown): ModelSummary {
         ? null
         : number(item.contextLength),
     speech: decodeSpeech(item.speech),
+    mtp: decodeMtp(item.mtp),
+    draft: decodeDraft(item.draft),
   }
 }
 export function decodeMessage(value: unknown): Message {
@@ -205,6 +211,10 @@ export function createEndpoints(transport: Transport) {
         list(await transport.get(`${root}/models`, signal), decodeModel),
       unload: (id: string) => transport.post(`${root}/models/${idPath(id)}/unload`),
       load: (id: string) => transport.post(`${root}/models/${idPath(id)}/load`),
+      configureDraft: (id: string, settings: components['schemas']['DraftSettingsRequest']) =>
+        transport.post(`${root}/models/${idPath(id)}/draft`, settings),
+      configureMtp: (id: string, settings: components['schemas']['MtpSettingsRequest']) =>
+        transport.post(`${root}/models/${idPath(id)}/mtp`, settings),
       unregister: (id: string) => transport.delete(`${root}/models/${idPath(id)}/registration`),
       deleteFiles: (id: string) =>
         transport.delete(`${root}/models/${idPath(id)}/files?confirm=true`),

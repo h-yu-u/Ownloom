@@ -9,5 +9,10 @@ export interface ModelsGateway {
   deleteFiles(id: string): Promise<unknown>
   unload(id: string): Promise<unknown>
   load(id: string): Promise<unknown>
+  configureDraft(
+    id: string,
+    settings: components['schemas']['DraftSettingsRequest'],
+  ): Promise<unknown>
+  configureMtp(id: string, settings: components['schemas']['MtpSettingsRequest']): Promise<unknown>
   unregister(id: string): Promise<unknown>
 }

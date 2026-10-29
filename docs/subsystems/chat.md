@@ -49,7 +49,7 @@
 
 ## 多轮前缀缓存
 
-普通纯文字聊天通过 [ChatPrefixCache](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/prefix_cache.py) 复用 MLX-VLM 的 exact APC 快照。只对上游 `model_apc_mode` 返回 `exact` 的模型启用，保留 KV 与循环状态的完整副本，不对混合模型的 `ArraysCache` 执行裁剪。MLX-LM、block 模式、图片输入、没有会话归属的生成和 Coding/结构化推理不使用此缓存。
+普通纯文字聊天通过 [ChatPrefixCache](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/prefix_cache.py) 复用 MLX-VLM 的 exact APC 快照。只对上游 `model_apc_mode` 返回 `exact` 的模型启用，保留 KV 与循环状态的完整副本，不对混合模型的 `ArraysCache` 执行裁剪。MLX-LM、block 模式、图片输入、没有会话归属的生成和 Coding/结构化推理不使用此缓存；[Coding 前缀缓存](./runtime.md#coding-多轮前缀缓存)另有独立所有者。
 
 Worker 只持有当前会话的一份前缀快照，不写磁盘。快照最多 8192 token，所有层的 `nbytes` 合计最多 1 GiB；无法计量或超过限制时不克隆，输入超过 8192 token 时清除快照并完整处理输入。这是保留快照的上限，不是整个推理过程或 GPU 分配器的内存上限。缓存命中要求 token 前缀、会话及上游模型/处理器语义标识匹配；编辑历史或重新生成不满足条件时正常执行完整输入。
 

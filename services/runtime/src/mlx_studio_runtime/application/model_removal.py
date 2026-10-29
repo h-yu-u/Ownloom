@@ -37,7 +37,7 @@ class RemoveModel:
                 if self.ports.shared_path(model):
                     raise RuntimeFault(
                         RuntimeErrorInfo(
-                            "MODEL_IN_USE", "同一目录还有其他模型登记，请先移除重复登记"
+                            "MODEL_IN_USE", "此目录仍被其他模型登记或 MTP 设置引用，请先移除引用"
                         )
                     )
                 self.storage.validate(model)

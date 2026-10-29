@@ -38,7 +38,7 @@ class ContextRebuildRequired(RuntimeError):
 def recovery_for_code(code: str) -> tuple[str, list[str]]:
     if code in {"MODEL_NOT_FOUND", "MODEL_NOT_READY", "MODEL_INPUT_UNSUPPORTED"}:
         return "admission", ["select_model"]
-    if code == "MODEL_LOAD_FAILED":
+    if code in {"MODEL_LOAD_FAILED", "MTP_LOAD_FAILED", "DRAFT_LOAD_FAILED"}:
         return "loading", ["retry_load", "select_model"]
     if "CONTEXT" in code and ("BUDGET" in code or "COMPACTION" in code):
         return "context", ["reduce_context", "select_model", "new_conversation"]

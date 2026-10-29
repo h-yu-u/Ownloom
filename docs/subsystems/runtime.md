@@ -45,6 +45,10 @@ Tauri 启动时创建会话 Token、确定应用数据目录，启动固定开�
 
 内部结构化推理将 `generation.result` 暂存，必须再收到完成事件并成功落盘才向调用者返回成功。EOF、非法工具参数、重复终态、取消或落盘错误都不能产生成功 finish。
 
+本地 Provider 的非上下文溢出错误消息保留 `[runtime:错误码]` 标记，兼容 Pi/OpenAI SDK 在 SSE 错误中只保留 `message` 的行为；结构化 `code` 字段继续存在。上下文溢出保留 SDK 识别所需的原格式。Host 仅提取稳定错误码，界面使用已有中文错误映射，不将任意 Provider 响应正文作为错误原因保存。
+
+本地结构化接口的 `max_tokens` 不再有固定 8192 上限，显式值仍须通过模型窗口校验。`output_budget=remaining` 在 Worker 完成模板渲染与实际分词后使用剩余空间；可选 `context_limit` 只能收紧模型窗口。默认 `fixed` 保留既有显式/缺省行为，计算结果不改写调用方输入。Coding 的请求选择与 Pi 工具校验职责见 [Coding 参考](./coding.md#验证证据与当前限制)。
+
 ## 状态与失败收敛
 
 ```mermaid
@@ -83,6 +87,30 @@ stateDiagram-v2
 | Runtime 历史事件缓冲 / 订阅队列 | 1024 / 512 项  | [EventHub](../../services/runtime/src/mlx_studio_runtime/adapters/event_hub.py)               |
 
 Runtime 事件缓冲存在内存中，实例重启后不承诺继续回放旧游标。游标过旧、超过当前序列或订阅者溢出时发送 `runtime.resync_required`，消费者从持久化任务和会话快照恢复。Node 事件具有独立的持久化游标，不应复用 Runtime 事件序号。
+
+## 实验性草稿接入
+
+[草稿所有者](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/drafts.py)属于 EngineSession，在现有 Python/MLX/MLX-VLM 环境中绑定模型库的[草稿设置](./models.md#实验性草稿加速)。主模型只加载一次，自动模式同时持有 MTP 与 DFlash2 头，每个请求选择一个。目标和全部所需草稿成功加载、绑定、求值后才发布已加载；失败返回 `DRAFT_LOAD_FAILED` 并释放 Worker，不静默回退。关闭和图片请求沿普通生成路径，不改变编译关闭策略。
+
+[MTP](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/mtp.py)使用 MLX-VLM 0.6.14 的原生接口。[DFlash2](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/dflash2/bridge.py)接入同一 VLM 的采样、投机验证、混合 GDN 缓存回滚和流式解码。网络、动态卷积及 candidate selector 从 `z-lab/dflash` 的固定提交 `07ebd93db9f472af339b644bb70221ad8428328a` 适配，保留 [MIT 许可证](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/dflash2/LICENSE)；仅保留本地网络加载，不引入其独立服务、运行时补丁或依赖版本约束。全部张量严格加载后，在内存中做 4bit/group64 量化，再绑定目标共享权重。
+
+普通聊天保留 MTP 的会话隔离 APC；结构化推理仍先清理聊天缓存，Coding 使用下述独立前缀缓存。显式选择 DFlash2 普通聊天时关闭 APC，该聊天路径尚未保存草稿特征。DFlash2 预填充分块上限为 512 token，仅保留草稿滑动窗口所需特征，临时层包装关闭预填充回滚历史收集；开始投机验证前恢复原始目标层。没有修改上游类或虚拟环境文件。完成、异常、构造流失败和取消都关闭原生流，再清理请求特征；卸载先释放两套草稿对目标的引用。
+
+调用方温度、输出预算、模板、工具解析不变。两种草稿在温度大于 0 时都传入随机种子，使用上游按位置采样，绕开 MLX 0.32.1 只读 `random.state` 的旧赋值路径。DFlash2 的候选提议固定为贪心，但输出由目标按用户温度采样、逐段验证，不能把草稿提议直接作为回复。当前证据不保证逐 token 等价、随机分布等价、所有任务质量不变或稳定倍速。
+
+## Coding 多轮前缀缓存
+
+[CodingPrefixCache](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/coding_cache.py)属于文本 EngineSession，只保留当前 Coding 会话的一份内存快照，不写磁盘。[CapabilityGrants](../../services/runtime/src/mlx_studio_runtime/application/capability_grants.py)从已授权运行的 `sessionId` 派生内部 `cache_scope`；同会话不同运行共享范围，客户端请求体不能指定它。Agent Chat、未带范围的能力探针和普通 Provider 请求不启用该缓存。
+
+[预填充适配器](../../services/runtime/src/mlx_studio_runtime/adapters/text_engines/coding_prefill.py)仅接纳配置为 `qwen3_5` 且上游明确支持 exact APC 的纯文字结构化推理。MTP、DFlash2 和关闭草稿均可使用；其他模型保持完整输入路径。命中必须同时满足会话、已加载模型、草稿方案、模板、工具 Schema 和完整 token 前缀匹配。历史编辑、压缩或更换提示导致前缀不匹配时重新处理输入，不裁剪或拼接混合模型的循环状态。
+
+每轮在输入末尾 16 token 之前保存完整 KV/GDN 状态，后续只计算快照后的输入，并将检查点推进到本轮边界。检查点在生成之前建立，生成和投机验证只修改独立工作副本，不将未经验证的草稿后缀存入快照。DFlash2 同步保存各目标层滑动窗口特征和绝对 token 位置；恢复后追加新输入特征，随后仍由目标模型验证草稿。特征和主模型状态必须位于同一前缀边界。
+
+输入上限 32,768 token，单快照中所有层与草稿特征合计最多 2 GiB，超过上限或无法计量时不保留快照。这不是整个模型推理的内存上限。切换会话或缓存身份、普通聊天、无工具摘要/压缩、模型卸载、Worker 重启及推理取消/失败会清理相应快照；缓存存取失败记录异常类型并回退完整输入。正在执行的预填充分块检查取消信号，错误不会重放工具调用。
+
+结构化结果的 `cached_tokens` 表示真正从上一请求复用的输入数量，`prefix_cache` 保存当前检查点的 token 数和占用字节。Provider 在流式与非流式 usage 中通过 `prompt_tokens_details.cached_tokens` 返回命中量，Pi transcript 可记录 `cacheRead`；总输入仍包含已缓存 token，输出预算仍按完整上下文计算。缓存减少重复输入处理，不保证提高生成 token/s；本机实测与未覆盖范围见[验证记录](../verification.md#coding-多轮缓存实测)。
+
+配置与当前启用的草稿文件版本纳入 Coding 工具能力身份。可用性、真实模型、HTTP/SSE 和发行包证据分开记录于[验证范围](../verification.md)。
 
 ## 安全与可观测性
 

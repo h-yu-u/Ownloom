@@ -8,13 +8,16 @@ from fastapi import Depends, FastAPI, HTTPException
 
 from mlx_studio_runtime.composition_root import RuntimeApplication
 from mlx_studio_runtime.domain.errors import RuntimeErrorInfo, RuntimeFault
+from mlx_studio_runtime.domain.mtp import MtpSettings
 from mlx_studio_runtime.entrypoints.http.contracts import (
     ModelPathRequest,
     ModelPullRequest,
     ModelView,
 )
 from mlx_studio_runtime.entrypoints.http.download_contracts import DownloadView
+from mlx_studio_runtime.entrypoints.http.draft_contracts import DraftSettingsRequest
 from mlx_studio_runtime.entrypoints.http.model_catalog import register_model_catalog_routes
+from mlx_studio_runtime.entrypoints.http.mtp_contracts import MtpSettingsRequest
 
 
 def _not_found(code: str, message: str) -> RuntimeErrorInfo:
@@ -31,6 +34,23 @@ def register_model_routes(
         return service.catalog.list_models()
 
     register_model_catalog_routes(app, authenticate)
+
+    @app.post(
+        "/internal/v1/models/{model_id}/draft",
+        dependencies=[Depends(authenticate)],
+        response_model=ModelView,
+    )
+    async def configure_draft(model_id: str, body: DraftSettingsRequest) -> dict[str, Any]:
+        return await service.acceleration.configure_draft(model_id, body.settings())
+
+    @app.post(
+        "/internal/v1/models/{model_id}/mtp",
+        dependencies=[Depends(authenticate)],
+        response_model=ModelView,
+    )
+    async def configure_mtp(model_id: str, body: MtpSettingsRequest) -> dict[str, Any]:
+        settings = MtpSettings(body.draftPath, body.blockSize) if body.draftPath else None
+        return await service.acceleration.configure(model_id, settings)
 
     @app.get(
         "/internal/v1/models/{model_id}",

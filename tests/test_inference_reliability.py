@@ -123,6 +123,7 @@ class InferenceReliabilityTests(unittest.IsolatedAsyncioTestCase):
         release.set()
         rest = "".join([frame async for frame in stream])
         self.assertIn("event: error", rest)
+        self.assertIn("[runtime:INFERENCE_PROTOCOL_INCOMPLETE]", rest)
         self.assertNotIn("[DONE]", rest)
         self.assertNotIn('"finish_reason": "stop"', rest)
 

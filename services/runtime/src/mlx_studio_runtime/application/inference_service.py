@@ -46,7 +46,9 @@ class InferenceService:
             raise RuntimeFault(RuntimeErrorInfo("MODEL_NOT_FOUND", "请选择文本模型"))
         request = {
             **request,
-            "max_tokens": output_reserve(model.context_length or 32768, request.get("max_tokens")),
+            "max_tokens": None
+            if request.get("output_budget") == "remaining"
+            else output_reserve(model.context_length or 32768, request.get("max_tokens")),
         }
         self.scheduler.check_admission(model_id)
         job = Job(str(uuid.uuid4()), "coding-inference", JobState.QUEUED, model_id)

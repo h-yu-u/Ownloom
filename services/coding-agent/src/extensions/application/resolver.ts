@@ -96,7 +96,8 @@ export class ResourceResolver {
       ) +
         JSON.stringify(tools).length * 3,
     )
-    if (estimatedContextTokens + contextSettings(budget).output + 128 > budget)
+    const output = contextSettings(budget, scope.workspace === 'coding' ? 'coding' : 'chat').output
+    if (estimatedContextTokens + output + 128 > budget)
       throw new Error('EXTENSION_CONTEXT_BUDGET_EXCEEDED')
     const payload = {
       ...(selection.mediaBindings ? { mediaBindings: selection.mediaBindings } : {}),

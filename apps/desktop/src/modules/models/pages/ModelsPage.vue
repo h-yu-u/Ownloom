@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue'
 import StudioIcon from '../../../shared/components/StudioIcon.vue'
 import PageHeader from '../../../shared/ui/PageHeader.vue'
 import LocalModelCard from '../components/LocalModelCard.vue'
+import DraftSettingsModal from '../components/DraftSettingsModal.vue'
 import HubModelPicker from '../presentation/HubModelPickerContainer.vue'
 import { useModelsStore } from '../stores/models.store'
 
@@ -39,6 +40,10 @@ async function actOnModel(action: 'load' | 'unload' | 'unregister', id: string):
   } finally {
     activeAction.value = null
   }
+}
+
+async function saveDraft(): Promise<void> {
+  if (await store.saveDraft()) message.success('设置已保存，下次加载模型时生效')
 }
 
 function deleteFiles(modelId: string, name: string): void {
@@ -99,6 +104,7 @@ function deleteFiles(modelId: string, name: string): void {
           @unload="actOnModel('unload', $event)"
           @unregister="actOnModel('unregister', $event)"
           @delete-files="deleteFiles"
+          @draft="store.showDraft(model)"
         />
       </div>
       <div v-else-if="!store.loading && !store.error" class="panel empty-state">
@@ -113,6 +119,15 @@ function deleteFiles(modelId: string, name: string): void {
       discover ? '收起模型发现' : '发现模型'
     }}</NButton>
     <HubModelPicker v-if="discover" />
+    <DraftSettingsModal
+      v-model:settings="store.draftSettings"
+      :model="store.draftModel"
+      :saving="store.draftSaving"
+      :error="store.draftError"
+      @close="store.closeDraft"
+      @pick="store.pickDraftDirectory"
+      @save="saveDraft"
+    />
   </section>
 </template>
 

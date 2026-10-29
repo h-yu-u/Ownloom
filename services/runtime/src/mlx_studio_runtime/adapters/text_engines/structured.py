@@ -70,9 +70,12 @@ def parse_xml_call(text: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
     if re.sub(r"<parameter=[A-Za-z0-9_]+>.*?</parameter>", "", body, flags=re.DOTALL).strip():
         raise ValueError("TOOL_XML_INVALID")
     for key, value in parameters:
-        if key in args or key not in schema.get("properties", {}):
+        if key in args:
             raise ValueError("TOOL_ARGUMENTS_INVALID")
-        definition = schema["properties"][key]
+        # Translate the native format; Pi owns argument-schema validation and its
+        # normal tool-error feedback loop. Never invent missing fields or discard
+        # unknown ones, since that could turn an invalid write into a valid write.
+        definition = schema.get("properties", {}).get(key, {})
         value = value.removeprefix("\n").removesuffix("\n")
         alternatives = definition.get("anyOf", [])
         allows_null = definition.get("type") == "null" or any(
@@ -84,8 +87,6 @@ def parse_xml_call(text: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
             args[key] = value
         else:
             args[key] = json.loads(value)
-    if any(key not in args for key in schema.get("required", [])):
-        raise ValueError("TOOL_ARGUMENTS_INVALID")
     return {"name": name, "arguments": args}
 
 
@@ -150,9 +151,11 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
     job_id = str(payload["job_id"])
     session.finish_reason = "stop"
     session.generation_tokens = 0
+    completed = False
     session.emit("generation.started", {"job_id": job_id})
     try:
         rendered, parser, budget = prepare_input(session, payload)
+        prepared = {**payload, "max_tokens": budget["outputReserve"]}
         session.emit("generation.admitted", {"job_id": job_id, "budget": budget})
         if session.engine == "fake":
             text = scripted_reply(payload)
@@ -163,7 +166,7 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
                 time.sleep(0.005)
         else:
             with redirect_stdout(sys.stderr):
-                text = _generate_native(session, rendered, payload)
+                text = _generate_native(session, rendered, prepared)
         if session.cancel.is_set() or session.shutdown.is_set():
             session.emit("generation.cancelled", {"job_id": job_id})
             return
@@ -175,12 +178,18 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
                 **result,
                 "generation_tokens": session.generation_tokens,
                 "input_tokens": budget["inputTokens"],
+                "cached_tokens": session.coding_cache.cached_tokens,
+                "prefix_cache": {
+                    "retained_tokens": session.coding_cache.retained_tokens,
+                    "snapshot_bytes": session.coding_cache.retained_bytes,
+                },
                 "budget": budget,
             },
         )
         session.emit(
             "generation.completed", {"job_id": job_id, "finish_reason": result["finish_reason"]}
         )
+        completed = True
     except Exception as error:  # Worker boundary, sanitized error code only.
         session.emit(
             "generation.failed",
@@ -191,6 +200,10 @@ def generate_structured(session: Any, payload: dict[str, Any]) -> None:
                 if isinstance(error, ValueError)
                 else "STRUCTURED_INFERENCE_FAILED",
             },
+        )
+    finally:
+        session.coding_cache.finish(
+            completed and not session.cancel.is_set() and not session.shutdown.is_set()
         )
 
 
@@ -209,16 +222,40 @@ def _generate_native(session: Any, rendered: str, payload: dict[str, Any]) -> st
     elif session.engine == "mlx-vlm":
         from mlx_vlm import stream_generate  # type: ignore[import-not-found]
 
-        responses = stream_generate(
-            model=session.model,
-            processor=session.processor,
-            prompt=rendered,
-            max_tokens=payload["max_tokens"],
-            temperature=payload["temperature"],
-            verbose=False,
-        )
+        from mlx_studio_runtime.adapters.text_engines.coding_prefill import prepare_coding_prefix
+
+        with session.drafts.request(
+            session.model, temperature=payload["temperature"], coding=True
+        ) as draft:
+            prefix = prepare_coding_prefix(session, rendered, payload)
+            responses = stream_generate(
+                model=session.model,
+                processor=session.processor,
+                prompt=rendered,
+                max_tokens=payload["max_tokens"],
+                temperature=payload["temperature"],
+                verbose=False,
+                **prefix,
+                **draft,
+            )
+            try:
+                return _collect_native(session, responses, payload)
+            finally:
+                close = getattr(responses, "close", None)
+                if callable(close):
+                    close()
+
     else:
         raise ValueError("TOOL_ENGINE_UNSUPPORTED")
+    try:
+        return _collect_native(session, responses, payload)
+    finally:
+        close = getattr(responses, "close", None)
+        if callable(close):
+            close()
+
+
+def _collect_native(session: Any, responses: Any, payload: dict[str, Any]) -> str:
     parts: list[str] = []
     size = 0
     visible = ""

@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import type { components } from '@mlx-studio/api-client'
 import type { ModelsGateway } from '../application/ports'
 import type { useModelDirectory } from '../../../capabilities/models'
+import { createDraftController } from './draft-controller'
 interface ModelsDependencies {
   gateway: ModelsGateway
   directory: ReturnType<typeof useModelDirectory>
@@ -104,6 +105,7 @@ export function createModelsController(deps: ModelsDependencies) {
   }
 
   return {
+    ...createDraftController({ ...deps, refresh }),
     items,
     loading,
     error,

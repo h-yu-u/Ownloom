@@ -38,6 +38,8 @@ curl -fsSL https://github.com/h-yu-u/Ownloom/releases/latest/download/install.sh
 
 兼容性取决于模型导出格式、适配器和可用内存；带有 MLX 标签或下载成功并不代表模型一定可用。模型选择、各工作区和本地数据的操作说明见[用户手册](docs/reference.md)。
 
+兼容的 Qwen 模型在模型库提供实验性 **草稿加速**开关。选择配套本地草稿后，可自动分配聊天 MTP、Coding DFlash2，或指定其中一种。新配置默认关闭，已有 MTP 设置保持启用；图片请求使用普通生成，DFlash2 暂不复用聊天前缀缓存。输出可能与普通生成不同，适用范围和验证限制见[草稿接入说明](docs/subsystems/runtime.md#实验性草稿接入)。
+
 ## 可以做什么
 
 | 工作区     | 能力                                                                                 |

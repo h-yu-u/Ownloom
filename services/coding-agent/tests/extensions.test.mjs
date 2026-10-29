@@ -97,6 +97,27 @@ test('snapshot selection is immutable and revocation only invalidates older auth
   assert.throws(() => service.resolver.check(original), /CAPABILITY_REVOKED/)
   assert.equal(repo.events(0).events.length, 3)
 })
+test('extension admission reserves the same Coding output budget as Pi', async (t) => {
+  const { service, source } = await fixture(t)
+  await writeFile(
+    join(source, 'SKILL.md'),
+    '---\nname: simple\ndescription: A selected method\n---\n' + 'x'.repeat(25000),
+  )
+  const imported = await service.dispatch('extensions.skills.import', {
+    mutationId: 'large-skill',
+    path: source,
+    workspaces: ['coding', 'chat'],
+    requiredCapabilities: [],
+  })
+  const selection = { ...empty, skillIds: [imported.targetId] }
+  assert.throws(
+    () => service.resolver.resolve(root, selection, 'develop', 32768),
+    /EXTENSION_CONTEXT_BUDGET_EXCEEDED/,
+  )
+  assert.doesNotThrow(() =>
+    service.resolver.resolve({ ...root, workspace: 'chat' }, selection, 'develop', 32768, true),
+  )
+})
 test('execute gateway closes exactly one call for success, failure, cancellation and duplicate IDs', async () => {
   const events = []
   const gateway = new ToolGateway({

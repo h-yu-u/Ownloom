@@ -69,6 +69,29 @@ class CapabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(active, await self.grants.activate(bootstrap))
         return "Bearer " + active["token"]
 
+    async def test_cache_scope_is_bound_to_coding_session_across_runs(self):
+        self.run["sessionId"] = "session-one"
+        inference = {
+            "model": "builtin-fake-text",
+            "tools": [],
+            "cache_scope": "spoofed",
+        }
+        self.grants.inference.admit = AsyncMock(return_value="prepared")
+        self.grants.inference.wait = AsyncMock(return_value={})
+        for run_id, workspace, expected in [
+            ("first", "coding", "coding:session-one"),
+            ("second", "coding", "coding:session-one"),
+            ("third", "chat", None),
+        ]:
+            self.run["id"] = run_id
+            self.run["capabilitySnapshot"].update(workspace=workspace, tools=[])
+            token = await self.activate()
+            await self.grants.complete(token, inference)
+            admitted = self.grants.inference.admit.call_args.args[0]
+            self.assertEqual(admitted["cache_scope"], expected)
+            self.assertEqual(inference["cache_scope"], "spoofed")
+            await self.grants.close_run(token)
+
     async def test_queue_activation_media_artifacts_idempotency_and_no_parent_lease(
         self,
     ):

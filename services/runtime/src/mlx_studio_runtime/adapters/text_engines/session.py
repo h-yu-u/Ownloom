@@ -7,7 +7,10 @@ from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
 from typing import Any, cast
 
+from mlx_studio_runtime.adapters.text_engines.coding_cache import CodingPrefixCache
+from mlx_studio_runtime.adapters.text_engines.drafts import DraftAcceleration
 from mlx_studio_runtime.adapters.text_engines.generation_stats import native_generation_stats
+from mlx_studio_runtime.adapters.text_engines.mtp import MtpDraft
 from mlx_studio_runtime.adapters.text_engines.prefix_cache import ChatPrefixCache
 from mlx_studio_runtime.adapters.worker_runtime.context import WorkerContext
 from mlx_studio_runtime.domain.generation_stats import GenerationStats
@@ -33,6 +36,9 @@ class EngineSession:
         self.generation_stats: GenerationStats | None = None
         self.context_limit = 8192
         self.prefix_cache = ChatPrefixCache()
+        self.coding_cache = CodingPrefixCache()
+        self.mtp = MtpDraft()
+        self.drafts = DraftAcceleration(self.mtp)
 
     def emit(self, event_type: str, payload: dict[str, Any]) -> None:
         if self.event_sink is None:
@@ -73,8 +79,11 @@ class EngineSession:
                 self.model_config = load_config(model_path)
         elif self.engine != "fake":
             raise RuntimeError(f"engine is not available in this Worker: {self.engine}")
+        with redirect_stdout(sys.stderr):
+            self.drafts.load(manifest, self.model)
 
     def generate(self, payload: dict[str, Any]) -> None:
+        self.coding_cache.clear()
         if self.model_id is None:
             raise RuntimeError("MODEL_NOT_LOADED")
         job_id = str(payload["job_id"])
@@ -206,27 +215,35 @@ class EngineSession:
         max_tokens = self._check_budget(
             self.processor.tokenizer, formatted, max_tokens, len(paths) * 2048
         )
-        responses = stream_generate(
-            model=self.model,
-            processor=self.processor,
-            prompt=formatted,
-            image=paths,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            verbose=False,
-            **self.prefix_cache.options,
-        )
-        try:
-            for response in responses:
-                self.record_chat_completion(response)
-                if self.cancel.is_set() or self.shutdown.is_set():
-                    return
-                text = response if isinstance(response, str) else getattr(response, "text", "")
-                yield str(text) if text else ""
-        finally:
-            close = getattr(responses, "close", None)
-            if callable(close):
-                close()
+        # DFlash needs prefill features for its full local window. Until those
+        # snapshots accompany APC, this explicit mode uses a cold target prefix.
+        if self.drafts.select(has_images=bool(paths)) == "dflash2":
+            self.prefix_cache.clear()
+        with self.drafts.request(
+            self.model, temperature=temperature, has_images=bool(paths)
+        ) as draft:
+            responses = stream_generate(
+                model=self.model,
+                processor=self.processor,
+                prompt=formatted,
+                image=paths,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                verbose=False,
+                **self.prefix_cache.options,
+                **draft,
+            )
+            try:
+                for response in responses:
+                    self.record_chat_completion(response)
+                    if self.cancel.is_set() or self.shutdown.is_set():
+                        return
+                    text = response if isinstance(response, str) else getattr(response, "text", "")
+                    yield str(text) if text else ""
+            finally:
+                close = getattr(responses, "close", None)
+                if callable(close):
+                    close()
 
     def _vlm_prompt(self, prompt: str, paths: list[str], messages: object) -> str:
         from mlx_vlm.prompt_utils import apply_chat_template  # type: ignore[import-not-found]
@@ -324,6 +341,8 @@ class EngineSession:
 
     def unload(self) -> None:
         self.prefix_cache.clear()
+        self.coding_cache.clear()
+        self.drafts.clear()
         self.model = None
         self.tokenizer = None
         self.processor = None

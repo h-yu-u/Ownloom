@@ -13,6 +13,8 @@ from mlx_studio_runtime.adapters.import_diagnostics import import_failure_chain
 from mlx_studio_runtime.adapters.worker_runtime.cancellation import WorkerCancellation
 from mlx_studio_runtime.adapters.worker_runtime.context import WorkerContext
 from mlx_studio_runtime.adapters.worker_runtime.runtime import WorkerRuntime
+from mlx_studio_runtime.domain.drafts import DraftLoadError
+from mlx_studio_runtime.domain.mtp import MtpLoadError
 from mlx_studio_runtime.domain.speech import speech_error_code
 from mlx_studio_runtime.domain.worker_protocol import (
     LIMITS,
@@ -124,7 +126,11 @@ class Worker:
                         "command_id": command["id"],
                         "job_id": command.get("payload", {}).get("job_id"),
                         "error": type(error).__name__,
-                        "error_code": speech_error_code(error)
+                        "error_code": "DRAFT_LOAD_FAILED"
+                        if isinstance(error, DraftLoadError)
+                        else "MTP_LOAD_FAILED"
+                        if isinstance(error, MtpLoadError)
+                        else speech_error_code(error)
                         if command.get("payload", {}).get("manifest", {}).get("task")
                         == "text-to-speech"
                         else "WORKER_COMMAND_FAILED",
