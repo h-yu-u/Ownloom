@@ -40,7 +40,9 @@ export function commandDescription(command: string): string {
     const directory = unique.indexOf('切换项目目录')
     if (directory >= 0) unique.splice(directory, 1)
   }
-  return unique.length <= 2 ? unique.join('、') : '执行项目的多步操作'
+  if (unique.length <= 2) return unique.join('、')
+  const global = unique.filter((action) => action?.startsWith('全局'))
+  return global.length ? `执行多步操作，包含${global.join('、')}` : '执行项目的多步操作'
 }
 
 function versionPackage(words: string[]): string | null {
@@ -55,13 +57,7 @@ function describeCommand(words: string[]): string | null {
   const [name, action, argument] = words
   if ([name, action].some((value) => value && Object.hasOwn(Object.prototype, value))) return null
   if (['npm', 'pnpm', 'yarn'].includes(name ?? '')) {
-    if (!action && name === 'yarn') return '安装项目依赖'
-    if (['install', 'i', 'ci', 'add'].includes(action ?? '')) return '安装项目依赖'
-    if (['update', 'upgrade', 'up'].includes(action ?? '')) return '更新项目依赖'
-    if (['remove', 'uninstall'].includes(action ?? '')) return '移除项目依赖'
-    if (action === 'create' || action === 'init') return '初始化项目'
-    if (action === 'view' || action === 'info' || action === 'show') return '查询依赖信息'
-    return scriptDescription(action === 'run' ? argument : action)
+    return packageCommand(words)
   }
   if (name === 'uv' && action === 'sync') return '同步 Python 项目依赖'
   if (name === 'uv' && action === 'run') return describeCommand(words.slice(2))
@@ -102,10 +98,56 @@ function describeCommand(words: string[]): string | null {
   )
 }
 
+function packageCommand(words: string[]): string | null {
+  const globalFlags = new Set(['-g', '--global', '--global=true', '--location=global'])
+  const global = words.some((word) => globalFlags.has(word)) || words[1] === 'global'
+  const normalized = words.filter(
+    (word, index) => !globalFlags.has(word) && !(index === 1 && word === 'global'),
+  )
+  const [manager, action, script] = normalized
+  const verb = ['install', 'i', 'ci', 'add'].includes(action ?? '')
+    ? '安装'
+    : ['update', 'upgrade', 'up'].includes(action ?? '')
+      ? '更新'
+      : ['remove', 'uninstall'].includes(action ?? '')
+        ? '移除'
+        : null
+  if (verb) {
+    if (!global) return `${verb}项目依赖`
+    const names = dependencyNames(normalized.slice(2))
+    return `全局${verb}${names?.length ? ` ${names.join('、')}` : '依赖'}`
+  }
+  if (global) return null
+  if (!action && manager === 'yarn') return '安装项目依赖'
+  if (action === 'create' || action === 'init') return '初始化项目'
+  if (action === 'view' || action === 'info' || action === 'show') return '查询依赖信息'
+  if (action === 'run' || action === 'run-script') return scriptDescription(script)
+  return action && (Object.hasOwn(scripts, action) || action.includes(':'))
+    ? scriptDescription(action)
+    : null
+}
+
+function dependencyNames(words: string[]): string[] | null {
+  const names: string[] = []
+  const flags = new Set(['--force', '--ignore-scripts', '--no-audit', '--no-fund', '--silent'])
+  const options = new Set(['--registry', '--cache', '--prefix', '--userconfig', '--store-dir'])
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index]!
+    if (flags.has(word)) continue
+    if (options.has(word)) {
+      if (!words[++index]) return null
+      continue
+    }
+    if (word.startsWith('--') && options.has(word.split('=')[0]!) && word.includes('=')) continue
+    if (word.startsWith('-')) return null
+    names.push(word)
+  }
+  return names
+}
+
 function scriptDescription(script: string | undefined): string | null {
   if (!script) return null
-  const base = script.split(':')[0] ?? script
-  return Object.hasOwn(scripts, base) ? scripts[base]! : null
+  return Object.hasOwn(scripts, script) ? scripts[script]! : `运行脚本 ${script}`
 }
 
 /** Conservative tokenizer: quoted separators stay literal; unsupported shell syntax stays generic. */
