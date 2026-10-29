@@ -12,6 +12,7 @@ from mlx_studio_runtime.adapters.persistence.sqlite_repositories import (
     SQLiteRepositories,
 )
 from mlx_studio_runtime.application.capability_grants import CapabilityGrants
+from mlx_studio_runtime.application.model_run_references import ModelRunReferences
 from mlx_studio_runtime.domain.errors import RuntimeFault
 from runtime_fixtures import create_test_runtime
 
@@ -222,6 +223,7 @@ class CapabilityTests(unittest.IsolatedAsyncioTestCase):
             self.grants.extensions,
             self.grants.models,
             self.grants.generation,
+            references=ModelRunReferences(),
         )
         try:
             self.assertEqual(ledger.jobs(self.run["id"]), [job["id"]])

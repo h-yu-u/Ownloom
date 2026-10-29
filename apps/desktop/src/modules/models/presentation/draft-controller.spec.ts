@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { RuntimeError } from '@mlx-studio/api-client'
 import { modelFixture } from '../../../test-fixtures/runtime'
 import { createModelsGateway } from '../infrastructure/models-gateway'
 import { createDraftController, initialDraft } from './draft-controller'
@@ -71,6 +72,25 @@ describe('draft acceleration settings', () => {
     finish('/late')
     await pending
     expect(controller.draftSettings.value.dflashPath).toBeNull()
+  })
+  it('keeps editable settings after a busy rejection and can retry after the run stops', async () => {
+    const { controller, gateway, refresh } = fixture()
+    const model = modelFixture({ id: 'qwen' })
+    controller.showDraft(model)
+    controller.draftSettings.value.mtpPath = '/selected'
+    gateway.configureDraft.mockRejectedValueOnce(
+      new RuntimeError('模型仍被任务引用，请等待结束或先停止任务', 'MODEL_IN_USE', 409, true),
+    )
+    expect(await controller.saveDraft()).toBe(false)
+    expect(controller.draftSaving.value).toBe(false)
+    expect(controller.draftModel.value?.id).toBe(model.id)
+    expect(controller.draftSettings.value.mtpPath).toBe('/selected')
+    expect(controller.draftError.value).toContain('等待结束或先停止任务')
+    expect(refresh).not.toHaveBeenCalled()
+    expect(model.draft).toBeUndefined()
+    expect(await controller.saveDraft()).toBe(true)
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(controller.draftModel.value).toBeNull()
   })
   it('renders an accessible enable switch and emits the updated settings', async () => {
     const settings = initialDraft()

@@ -5,6 +5,8 @@ const labels: Record<string, string> = {
   VERIFICATION_PLAN_CHANGED: '验证配置已改变，本轮验证已停止，请重新建立验证计划。',
   TRANSCRIPT_CORRUPT: '会话日志校验失败，原记录已保留，请从备份恢复或新建会话。',
   MODEL_TOOLS_UNVERIFIED: '模型或模板发生变化，请重新验证工具能力。',
+  MODEL_IN_USE: '模型仍被任务引用或正在更新设置，请等待完成或先停止相关任务后重试。',
+  CAPABILITY_MODEL_CHANGED: '任务使用的模型配置已改变，请重新验证模型工具能力后提交新任务。',
   RESTORE_CONFLICT: '文件已被人工或外部程序修改，无法撤销。当前内容已保留。',
   FILE_VERSION_CONFLICT: '文件版本发生变化，请重新读取后再修改。',
   CODING_HOST_NOT_AVAILABLE: 'Coding 服务暂不可用，请重试连接。',

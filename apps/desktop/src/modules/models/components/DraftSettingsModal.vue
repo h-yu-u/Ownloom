@@ -66,7 +66,8 @@ const paths = computed(() =>
         />
       </NFormItem>
       <NAlert type="info" :show-icon="false">
-        关闭后使用普通生成，保留已选目录。保存会等待当前推理结束，下次加载模型时生效。
+        此模型有准备中、排队或执行中的 Coding / Agent 任务时，请等待任务结束或先停止任务再保存。
+        保存会等待当前推理结束，并卸载已加载的此模型；新设置在下次加载时生效。关闭后保留已选目录。
       </NAlert>
       <template v-if="settings.enabled">
         <NFormItem label="加速方案">

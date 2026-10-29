@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 from mlx_studio_runtime.adapters.draft_metadata import validate_dflash_files
 from mlx_studio_runtime.application.model_acceleration import ModelAcceleration
+from mlx_studio_runtime.application.model_run_references import ModelRunReferences
 from mlx_studio_runtime.domain.drafts import (
     DraftSettings,
     effective_draft,
@@ -146,7 +147,12 @@ class DraftLeaseTests(unittest.IsolatedAsyncioTestCase):
         scheduler = Mock(lock=asyncio.Lock())
         runtime = Mock(active_model_id=model.id, stop=AsyncMock())
         service = ModelAcceleration(
-            catalog, scheduler, runtime, Mock(), lambda _, value: value
+            catalog,
+            scheduler,
+            runtime,
+            Mock(),
+            lambda _, value: value,
+            references=ModelRunReferences(),
         )
         settings = DraftSettings(True, "auto", "/mtp", "/dflash")
         await scheduler.lock.acquire()

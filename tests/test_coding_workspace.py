@@ -135,6 +135,12 @@ class CodingWorkspaceTests(unittest.IsolatedAsyncioTestCase):
             state = await self.snapshot(session)
             for approval in state["approvals"]:
                 if approval["status"] == "pending" and approval["id"] not in allowed:
+                    blocked = await self.client.post(
+                        "/internal/v1/models/builtin-fake-text/draft",
+                        json={"enabled": False},
+                    )
+                    self.assertEqual(blocked.status_code, 409, blocked.text)
+                    self.assertEqual(blocked.json()["error"]["code"], "MODEL_IN_USE")
                     allowed.add(approval["id"])
                     await self.post(
                         f"/approvals/{approval['id']}/resolve", {"allowed": True}
@@ -272,6 +278,11 @@ class CodingWorkspaceTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         self.assertEqual(queued["status"], "queued")
+        blocked = await self.client.post(
+            "/internal/v1/models/builtin-fake-text/mtp", json={"draftPath": None}
+        )
+        self.assertEqual(blocked.status_code, 409, blocked.text)
+        self.assertEqual(blocked.json()["error"]["code"], "MODEL_IN_USE")
         await self.post(f"/runs/{run['id']}/cancel")
         state = await self.until(
             session, lambda s: s["runs"][-1]["status"] == "completed"

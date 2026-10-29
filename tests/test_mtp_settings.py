@@ -11,6 +11,7 @@ from mlx_studio_runtime.adapters.coding_model_identity import coding_model_ident
 from mlx_studio_runtime.adapters.mtp_metadata import validate_mtp_files
 from mlx_studio_runtime.application.model_acceleration import ModelAcceleration
 from mlx_studio_runtime.application.model_catalog import ModelCatalog
+from mlx_studio_runtime.application.model_run_references import ModelRunReferences
 from mlx_studio_runtime.domain.models import fake_text_manifest, manifest_from_dict
 from mlx_studio_runtime.domain.mtp import MtpSettings, restore_mtp
 from mlx_studio_runtime.entrypoints.http.app import create_app
@@ -126,7 +127,13 @@ class MtpLeaseTests(unittest.IsolatedAsyncioTestCase):
         scheduler = Mock(lock=asyncio.Lock())
         runtime = Mock(active_model_id=model.id, stop=AsyncMock())
         settings = MtpSettings("/draft")
-        service = ModelAcceleration(catalog, scheduler, runtime, lambda _, value: value)
+        service = ModelAcceleration(
+            catalog,
+            scheduler,
+            runtime,
+            lambda _, value: value,
+            references=ModelRunReferences(),
+        )
         await scheduler.lock.acquire()
         saving = asyncio.create_task(service.configure(model.id, settings))
         await asyncio.sleep(0)
