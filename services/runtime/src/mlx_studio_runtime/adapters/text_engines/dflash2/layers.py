@@ -2,10 +2,10 @@
 # Adapted from z-lab/dflash@07ebd93db9f472af339b644bb70221ad8428328a/model_mlx.py.
 # Network/selector math retained; target generation and remote loading excluded.
 # pyright: basic
-import mlx.core as mx
-from mlx import nn
-from mlx_lm.models.base import create_causal_mask
-from mlx_lm.models.qwen3 import MLP
+import mlx.core as mx  # type: ignore[import-not-found]
+from mlx import nn  # type: ignore[import-not-found]
+from mlx_lm.models.base import create_causal_mask  # type: ignore[import-not-found]
+from mlx_lm.models.qwen3 import MLP  # type: ignore[import-not-found]
 
 from mlx_studio_runtime.adapters.text_engines.dflash2.config import DFlashConfig
 

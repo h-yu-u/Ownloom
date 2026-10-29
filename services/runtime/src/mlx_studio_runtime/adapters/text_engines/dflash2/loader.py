@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-import mlx.core as mx
-from mlx import nn
+import mlx.core as mx  # type: ignore[import-not-found]
+from mlx import nn  # type: ignore[import-not-found]
 
 from mlx_studio_runtime.adapters.mtp_metadata import read_config
 from mlx_studio_runtime.adapters.text_engines.dflash2.config import parse_config

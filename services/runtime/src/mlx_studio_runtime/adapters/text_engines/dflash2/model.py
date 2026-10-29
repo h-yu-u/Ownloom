@@ -4,10 +4,10 @@
 # pyright: basic
 from typing import Any
 
-import mlx.core as mx
-from mlx import nn
-from mlx_lm.models.cache import KVCache, RotatingKVCache
-from mlx_lm.models.rope_utils import initialize_rope
+import mlx.core as mx  # type: ignore[import-not-found]
+from mlx import nn  # type: ignore[import-not-found]
+from mlx_lm.models.cache import KVCache, RotatingKVCache  # type: ignore[import-not-found]
+from mlx_lm.models.rope_utils import initialize_rope  # type: ignore[import-not-found]
 
 from mlx_studio_runtime.adapters.text_engines.dflash2.config import DFlashConfig
 from mlx_studio_runtime.adapters.text_engines.dflash2.layers import (

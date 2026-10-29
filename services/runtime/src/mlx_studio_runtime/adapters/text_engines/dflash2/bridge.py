@@ -1,9 +1,9 @@
 """DFlash2 proposals using the same VLM target, sampler and rollback as MTP."""
 
 # pyright: basic
-import mlx.core as mx
-from mlx import nn
-from mlx_vlm.speculative.common import generation_stream
+import mlx.core as mx  # type: ignore[import-not-found]
+from mlx import nn  # type: ignore[import-not-found]
+from mlx_vlm.speculative.common import generation_stream  # type: ignore[import-not-found]
 
 from mlx_studio_runtime.adapters.text_engines.dflash2.prefill import (
     _PrefillFeatures as PrefillFeatures,
