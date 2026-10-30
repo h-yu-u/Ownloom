@@ -121,6 +121,21 @@ jobs:
           uv run --frozen --no-sync --project services/runtime --python 3.12 \
             python -m scripts.acceptance.verify_desktop_shutdown \
             --sidecar apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin
+      - name: Record and verify Runtime artifact provenance
+        run: |
+          .build/runtime/venv-release/bin/python -m scripts.build.runtime_artifact create \
+            --output .build/runtime/reusable --commit "$GITHUB_SHA"
+          .build/runtime/venv-release/bin/python -m scripts.build.runtime_artifact verify \
+            --directory .build/runtime/reusable --commit "$GITHUB_SHA"
+      - name: Share the verified Runtime with releases of this main commit
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-release-${{ github.sha }}-${{ github.run_attempt }}
+          path: .build/runtime/reusable/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -140,6 +155,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          shared-key: macos-14-check
       - name: Provide sidecar placeholder for compile-time validation
         run: |
           mkdir -p apps/desktop/src-tauri/binaries

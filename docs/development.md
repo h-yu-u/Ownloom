@@ -19,6 +19,8 @@
 
 `check` 和 `test` 默认运行各自的非 Rust 全量集合；`dev` 默认桌面模式。`build`、`generate` 和 `verify` 必须指定目标，防止省略参数时意外打包或运行真实模型。使用对应动作的 `--help` 查看可选目标，例如 `pnpm verify --help`。
 
+统一入口在每条命令结束时记录耗时、退出码或终止信号；在 GitHub Actions 中也写入当前 step 的摘要表，便于定位后续构建瓶颈。计时不会改变命令顺序、失败退出或信号转发，摘要写入失败也不会覆盖命令本身的结果。
+
 ## 工具链
 
 | 工具       | 项目约定                                             | 事实来源                                                                              |
@@ -129,13 +131,15 @@ CI 中的 Sidecar 占位文件仅满足编译检查，不得进入发行包或�
 
 ## 构建命令与产物
 
-| 命令                       | 作用与环境                                          |
-| -------------------------- | --------------------------------------------------- |
-| `pnpm build web`           | Vue 类型检查和 Vite 构建                            |
-| `pnpm build coding`        | 编译 Coding Host                                    |
-| `pnpm build coding-bundle` | Apple Silicon 上收集 Host 生产依赖与内置 Node       |
-| `pnpm build runtime`       | Apple Silicon 上构建 PyInstaller Runtime            |
-| `pnpm build app`           | Coding bundle → Web → Sidecar → Tauri `.app`/`.dmg` |
+| 命令                       | 作用与环境                                             |
+| -------------------------- | ------------------------------------------------------ |
+| `pnpm build web`           | Vue 类型检查和 Vite 构建                               |
+| `pnpm build coding`        | 编译 Coding Host                                       |
+| `pnpm build coding-bundle` | Apple Silicon 上收集 Host 生产依赖与内置 Node          |
+| `pnpm build runtime`       | Apple Silicon 上构建 PyInstaller Runtime               |
+| `pnpm build app`           | Coding bundle → Sidecar → Tauri（Web、`.app`、`.dmg`） |
+
+完整应用的 Web 构建由 Tauri 的 `beforeBuildCommand` 负责，只执行一次；单独验证前端仍使用 `pnpm build web`。本地 `pnpm build app` 始终从源码构建 Runtime；Release 工作流可以复用同一提交的已验收 Runtime，规则见[版本发布](./release.md#缓存与-runtime-制品复用)。
 
 应用位于 `apps/desktop/src-tauri/target/release/bundle/macos/Ownloom.app`，DMG 位于同级 `dmg/`。当前配置使用 ad-hoc 签名；构建成功不代表完成 Developer ID、公证、真实模型或干净机器验收。标签触发的自动构建和上传见[版本发布](./release.md)，完整制品要求见[发布验收](./release-acceptance.md)。
 
@@ -176,6 +180,8 @@ apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin --check-
 ```
 
 `--check-bundle` 在专用诊断进程中将 MLX 默认设备设为 CPU，离线检查依赖导入、运行资源和小型内存运算，不加载或下载模型；CPU 设置仅用于这个诊断入口。[CI 的 `runtime-bundle` job](../.github/workflows/ci.yml)构建真实依赖 Sidecar，执行这项检查及现有包内 FakeEngine 协议、退出清理验收，并上传 `runtime-bundle-evidence` 中的 `archive-size.json` 与 `bundle-check.json`。报告明确列出未验证的 Metal GPU 执行和模型加载、推理。这些检查也不能代替最终 `.app`、签名或干净机器验收，实际证据统一维护在[验证范围](./verification.md)。
+
+上述包内检查全部通过后，CI 使用实际构建环境生成并验证可复用 Runtime 的来源清单。PR 执行清单生成和本地校验；只有 `main` 的 push CI 上传可供 Release 使用的二进制，消费方还要求该次完整 CI 成功。制品寿命、匹配条件、下载校验与源码构建回退集中维护在[版本发布](./release.md#缓存与-runtime-制品复用)。
 
 ## 按模块实际验证
 
