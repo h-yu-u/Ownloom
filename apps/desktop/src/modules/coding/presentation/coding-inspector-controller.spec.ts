@@ -128,6 +128,80 @@ describe('file and change inspection', () => {
     expect(inspector.fileContent.value).toBeNull()
     expect(inspector.panel.value).toBeNull()
   })
+  it.each(['resolve', 'reject'] as const)(
+    'a late %s while opening a preview cannot replace a newer file selection',
+    async (outcome) => {
+      const { inspector, gateway } = fixture()
+      let finish!: (paths: string[]) => void
+      let fail!: (error: Error) => void
+      gateway.files.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            finish = resolve
+            fail = reject
+          }),
+      )
+      const opening = inspector.previewFile('src/app.ts')
+      gateway.read.mockResolvedValueOnce('new selection')
+      await inspector.previewFile('empty.txt')
+      if (outcome === 'resolve') finish(['src/app.ts', 'empty.txt'])
+      else fail(new Error('old listing failed'))
+      await opening
+      expect(inspector.filePath.value).toBe('empty.txt')
+      expect(inspector.fileContent.value).toBe('new selection')
+      expect(inspector.inspectorError.value).toBeNull()
+      expect(gateway.read).toHaveBeenCalledTimes(1)
+      inspector.resetInspector()
+    },
+  )
+  it('a pending preview cannot reopen its file after closing and reopening the panel', async () => {
+    const { inspector, gateway } = fixture()
+    let finish!: (paths: string[]) => void
+    gateway.files.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const opening = inspector.previewFile('src/app.ts')
+    await inspector.toggleInspector()
+    await inspector.toggleInspector()
+    finish(['src/app.ts'])
+    await opening
+    expect(inspector.panel.value).toBe('files')
+    expect(inspector.filePath.value).toBe('')
+    expect(inspector.fileContent.value).toBeNull()
+    expect(gateway.read).not.toHaveBeenCalled()
+    inspector.resetInspector()
+  })
+  it('keeps the requested preview when a background refresh arrives during opening', async () => {
+    const { inspector, gateway } = fixture()
+    let finish!: (paths: string[]) => void
+    gateway.files.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const opening = inspector.previewFile('src/app.ts')
+    await inspector.refreshInspector()
+    finish(['src/app.ts'])
+    await opening
+    expect(inspector.filePath.value).toBe('src/app.ts')
+    expect(inspector.fileContent.value).toBe('content')
+    expect(gateway.files).toHaveBeenCalledTimes(2)
+    expect(gateway.read).toHaveBeenCalledWith('s', 'src/app.ts')
+    inspector.resetInspector()
+  })
+  it('opens the requested preview normally when no newer action supersedes it', async () => {
+    const { inspector, gateway } = fixture()
+    await inspector.previewFile('src/app.ts')
+    expect(inspector.panel.value).toBe('files')
+    expect(inspector.filePath.value).toBe('src/app.ts')
+    expect(inspector.fileContent.value).toBe('content')
+    expect(gateway.read).toHaveBeenCalledWith('s', 'src/app.ts')
+    inspector.resetInspector()
+  })
   it('a failed read stays within the inspector and a new selection recovers', async () => {
     const { inspector, gateway } = fixture()
     await inspector.inspect('files')
