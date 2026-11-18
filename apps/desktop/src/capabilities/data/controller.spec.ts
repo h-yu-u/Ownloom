@@ -150,3 +150,78 @@ describe('restore preview ownership', () => {
     expect(gateway.activate).not.toHaveBeenCalled()
   })
 })
+
+describe('storage refresh requests', () => {
+  it('loads one storage snapshot without performing a data operation', async () => {
+    const { controller, gateway } = fixture()
+    await controller.load()
+    expect(gateway.storage).toHaveBeenCalledOnce()
+    expect(controller.storage.value?.bytes).toBe(0)
+    expect(controller.pending.value).toBe(false)
+    expect(controller.error.value).toBe('')
+    expect(gateway.cleanup).not.toHaveBeenCalled()
+    expect(gateway.restore).not.toHaveBeenCalled()
+  })
+
+  it('exposes a failed refresh and performs one request on retry', async () => {
+    const { controller, gateway } = fixture()
+    gateway.storage.mockRejectedValueOnce(new Error('storage unavailable'))
+    await controller.load()
+    expect(controller.error.value).toBe('storage unavailable')
+    expect(controller.pending.value).toBe(false)
+    await controller.load()
+    expect(gateway.storage).toHaveBeenCalledTimes(2)
+    expect(controller.error.value).toBe('')
+    expect(controller.storage.value).not.toBeNull()
+  })
+
+  it('ignores repeated refresh clicks while the snapshot is loading', async () => {
+    const { controller, gateway } = fixture()
+    const snapshot = deferred<Awaited<ReturnType<typeof gateway.storage>>>()
+    gateway.storage.mockReturnValueOnce(snapshot.promise)
+    const loading = controller.load()
+    await controller.load()
+    expect(controller.pending.value).toBe(true)
+    snapshot.resolve({
+      bytes: 42,
+      categories: {},
+      automaticCleanup: false,
+      trash: [],
+      candidates: [],
+    })
+    await loading
+    expect(gateway.storage).toHaveBeenCalledOnce()
+    expect(controller.storage.value?.bytes).toBe(42)
+  })
+
+  it('does not publish a late snapshot or reload after disposal', async () => {
+    const { controller, gateway } = fixture()
+    const snapshot = deferred<Awaited<ReturnType<typeof gateway.storage>>>()
+    gateway.storage.mockReturnValueOnce(snapshot.promise)
+    const loading = controller.load()
+    controller.dispose()
+    snapshot.resolve({
+      bytes: 42,
+      categories: {},
+      automaticCleanup: false,
+      trash: [],
+      candidates: [],
+    })
+    await loading
+    await controller.load()
+    expect(gateway.storage).toHaveBeenCalledOnce()
+    expect(controller.storage.value).toBeNull()
+  })
+
+  it('still refreshes once after a successful cleanup and skips refresh after failure', async () => {
+    const { controller, gateway } = fixture()
+    await controller.cleanup()
+    expect(gateway.cleanup).toHaveBeenCalledOnce()
+    expect(gateway.storage).toHaveBeenCalledOnce()
+    expect(controller.notice.value).toBe('已将无引用附件移入回收站')
+    gateway.cleanup.mockRejectedValueOnce(new Error('cleanup failed'))
+    await controller.cleanup()
+    expect(gateway.storage).toHaveBeenCalledOnce()
+    expect(controller.error.value).toBe('cleanup failed')
+  })
+})
