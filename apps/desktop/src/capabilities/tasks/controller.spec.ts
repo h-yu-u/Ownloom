@@ -97,3 +97,73 @@ it('counts one active task for multiple execution records in the same session', 
   expect(state.active.value).toHaveLength(1)
   state.stop()
 })
+
+it.each([false, true])(
+  'ignores late download failures after stop (restart: %s)',
+  async (restart) => {
+    vi.useFakeTimers()
+    let rejectDownload: (cause: Error) => void = () => {}
+    const state = createTaskCenter({
+      tasks: vi.fn().mockResolvedValue([]),
+      download: vi.fn(() => new Promise((_, reject) => (rejectDownload = reject))),
+    })
+    state.start()
+    await flushPromises()
+    const operation = state.download('download', 'pause')
+    state.stop()
+    if (restart) {
+      state.start()
+      await flushPromises()
+    }
+    rejectDownload(new Error('old download failed'))
+    await operation
+    expect(state.error.value).toBe('')
+    expect(vi.getTimerCount()).toBe(restart ? 1 : 0)
+    state.stop()
+  },
+)
+
+it('does not let an old download success refresh a restarted observer', async () => {
+  vi.useFakeTimers()
+  let resolveDownload: () => void = () => {}
+  const tasks = vi.fn().mockResolvedValue([])
+  const state = createTaskCenter({
+    tasks,
+    download: vi.fn(() => new Promise<void>((resolve) => (resolveDownload = resolve))),
+  })
+  state.start()
+  await flushPromises()
+  const operation = state.download('download', 'resume')
+  state.stop()
+  state.start()
+  await flushPromises()
+  await vi.advanceTimersByTimeAsync(1000)
+  resolveDownload()
+  await operation
+  expect(tasks).toHaveBeenCalledTimes(2)
+  await vi.advanceTimersByTimeAsync(4000)
+  expect(tasks).toHaveBeenCalledTimes(3)
+  state.stop()
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('still refreshes successful downloads and reports failures for the active observer', async () => {
+  vi.useFakeTimers()
+  const tasks = vi.fn().mockResolvedValue([])
+  const download = vi.fn().mockRejectedValueOnce(new Error('pause failed')).mockResolvedValue({})
+  const state = createTaskCenter({ tasks, download })
+  state.start()
+  await flushPromises()
+  await state.download('download', 'pause')
+  expect(state.error.value).toBe('pause failed')
+  expect(tasks).toHaveBeenCalledTimes(1)
+  await state.download('download', 'resume')
+  expect(download.mock.calls).toEqual([
+    ['download', 'pause'],
+    ['download', 'resume'],
+  ])
+  expect(tasks).toHaveBeenCalledTimes(2)
+  expect(state.error.value).toBe('')
+  state.stop()
+  expect(vi.getTimerCount()).toBe(0)
+})
