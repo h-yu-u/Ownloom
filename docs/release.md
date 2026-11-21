@@ -76,9 +76,9 @@ shasum -a 256 -c SHA256SUMS
 
 ## 缓存与 Runtime 制品复用
 
-Rust 使用固定提交版本的 `Swatinem/rust-cache` 缓存依赖与编译产物，工作区为 `apps/desktop/src-tauri -> target`。CI 的 `macos-14-check`、Release 的 `macos-15-check` 与 `macos-15-release` 分别使用独立缓存键，保留 action 对 Rust 工具链、Cargo 配置与锁文件的哈希。检查和正式构建不再共用一个临时任务，也不删除检查产物来腾出发布空间。Release 的 `CARGO_BUILD_JOBS=2` 和检查时的 debug 信息设置保持不变。
+Rust 使用固定提交版本的 `Swatinem/rust-cache` 缓存依赖与编译产物，工作区为 `apps/desktop/src-tauri -> target`。CI 的 `macos-15-ci-check`、Release 的 `macos-15-check` 与 `macos-15-release` 分别使用独立缓存键，保留 action 对 Rust 工具链、Cargo 配置与锁文件的哈希。检查和正式构建不再共用一个临时任务，也不删除检查产物来腾出发布空间。Release 的 `CARGO_BUILD_JOBS=2` 和检查时的 debug 信息设置保持不变。
 
-缓存仍受 [GitHub 的分支与标签作用域](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)约束：可以读取默认分支中的兼容缓存，但不同标签之间不能直接共享各自保存的缓存。日常 CI 的 `macos-14-check` 不预热 Release 的两个 `macos-15` 缓存；手动从 `main` 发起 Release 才能为它们建立可从默认分支复用的缓存。新工具链、依赖变化或首次发布仍可能冷构建。缓存不替代任何检查。
+缓存仍受 [GitHub 的分支与标签作用域](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)约束：可以读取默认分支中的兼容缓存，但不同标签之间不能直接共享各自保存的缓存。日常 CI 的 `macos-15-ci-check` 不预热 Release 的两个 `macos-15` 缓存；手动从 `main` 发起 Release 才能为它们建立可从默认分支复用的缓存。新工具链、依赖变化或首次发布仍可能冷构建。缓存不替代任何检查。
 
 Runtime 复用的是完成打包与包内验收的 Sidecar，不缓存或搬运 Python 虚拟环境。生产和消费入口分别为 [runtime_artifact](../scripts/build/runtime_artifact.py) 和 [restore_runtime](../scripts/release/restore_runtime.py)：
 

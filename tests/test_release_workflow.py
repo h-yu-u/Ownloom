@@ -105,14 +105,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
             "touch apps/desktop/src-tauri/binaries/mlx-studio-runtime-aarch64-apple-darwin",
             rust_commands,
         )
-        self.assertEqual(self.ci["rust"]["runs-on"], "macos-14")
+        self.assertEqual(self.ci["rust"]["runs-on"], "macos-15")
 
     def test_rust_caches_preserve_configuration_hashes_and_separate_profiles(
         self,
     ) -> None:
         keys = []
         for job, expected in (
-            (self.ci["rust"], "macos-14-check"),
+            (self.ci["rust"], "macos-15-ci-check"),
             (self.release["rust"], "macos-15-check"),
             (self.release["build"], "macos-15-release"),
         ):
