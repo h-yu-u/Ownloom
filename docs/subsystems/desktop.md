@@ -52,7 +52,7 @@ Coding/工具助手草稿按项目和会话隔离，以 ID/revision 决定是否
 
 保存返回已保存、已发起浏览器下载、取消或失败等明确结果。导出归属信号经过聊天、媒体、诊断端口传至平台，在 Blob 读取字节后、调用原生保存窗口前再次校验；读取期间离页只返回已失效，不弹迟到窗口或显示迟到的读取错误。原生调用已经开始后不撤销保存，仍返回实际保存、取消或失败结果。实现见 [export-operation.ts](../../apps/desktop/src/shared/lib/export-operation.ts)和 [files.ts](../../apps/desktop/src/platform/files.ts)。
 
-Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/MarkdownContent.vue)及受控渲染器。HTML、危险链接和引用定位走既有安全路径。外链由平台验证 HTTP/HTTPS 和凭据，不能开放通用 Shell 权限或改变聊天 Hash 路由。
+Markdown 统一使用 [MarkdownContent.vue](../../apps/desktop/src/shared/ui/MarkdownContent.vue)及受控渲染器。HTML、危险链接和引用定位走既有安全路径。引用只解析当前来源映射自身的条目，不读取原型继承属性；未匹配的标记保留为未解析文本，不中断消息渲染。外链由平台验证 HTTP/HTTPS 和凭据，不能开放通用 Shell 权限或改变聊天 Hash 路由。
 
 [GenerationStats.vue](../../apps/desktop/src/shared/ui/GenerationStats.vue) 只接收统计与展示状态，统一格式化平均生成速度和输出 token 数，不请求接口、计时或管理任务。第一版由普通聊天的消息组件消费；数据来源、持久化及恢复规则归属[聊天生成统计](./chat.md#生成统计)。
 

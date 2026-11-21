@@ -26,7 +26,7 @@ export function renderMarkdown(
           },
           renderer: (token) => {
             const id = String(token.sourceId),
-              target = citations[id]
+              target = Object.hasOwn(citations, id) ? citations[id] : undefined
             return target?.startsWith('#')
               ? `<a class="citation" href="${escapeHtml(target)}">[${escapeHtml(id)}]</a>`
               : `<span class="citation-unresolved">${escapeHtml(token.raw)}</span>`

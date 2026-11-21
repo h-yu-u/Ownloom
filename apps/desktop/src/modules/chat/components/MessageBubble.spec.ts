@@ -15,6 +15,24 @@ afterEach(() => {
   vi.clearAllMocks()
   vi.mocked(copyText).mockReset()
 })
+it('renders messages without sources when citation IDs match object prototype names', () => {
+  const wrapper = mount(MessageBubble, {
+    props: {
+      message: {
+        id: 'prototype-citation',
+        role: 'assistant',
+        content: '**回答** [[cite:toString]] [[cite:__proto__]]',
+      },
+    },
+  })
+  expect(wrapper.get('strong').text()).toBe('回答')
+  expect(wrapper.findAll('.citation-unresolved').map((node) => node.text())).toEqual([
+    '[[cite:toString]]',
+    '[[cite:__proto__]]',
+  ])
+  expect(wrapper.find('a.citation').exists()).toBe(false)
+  wrapper.unmount()
+})
 it('bounds Markdown work during streaming and immediately renders the exact final text', async () => {
   vi.useFakeTimers()
   const message = {
