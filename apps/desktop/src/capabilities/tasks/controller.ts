@@ -84,12 +84,15 @@ export function createTaskCenter(deps: {
       clearTimeout(timer)
     },
     async download(id: string, action: 'pause' | 'resume' | 'cancel') {
+      const owner = abort
       try {
         await deps.download(id, action)
+        if (!owner || abort !== owner || owner.signal.aborted) return
         clearTimeout(timer)
         await refresh()
       } catch (cause) {
-        error.value = cause instanceof Error ? cause.message : '下载操作失败'
+        if (owner && abort === owner && !owner.signal.aborted)
+          error.value = cause instanceof Error ? cause.message : '下载操作失败'
       }
     },
   }
