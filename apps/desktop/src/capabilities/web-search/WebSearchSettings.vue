@@ -30,7 +30,12 @@ async function save(andTest = false): Promise<void> {
           :disabled="web.pending"
           aria-label="搜索 API Key"
       /></NFormItem>
-      <NAlert v-if="web.error" type="error">{{ web.error }}</NAlert>
+      <NAlert v-if="web.error" type="error">
+        {{ web.error }}
+        <div v-if="!web.settings">
+          <NButton size="small" :disabled="web.pending" @click="web.load">重试读取配置</NButton>
+        </div>
+      </NAlert>
       <NAlert
         v-else-if="web.verification.kind === 'passed' && !web.dirty"
         :type="web.verification.partial ? 'warning' : 'success'"
