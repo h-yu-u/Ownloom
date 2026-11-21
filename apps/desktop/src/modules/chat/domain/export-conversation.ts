@@ -1,4 +1,15 @@
 import type { ChatMessage } from './chat-state'
+import type { MessageSource } from './message-source'
+
+function formatFileSource(source: Extract<MessageSource, { kind: 'file' }>): string {
+  const locations = source.locations
+    ?.map((location) =>
+      location.page ? `第 ${location.page} 页` : location.section || location.blockId,
+    )
+    .join('、')
+  return `[${source.id}] ${source.originalName}${locations ? `（${locations}）` : ''}`
+}
+
 export function formatConversation(title: string, messages: ChatMessage[]): string {
   return [
     `# ${title}`,
@@ -8,7 +19,7 @@ export function formatConversation(title: string, messages: ChatMessage[]): stri
         ?.map((source) =>
           source.kind === 'web'
             ? `[${source.id}] ${source.title} — ${source.url}（检索于 ${source.retrievedAt}；${source.representation === 'snippet_only' ? '仅摘要' : '网页摘录'}）`
-            : `[${source.id}] ${source.originalName}（${source.locations?.map((location) => (location.page ? `第 ${location.page} 页` : location.section || location.blockId)).join('、')}）`,
+            : formatFileSource(source),
         )
         .join('\n')
       return `## ${item.role === 'user' ? '你' : 'Ownloom'}\n\n${item.content}${attachments ? `\n\n${attachments}` : ''}${sources ? `\n\n参考来源\n${sources}` : ''}`
