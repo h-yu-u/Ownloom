@@ -28,6 +28,49 @@ describe('HubModelPicker', () => {
     useModelsStore().catalog = [model]
   })
 
+  it('cancels a queued search when discovery is closed and reopened', async () => {
+    vi.useFakeTimers()
+    const search = vi.spyOn(useModelsStore(), 'searchCatalog').mockResolvedValue(undefined)
+    const closed = renderPicker()
+    let reopened: ReturnType<typeof renderPicker> | undefined
+    try {
+      closed.getComponent(NSelect).vm.$emit('search', 'old query')
+      await vi.advanceTimersByTimeAsync(100)
+      closed.unmount()
+      reopened = renderPicker()
+      reopened.getComponent(NSelect).vm.$emit('search', 'new query')
+      await vi.advanceTimersByTimeAsync(349)
+      expect(search).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(search.mock.calls).toEqual([['new query']])
+    } finally {
+      if (closed.exists()) closed.unmount()
+      reopened?.unmount()
+      search.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('debounces rapid edits while discovery remains open', async () => {
+    vi.useFakeTimers()
+    const search = vi.spyOn(useModelsStore(), 'searchCatalog').mockResolvedValue(undefined)
+    const wrapper = renderPicker()
+    try {
+      const select = wrapper.getComponent(NSelect)
+      select.vm.$emit('search', 'Q')
+      await vi.advanceTimersByTimeAsync(200)
+      select.vm.$emit('search', 'Qwen')
+      await vi.advanceTimersByTimeAsync(349)
+      expect(search).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(search.mock.calls).toEqual([['Qwen']])
+    } finally {
+      wrapper.unmount()
+      search.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it('requires selection before downloading and does not download on selection alone', async () => {
     const store = useModelsStore()
     const pull = vi.spyOn(store, 'pullModel').mockResolvedValue(true)

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core'
+import { useTimeoutFn } from '@vueuse/core'
 import { useMessage } from 'naive-ui'
 import { onMounted } from 'vue'
 import HubModelPicker from '../components/HubModelPicker.vue'
 import { useModelsStore } from '../stores/models.store'
 const store = useModelsStore()
 const message = useMessage()
-const search = useDebounceFn((query: string) => {
-  void store.searchCatalog(query)
-}, 350)
+const { start: search } = useTimeoutFn(
+  (query: string) => {
+    void store.searchCatalog(query)
+  },
+  350,
+  { immediate: false },
+)
 onMounted(() => {
   if (!store.catalog.length && !store.catalogLoading) void store.searchCatalog()
 })
