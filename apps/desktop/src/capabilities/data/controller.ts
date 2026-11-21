@@ -23,13 +23,13 @@ export function createDataController(
     const next = await deps.storage()
     if (!disposed) storage.value = next
   }
-  async function perform(action: () => Promise<unknown>, success = '') {
+  async function perform(action?: () => Promise<unknown>, success = '') {
     if (disposed || pending.value) return
     pending.value = true
     error.value = ''
     notice.value = ''
     try {
-      await action()
+      if (action) await action()
       if (disposed) return
       if (success) notice.value = success
       await load()
@@ -62,7 +62,7 @@ export function createDataController(
     pending,
     error,
     notice,
-    load: () => perform(load),
+    load: () => perform(),
     cleanup: () => perform(deps.cleanup, '已将无引用附件移入回收站'),
     restore: (id: string) => perform(() => deps.restore(id), '已恢复'),
     backup: () =>
