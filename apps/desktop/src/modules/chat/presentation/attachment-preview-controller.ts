@@ -56,8 +56,10 @@ export function createAttachmentPreviewController(gateway: AttachmentGateway) {
     state.loading = true
     try {
       const value = await gateway.text(target.id, target.preparationId, start, request?.signal)
-      if (owner === epoch && state.text)
+      if (owner === epoch && state.text) {
         state.text = { ...value, blocks: [...state.text.blocks, ...value.blocks] }
+        state.error = ''
+      }
     } catch (cause) {
       if (owner === epoch) state.error = cause instanceof Error ? cause.message : '预览失败'
     } finally {

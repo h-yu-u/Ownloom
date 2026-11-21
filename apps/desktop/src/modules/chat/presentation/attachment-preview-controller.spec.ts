@@ -76,3 +76,69 @@ it('evicting a pending key prevents it from reappearing in the cache', async () 
   expect(URL.createObjectURL).not.toHaveBeenCalled()
   cache.dispose()
 })
+
+const documentTarget = {
+  id: 'document',
+  preparationId: 'prep',
+  kind: 'document' as const,
+  originalName: 'notes.txt',
+}
+function page(id: string) {
+  return {
+    preparationId: 'prep',
+    blocks: [{ id, text: id }],
+    totalBlocks: 2,
+    coverage: { complete: true },
+    warnings: [],
+  }
+}
+it('clears a paging error only when the retry succeeds and preserves loaded blocks', async () => {
+  const { gateway, preview } = setup()
+  vi.mocked(gateway.text).mockResolvedValueOnce(page('first'))
+  await preview.open(documentTarget)
+  vi.mocked(gateway.text).mockRejectedValueOnce(new Error('temporarily unavailable'))
+  await preview.more()
+  expect(preview.state.error).toBe('temporarily unavailable')
+  expect(preview.state.text?.blocks).toEqual(page('first').blocks)
+  let finish!: (value: ReturnType<typeof page>) => void
+  vi.mocked(gateway.text).mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+  const retry = preview.more()
+  expect(preview.state.error).toBe('temporarily unavailable')
+  expect(preview.state.loading).toBe(true)
+  finish(page('second'))
+  await retry
+  expect(preview.state.error).toBe('')
+  expect(preview.state.text?.blocks.map((block) => block.id)).toEqual(['first', 'second'])
+  expect(gateway.text).toHaveBeenLastCalledWith('document', 'prep', 1, expect.any(AbortSignal))
+  expect(preview.state.loading).toBe(false)
+  preview.dispose()
+})
+it('preserves a new failure when retrying pagination also fails', async () => {
+  const { gateway, preview } = setup()
+  vi.mocked(gateway.text).mockResolvedValueOnce(page('first'))
+  await preview.open(documentTarget)
+  vi.mocked(gateway.text).mockRejectedValueOnce(new Error('first failure'))
+  await preview.more()
+  vi.mocked(gateway.text).mockRejectedValueOnce(new Error('retry failure'))
+  await preview.more()
+  expect(preview.state.error).toBe('retry failure')
+  expect(preview.state.text?.blocks).toEqual(page('first').blocks)
+  expect(preview.state.loading).toBe(false)
+  preview.dispose()
+})
+it('does not clear the new preview error when an old paging retry succeeds late', async () => {
+  const { gateway, preview } = setup()
+  vi.mocked(gateway.text).mockResolvedValueOnce(page('first'))
+  await preview.open(documentTarget)
+  let finish!: (value: ReturnType<typeof page>) => void
+  vi.mocked(gateway.text).mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+  const old = preview.more()
+  vi.mocked(gateway.text).mockRejectedValueOnce(new Error('new preview failed'))
+  await preview.open({ ...documentTarget, id: 'other' })
+  finish(page('second'))
+  await old
+  expect(preview.state.target?.id).toBe('other')
+  expect(preview.state.error).toBe('new preview failed')
+  expect(preview.state.text).toBeNull()
+  preview.dispose()
+})
