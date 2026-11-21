@@ -20,11 +20,13 @@ export function createCodingInspector(input: {
   const inspectorPending = ref(false)
   const inspectorError = ref<string | null>(null)
   let lastPanel: InspectorPanel = 'changes'
+  let selectionEpoch = 0
   let epoch = 0,
     dirty = false
 
   function resetInspector(): void {
     epoch++
+    selectionEpoch++
     dirty = false
     panel.value = null
     changes.value = null
@@ -75,6 +77,7 @@ export function createCodingInspector(input: {
     })
   }
   async function readFile(path: string): Promise<void> {
+    selectionEpoch++
     filePath.value = path
     fileContent.value = null
     await load(async (current) => {
@@ -145,7 +148,12 @@ export function createCodingInspector(input: {
   }
   async function previewFile(path: string): Promise<void> {
     const session = input.sessionId.value
-    if (panel.value !== 'files') await inspect('files')
+    if (panel.value !== 'files') {
+      const opening = inspect('files')
+      const owner = ++selectionEpoch
+      await opening
+      if (owner !== selectionEpoch) return
+    }
     if (input.sessionId.value !== session || panel.value !== 'files') return
     await readFile(path)
   }
