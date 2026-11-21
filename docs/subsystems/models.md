@@ -18,7 +18,7 @@
 
 ## 运行路径
 
-发现页通过 [Hugging Face 适配器](../../services/runtime/src/mlx_studio_runtime/adapters/huggingface_catalog.py)查询公开目录；下载独立于推理队列。任务先保存状态，再由受管理子进程获取资源、校验并静态登记。下载固定解析出的 revision，恢复继续使用该身份，不随上游默认分支漂移。
+发现页通过 [Hugging Face 适配器](../../services/runtime/src/mlx_studio_runtime/adapters/huggingface_catalog.py)查询公开目录。关键字搜索在输入停止 350 ms 后发起，收起发现面板或离开模型库会清除尚未发出的搜索，不中止已开始的请求。下载独立于推理队列。任务先保存状态，再由受管理子进程获取资源、校验并静态登记。下载固定解析出的 revision，恢复继续使用该身份，不随上游默认分支漂移。
 
 导入只读取本地配置和文件结构，不执行模型仓库代码。扫描按配置和导出布局推导文本、视觉、图片编辑及语音能力。模型名称仅用于显示，不能作为选择引擎或许可删除的依据。
 
