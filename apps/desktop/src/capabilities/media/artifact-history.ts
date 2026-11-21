@@ -40,11 +40,11 @@ export function createArtifactHistory<T extends { id: string }>(deps: {
   function message(cause: unknown): string {
     return cause instanceof Error ? cause.message : '读取作品失败'
   }
-  async function loadMedia(id: string): Promise<void> {
+  async function readMedia(cache: MediaCache, id: string): Promise<void> {
     const owner = detailScope.owner
     try {
-      await media.get(id)
-      if (active && detailScope.owns(owner)) delete mediaErrors.value[id]
+      const url = await cache.get(id)
+      if (url && active && detailScope.owns(owner)) delete mediaErrors.value[id]
     } catch (cause) {
       if (active && detailScope.owns(owner)) mediaErrors.value[id] = message(cause)
     }
@@ -164,11 +164,12 @@ export function createArtifactHistory<T extends { id: string }>(deps: {
     savingById: exports.pending,
     loadHistory,
     select,
-    loadMedia,
+    loadMedia: (id: string) => readMedia(media, id),
+    loadOriginal: (id: string) => readMedia(originals, id),
     visibility(id: string, shown: boolean) {
       if (shown) {
         if (!visible.has(id)) visible.set(id, media.retain(id))
-        void loadMedia(id)
+        void readMedia(media, id)
       } else {
         visible.get(id)?.()
         visible.delete(id)

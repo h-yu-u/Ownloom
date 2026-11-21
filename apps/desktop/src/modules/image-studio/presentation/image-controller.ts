@@ -47,7 +47,7 @@ export function createImageController(deps: ImageDependencies) {
     savingId,
     loadHistory,
     save: saveArtifact,
-    loadMedia: loadImage,
+    loadOriginal: loadImage,
   } = history
   const imageErrors = history.mediaErrors
   const jobs = ref<ImageJob[]>([]),

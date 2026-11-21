@@ -313,3 +313,17 @@ it('does not export a late download after the workspace is disposed', async () =
   await task
   expect(URL.createObjectURL).not.toHaveBeenCalled()
 })
+
+it('retries the original image rather than substituting a thumbnail', async () => {
+  api.downloadImageArtifact.mockRejectedValueOnce(new Error('original unavailable'))
+  await store.selectArtifact(artifact.id)
+  await vi.waitFor(() => expect(store.imageErrors[artifact.id]).toBe('original unavailable'))
+  api.downloadImageArtifact.mockClear()
+  await store.loadImage(artifact.id)
+  expect(api.downloadImageArtifact).toHaveBeenCalledExactlyOnceWith(
+    artifact.id,
+    expect.any(AbortSignal),
+  )
+  expect(store.imageErrors[artifact.id]).toBeUndefined()
+  expect(store.urls[artifact.id]).toBe('blob:artifact')
+})
