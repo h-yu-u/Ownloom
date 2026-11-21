@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createArtifactHistory } from './artifact-history'
 function deferred<T>() {
   let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
   return {
-    promise: new Promise<T>((done) => {
+    promise: new Promise<T>((done, fail) => {
       resolve = done
+      reject = fail
     }),
     resolve,
+    reject,
   }
 }
 function fixture() {
@@ -75,5 +78,86 @@ describe('independent artifact detail and pagination', () => {
     expect(state.selectedArtifact.value?.id).toBe('B')
     expect(state.artifacts.value).toEqual([{ id: 'B' }])
     state.dispose()
+  })
+})
+
+describe('original media retry ownership', () => {
+  it.each(['select', 'activate'] as const)(
+    'clears the previous file error after a successful %s retry',
+    async (retry) => {
+      const { state, gateway } = fixture()
+      gateway.content.mockRejectedValueOnce(new Error('file unavailable'))
+      try {
+        await state.select('A')
+        await vi.waitFor(() => expect(state.mediaErrors.value.A).toBe('file unavailable'))
+        expect(state.urls.value.A).toBeUndefined()
+
+        if (retry === 'select') await state.select('A')
+        else {
+          state.dispose()
+          state.activate()
+        }
+
+        await vi.waitFor(() => {
+          expect(state.urls.value.A).toBe('blob:media')
+          expect(state.mediaErrors.value.A).toBeUndefined()
+        })
+        expect(state.selectedArtifact.value).toEqual({ id: 'A' })
+        expect(gateway.content).toHaveBeenCalledTimes(2)
+      } finally {
+        state.dispose()
+      }
+    },
+  )
+
+  it('retains the file error while retrying and reports a repeated failure', async () => {
+    const { state, gateway } = fixture(),
+      retry = deferred<Blob>()
+    gateway.content
+      .mockRejectedValueOnce(new Error('file unavailable'))
+      .mockReturnValueOnce(retry.promise)
+    try {
+      await state.select('A')
+      await vi.waitFor(() => expect(state.mediaErrors.value.A).toBe('file unavailable'))
+      await state.select('A')
+      expect(state.mediaErrors.value.A).toBe('file unavailable')
+      expect(state.urls.value.A).toBeUndefined()
+
+      retry.reject(new Error('file still unavailable'))
+      await vi.waitFor(() => expect(state.mediaErrors.value.A).toBe('file still unavailable'))
+      expect(state.urls.value.A).toBeUndefined()
+      expect(state.selectedArtifact.value).toEqual({ id: 'A' })
+    } finally {
+      state.dispose()
+    }
+  })
+
+  it('does not let a late original success clear errors after the selection changes', async () => {
+    const { state, gateway } = fixture(),
+      oldRetry = deferred<Blob>()
+    gateway.content
+      .mockRejectedValueOnce(new Error('A unavailable'))
+      .mockReturnValueOnce(oldRetry.promise)
+      .mockRejectedValueOnce(new Error('B unavailable'))
+    try {
+      await state.select('A')
+      await vi.waitFor(() => expect(state.mediaErrors.value.A).toBe('A unavailable'))
+      await state.select('A')
+      await state.select('B')
+      await vi.waitFor(() => expect(state.mediaErrors.value.B).toBe('B unavailable'))
+
+      oldRetry.resolve(new Blob())
+      await vi.waitFor(() => expect(state.urls.value.A).toBe('blob:media'))
+      expect(state.mediaErrors.value.A).toBe('A unavailable')
+      expect(state.mediaErrors.value.B).toBe('B unavailable')
+      expect(state.selectedArtifact.value).toEqual({ id: 'B' })
+
+      await state.select('A')
+      await vi.waitFor(() => expect(state.mediaErrors.value.A).toBeUndefined())
+      expect(state.mediaErrors.value.B).toBe('B unavailable')
+      expect(gateway.content).toHaveBeenCalledTimes(3)
+    } finally {
+      state.dispose()
+    }
   })
 })

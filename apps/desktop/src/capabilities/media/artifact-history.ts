@@ -63,9 +63,14 @@ export function createArtifactHistory<T extends { id: string }>(deps: {
       const item = await deps.artifact(id, detailScope.signal)
       if (!active || !detailScope.owns(owner)) return
       selectedArtifact.value = item
-      void originals.get(id).catch((cause: unknown) => {
-        if (active && detailScope.owns(owner)) mediaErrors.value[id] = message(cause)
-      })
+      void originals
+        .get(id)
+        .then((url) => {
+          if (url && active && detailScope.owns(owner)) delete mediaErrors.value[id]
+        })
+        .catch((cause: unknown) => {
+          if (active && detailScope.owns(owner)) mediaErrors.value[id] = message(cause)
+        })
     } catch (cause) {
       if (active && detailScope.owns(owner)) detailError.value = message(cause)
     } finally {
