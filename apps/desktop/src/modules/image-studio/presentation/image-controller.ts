@@ -148,6 +148,7 @@ export function createImageController(deps: ImageDependencies) {
       const next = await deps.gateway.job(id, scope.signal)
       if (owner !== epoch || disposed || activeJob.value?.id !== id) return
       activeJob.value = next
+      poller.recovered()
       jobs.value = [next, ...jobs.value.filter((item) => item.id !== id)]
       if (next.state === 'succeeded') {
         await loadHistory(true)
@@ -156,7 +157,10 @@ export function createImageController(deps: ImageDependencies) {
       } else if (next.state === 'failed') error.value = imageJobError(next.error_code)
       if (!isTerminal(next)) schedulePoll()
     } catch (cause) {
-      if (owner === epoch && !disposed) syncError.value = `任务状态同步中断：${errorText(cause)}`
+      if (owner === epoch && !disposed && activeJob.value?.id === id) {
+        syncError.value = `任务状态同步中断：${errorText(cause)}`
+        if (hasActiveJob.value) poller.retry(refreshJob, cause)
+      }
     } finally {
       if (owner === epoch) polling = false
     }
