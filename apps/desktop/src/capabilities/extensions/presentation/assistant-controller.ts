@@ -70,10 +70,13 @@ export function createAssistantController(deps: AssistantDependencies) {
       if (!modelId.value) modelId.value = models.value[0]?.value ?? ''
     },
     async cancel() {
+      const owner = epoch
       try {
-        if (job.value) job.value = await deps.gateway.cancel(job.value.jobId)
+        if (!job.value) return
+        const result = await deps.gateway.cancel(job.value.jobId)
+        if (owner === epoch) job.value = result
       } catch (cause) {
-        error.value = extensionError(cause)
+        if (owner === epoch) error.value = extensionError(cause)
       }
     },
     dispose() {
