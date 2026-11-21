@@ -14,23 +14,25 @@ export function createSelectionController(gateway: ExtensionsGateway) {
     preview = ref<ExtensionResolution | null>(null),
     error = ref(''),
     pending = ref(false)
+  const scope = ref<ExtensionScope>({ workspace: 'coding', kind: 'workspace', scopeId: 'default' })
   const identity = new SubmissionIdentity()
   const loaded = ref(false)
   const defaultLabel = computed(() =>
-    scope.kind === 'project'
+    scope.value.kind === 'project'
       ? '保存为当前项目默认'
-      : scope.kind === 'session' && scope.scopeId === 'agent-default'
+      : scope.value.kind === 'session' && scope.value.scopeId === 'agent-default'
         ? '保存为工具助手默认'
         : '保存为此工作区默认',
   )
-  let scope: ExtensionScope = { workspace: 'coding', kind: 'workspace', scopeId: 'default' },
-    revision = 0,
+  let revision = 0,
     epoch = 0
   const skills = computed(
-    () => catalog.value?.skills.filter((skill) => skill.workspaces.includes(scope.workspace)) ?? [],
+    () =>
+      catalog.value?.skills.filter((skill) => skill.workspaces.includes(scope.value.workspace)) ??
+      [],
   )
   const tools = computed(() =>
-    scope.workspace === 'coding' || scope.kind === 'session'
+    scope.value.workspace === 'coding' || scope.value.kind === 'session'
       ? (catalog.value?.servers.flatMap((server) => {
           const inventory = catalog.value?.inventories.find(
             (item) => item.serverId === server.id && item.configRevision === server.revision,
@@ -63,7 +65,7 @@ export function createSelectionController(gateway: ExtensionsGateway) {
   )
   async function load(value: ExtensionScope): Promise<void> {
     const owner = ++epoch
-    scope = { ...value }
+    scope.value = { ...value }
     loaded.value = false
     identity.clear()
     selection.value = { skillIds: [], toolIds: [], mediaBindings: {} }
@@ -103,7 +105,12 @@ export function createSelectionController(gateway: ExtensionsGateway) {
     error.value = ''
     preview.value = null
     try {
-      const result = await gateway.resolve(scope, selection.value, mode, agent ? 'agent' : 'text')
+      const result = await gateway.resolve(
+        scope.value,
+        selection.value,
+        mode,
+        agent ? 'agent' : 'text',
+      )
       if (owner !== epoch) return false
       if (requested !== JSON.stringify(selection.value)) {
         error.value = '选择已改变，请重新应用'
@@ -134,7 +141,7 @@ export function createSelectionController(gateway: ExtensionsGateway) {
       pending.value = true
       const owner = epoch
       try {
-        const scopeAtSubmit = { ...scope }
+        const scopeAtSubmit = { ...scope.value }
         const result = await gateway.saveBinding(
           scopeAtSubmit,
           revision,

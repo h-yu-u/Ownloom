@@ -187,3 +187,69 @@ describe('extension view ownership', () => {
     expect(controller.error.value).toContain('服务要求认证')
   })
 })
+
+describe('reactive extension scope', () => {
+  it('updates the save target label when reusing a picker across scopes', async () => {
+    const controller = createSelectionController(gateway())
+    await controller.load({ workspace: 'chat', kind: 'workspace', scopeId: 'default' })
+    expect(controller.defaultLabel.value).toBe('保存为此工作区默认')
+    await controller.load(scope)
+    expect(controller.defaultLabel.value).toBe('保存为当前项目默认')
+    await controller.load({ workspace: 'chat', kind: 'session', scopeId: 'agent-default' })
+    expect(controller.defaultLabel.value).toBe('保存为工具助手默认')
+    controller.dispose()
+  })
+  it('recomputes tool availability after leaving a scope with no tools', async () => {
+    const items: ExtensionCatalog = {
+      ...catalog,
+      servers: [
+        {
+          id: 'server',
+          revision: 1,
+          digest: 'digest',
+          name: 'Test',
+          enabled: true,
+          allowedTools: ['read'],
+          readOnlyTools: ['read'],
+          credentialConfigured: false,
+          transport: {
+            type: 'streamable-http',
+            url: 'https://example.com/mcp',
+            authMode: 'none',
+            publicHeaders: {},
+            secretRefs: {},
+          },
+        },
+      ],
+      inventories: [
+        {
+          serverId: 'server',
+          configRevision: 1,
+          inventoryRevision: 1,
+          digest: 'inventory',
+          resources: [],
+          tools: [
+            {
+              id: 'read',
+              serverId: 'server',
+              originalName: 'read',
+              description: 'Read',
+              modelName: 'test_read',
+              schemaDigest: 'schema',
+              risk: 'read',
+              inputSchema: {},
+            },
+          ],
+        },
+      ],
+    }
+    const controller = createSelectionController(gateway({ catalog: async () => items }))
+    await controller.load({ workspace: 'chat', kind: 'workspace', scopeId: 'default' })
+    expect(controller.tools.value).toEqual([])
+    await controller.load(scope)
+    expect(controller.tools.value.map((tool) => tool.id)).toEqual(['read'])
+    await controller.load({ workspace: 'chat', kind: 'workspace', scopeId: 'default' })
+    expect(controller.tools.value).toEqual([])
+    controller.dispose()
+  })
+})
