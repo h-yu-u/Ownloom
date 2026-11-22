@@ -65,9 +65,16 @@ onMounted(() => {
           </NDescriptionsItem>
         </NDescriptions>
         <template #footer>
-          <NButton secondary @click="refresh"> 刷新 </NButton
-          ><NButton style="margin-left: 8px" @click="restart"> 重启 Worker </NButton
-          ><NButton
+          <NButton secondary @click="refresh"> 刷新 </NButton>
+          <NButton
+            style="margin-left: 8px"
+            :loading="runtime.restartPending"
+            :disabled="runtime.restartPending"
+            @click="restart"
+          >
+            重启 Worker
+          </NButton>
+          <NButton
             style="margin-left: 8px"
             :disabled="!!runtime.exportPending.diagnostics"
             @click="downloadDiagnostics"

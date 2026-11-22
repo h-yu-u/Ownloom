@@ -11,6 +11,7 @@ export function createRuntimeController(deps: RuntimeOverviewDependencies) {
   const metrics = ref<RuntimeMetrics | null>(null)
   const error = ref<string | null>(null)
   const loading = ref(false)
+  const restartPending = ref(false)
   let refreshing = false
   const diskFree = computed(() => formatBytes(metrics.value?.disk_free_bytes))
   const memory = computed(() => formatBytes(metrics.value?.process_max_rss_bytes))
@@ -62,8 +63,14 @@ export function createRuntimeController(deps: RuntimeOverviewDependencies) {
   }
 
   async function restart(): Promise<void> {
-    await deps.gateway.restart()
-    await refresh()
+    if (restartPending.value) return
+    restartPending.value = true
+    try {
+      await deps.gateway.restart()
+      await refresh()
+    } finally {
+      restartPending.value = false
+    }
   }
   const exporting = createExportOperation()
   async function downloadDiagnostics() {
@@ -87,6 +94,7 @@ export function createRuntimeController(deps: RuntimeOverviewDependencies) {
     refresh,
     poll,
     restart,
+    restartPending,
     downloadDiagnostics,
     exportPending: exporting.pending,
     dispose: exporting.invalidate,
