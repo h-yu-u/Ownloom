@@ -48,6 +48,51 @@ describe('live resource overview', () => {
     finish(sample)
     await pending
   })
+  it('ignores duplicate Worker restart requests through the follow-up read', async () => {
+    let finishRestart!: () => void
+    let finishMetrics!: (value: RuntimeMetrics) => void
+    const { controller, gateway } = setup(
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            finishMetrics = resolve
+          }),
+      ),
+    )
+    gateway.restart.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRestart = resolve
+        }),
+    )
+    const first = controller.restart()
+    await Promise.resolve()
+    const duplicate = controller.restart()
+    expect(gateway.restart).toHaveBeenCalledOnce()
+    expect(controller.restartPending.value).toBe(true)
+    finishRestart()
+    await duplicate
+    expect(gateway.metrics).toHaveBeenCalledOnce()
+    expect(controller.restartPending.value).toBe(true)
+    await controller.restart()
+    expect(gateway.restart).toHaveBeenCalledOnce()
+    finishMetrics(sample)
+    await first
+    expect(controller.restartPending.value).toBe(false)
+  })
+
+  it('permits an explicit retry after a failed Worker restart', async () => {
+    const { controller, gateway } = setup()
+    gateway.restart.mockRejectedValueOnce(new Error('restart failed')).mockResolvedValue(undefined)
+    await expect(controller.restart()).rejects.toThrow('restart failed')
+    expect(controller.restartPending.value).toBe(false)
+    expect(gateway.metrics).not.toHaveBeenCalled()
+    await controller.restart()
+    expect(gateway.restart).toHaveBeenCalledTimes(2)
+    expect(gateway.metrics).toHaveBeenCalledOnce()
+    expect(controller.restartPending.value).toBe(false)
+  })
+
   it('clears outdated usage when refresh fails and distinguishes a stopped Worker', async () => {
     const { controller, gateway } = setup()
     gateway.metrics.mockResolvedValueOnce({ ...sample, worker_memory_bytes: 0 })
