@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { phaseLabel } from '../domain/phase-label'
 import { regenerationMode } from '../domain/answer-attempt'
-import { NButton, NDrawer, NDrawerContent, NSelect, useMessage } from 'naive-ui'
+import { NAlert, NButton, NDrawer, NDrawerContent, NSelect, useMessage } from 'naive-ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -208,7 +208,12 @@ async function continueReply(): Promise<void> {
       </div>
     </header>
     <section class="chat-stage" :class="{ 'is-new': !state.messages.length }" aria-label="对话">
-      <NButton v-if="store.nextCursor" @click="store.loadMore">加载更早消息</NButton>
+      <NButton v-if="store.nextCursor" :disabled="pending" @click="store.loadMore">{{
+        store.historyError ? '重试加载更早消息' : '加载更早消息'
+      }}</NButton>
+      <NAlert v-if="store.historyError" type="error" role="alert">
+        无法加载更早消息：{{ store.historyError }}
+      </NAlert>
       <ChatMessageList
         :messages="state.messages"
         :total-count="state.messages.length"

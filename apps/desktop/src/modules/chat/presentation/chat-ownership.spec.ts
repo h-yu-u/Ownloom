@@ -32,6 +32,7 @@ function setup() {
     cancel: vi.fn(),
     list: vi.fn(async () => [conversation('A')]),
     get: vi.fn(async (id: string) => conversation(id)),
+    page: vi.fn(),
     job: vi.fn(async () => ({
       id: 'job',
       state: 'running',
@@ -64,6 +65,62 @@ function setup() {
   controllers.push(controller)
   return { controller, gateway, observe }
 }
+
+it('shows older-message read failures without losing the current messages or cursor, then retries', async () => {
+  const { controller, gateway } = setup()
+  const messages: Conversation['messages'] = [
+    {
+      id: 'newer',
+      turnId: 'turn',
+      role: 'user',
+      content: 'newer message',
+      attachments: [],
+      parameters: {},
+    },
+  ]
+  vi.mocked(gateway.get).mockResolvedValueOnce({
+    ...conversation('A'),
+    messages,
+    nextCursor: 'older',
+  })
+  vi.mocked(gateway.page!)
+    .mockRejectedValueOnce(new Error('history offline'))
+    .mockResolvedValueOnce({
+      ...conversation('A'),
+      messages: [{ ...messages[0]!, id: 'older', content: 'older message' }],
+    })
+  await controller.openConversation('A')
+  await controller.loadMore()
+  expect(controller.historyError.value).toBe('history offline')
+  expect(controller.state.value.status).toBe('idle')
+  expect(controller.state.value.messages.map(({ id }) => id)).toEqual(['newer'])
+  expect(controller.nextCursor.value).toBe('older')
+  await controller.loadMore()
+  expect(controller.historyError.value).toBeNull()
+  expect(controller.state.value.messages.map(({ id }) => id)).toEqual(['older', 'newer'])
+  expect(controller.nextCursor.value).toBeNull()
+  expect(gateway.page).toHaveBeenNthCalledWith(1, 'A', 'older')
+  expect(gateway.page).toHaveBeenNthCalledWith(2, 'A', 'older')
+})
+
+it.each(['switch', 'leave'] as const)(
+  'ignores an obsolete older-message failure after %s',
+  async (action) => {
+    const { controller, gateway } = setup()
+    let reject!: (reason: Error) => void
+    const response = new Promise<Conversation>((_, fail) => {
+      reject = fail
+    })
+    vi.mocked(gateway.page!).mockReturnValueOnce(response)
+    controller.nextCursor.value = 'older'
+    const read = controller.loadMore()
+    if (action === 'switch') await controller.openConversation('B')
+    else controller.dispose()
+    reject(new Error('old history failure'))
+    await read
+    expect(controller.historyError.value).toBeNull()
+  },
+)
 
 it.each(['send', 'attempt'] as const)(
   'blocks %s while another conversation is loading',
