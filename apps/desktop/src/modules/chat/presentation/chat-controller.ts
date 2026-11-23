@@ -18,6 +18,7 @@ import type { ChatGateway } from '../application/ports'
 import { createChatStream } from './chat-stream-controller'
 import type { createChatDraftController } from './chat-draft-controller'
 import { createChatAttempts } from './chat-attempts'
+import { createChatHistory } from './chat-history'
 import { projectConversation, projectSubmission } from './chat-projection'
 
 interface ChatDependencies {
@@ -44,7 +45,7 @@ export function createChatController(deps: ChatDependencies) {
   const pending = ref(false)
   const navigating = ref(false)
   const maxTokens = ref<number | null>(null)
-  const nextCursor = ref<string | null>(null)
+  const history = createChatHistory(state, deps.gateway.page)
   const temperature = ref(0.7)
   const models = computed(() =>
     deps.models.value
@@ -89,7 +90,7 @@ export function createChatController(deps: ChatDependencies) {
   })
 
   function present(item: Conversation, selectModel = true): void {
-    nextCursor.value = item.nextCursor ?? null
+    history.reset(item.nextCursor ?? null)
     drafts?.restore(item)
     conversationId.value = item.id
     if (selectModel) selectedModelId.value = item.modelId ?? selectedModelId.value
@@ -118,21 +119,13 @@ export function createChatController(deps: ChatDependencies) {
   }
   async function loadMore(): Promise<void> {
     const id = conversationId.value,
-      cursor = nextCursor.value,
-      owner = readEpoch
-    if (!id || !cursor || !deps.gateway.page) return
-    const page = await deps.gateway.page(id, cursor)
-    if (owner !== readEpoch || cursor !== nextCursor.value || id !== conversationId.value) return
-    const known = new Set(state.value.messages.map((item) => item.id))
-    const older = page.messages
-      .filter((item) => !known.has(item.id))
-      .map((item) => ({
-        ...item,
-        role: item.role === 'user' ? ('user' as const) : ('assistant' as const),
-        state: 'complete' as const,
-      }))
-    state.value = { ...state.value, messages: [...older, ...state.value.messages] }
-    nextCursor.value = page.nextCursor ?? null
+      owner = readEpoch,
+      viewOwner = view.owner
+    if (!id || pending.value || navigating.value || !view.owns(viewOwner)) return
+    await history.loadMore(
+      id,
+      () => owner === readEpoch && id === conversationId.value && view.owns(viewOwner),
+    )
   }
   async function loadWorkspace(): Promise<void> {
     view.reset()
@@ -193,6 +186,7 @@ export function createChatController(deps: ChatDependencies) {
       if (conversationId.value === id) {
         stream.dispose()
         conversationId.value = null
+        history.reset()
         state.value = { ...initialChatState, messages: [] }
       }
     } finally {
@@ -305,6 +299,7 @@ export function createChatController(deps: ChatDependencies) {
     stream.dispose()
     drafts?.disposePreview()
     view.dispose()
+    history.error.value = null
     navigating.value = false
     readEpoch += 1
     readAbort?.abort()
@@ -320,7 +315,8 @@ export function createChatController(deps: ChatDependencies) {
     maxTokens,
     temperature,
     busy,
-    nextCursor,
+    nextCursor: history.nextCursor,
+    historyError: history.error,
     loadMore,
     loadWorkspace,
     newConversation,
